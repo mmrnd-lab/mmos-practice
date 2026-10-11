@@ -210,6 +210,44 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
 
+    let task_owner = process_model::TaskControlBlock::new(1, 1, trap::TrapFrame::default(), 0);
+    let mut task_io_table = process_io::ProcessIoTable::<2, 8>::new();
+    let _ = task_io_table.insert_stdio(1, console::device());
+    let mut task_vm = vm::VmSpace::<2>::new();
+    let _ = task_vm.map_anon(0x6000, 0x6020, sv39::PTE_R);
+    let task_user = user_copy::CheckedUserSlice::new(b"/dev/console\0task-io", 0x6000, &task_vm);
+    let mut task_path = [0u8; 32];
+    let task_fd = {
+        let current = task_io_table.current_for_task_mut(&task_owner);
+        match current {
+            Ok(current) => syscall::handle_process_open_checked_user_path(
+                current.io_mut(),
+                &dev_ns,
+                &task_user,
+                0x6000,
+                1,
+                &mut task_path,
+            ),
+            Err(_) => syscall::SyscallResult::Continue(-1),
+        }
+    };
+    if let syscall::SyscallResult::Continue(fd) = task_fd {
+        let mut task_write = [0u8; 16];
+        if let Ok(current) = task_io_table.current_for_task(&task_owner) {
+            if syscall::handle_current_process_write_checked_user_syscall(
+                current,
+                &task_user,
+                fd as usize,
+                0x600d,
+                7,
+                &mut task_write,
+            ) == syscall::SyscallResult::Continue(7)
+            {
+                console::puts("[chapter] ch41 task owner io lookup\n");
+            }
+        }
+    }
+
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
         console::puts("[mmos-practice] user init context prepared (SPP=U)\n");

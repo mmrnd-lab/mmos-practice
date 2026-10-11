@@ -67,7 +67,7 @@ mod tests {
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
-    use super::process_io::{CurrentProcessIoContext, ProcessIoContext};
+    use super::process_io::{CurrentProcessIoContext, ProcessIoContext, ProcessIoTable};
     use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
@@ -496,6 +496,52 @@ mod tests {
             SyscallResult::Continue(12)
         );
         assert_eq!(dev.written(), b"from-current".to_vec());
+    }
+
+
+    #[test]
+    fn process_io_table_resolves_current_io_from_task_owner() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let mut table = ProcessIoTable::<2, 8>::new();
+        table.insert_stdio(42, dev).unwrap();
+        let task = TaskControlBlock::new(7, 42, TrapFrame::default(), 0);
+
+        let current = table.current_for_task(&task).unwrap();
+        assert_eq!(current.pid(), 42);
+    }
+
+    #[test]
+    fn task_owned_current_io_write_syscall_uses_owner_pid_lookup() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut table = ProcessIoTable::<2, 8>::new();
+        table.insert_stdio(1, dev).unwrap();
+        let task = TaskControlBlock::new(1, 1, TrapFrame::default(), 0);
+        let fd = table
+            .current_for_task_mut(&task)
+            .unwrap()
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0xd000, 0xd020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"task-owned", 0xd000, &vm);
+        let mut scratch = [0u8; 16];
+
+        let current = table.current_for_task(&task).unwrap();
+        assert_eq!(
+            handle_current_process_write_checked_user_syscall(
+                current,
+                &user,
+                fd,
+                0xd000,
+                10,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(10)
+        );
+        assert_eq!(dev.written(), b"task-owned".to_vec());
     }
 
     #[test]

@@ -109,6 +109,7 @@ impl OpenFile {
     }
 }
 
+#[derive(Clone, Copy)]
 pub struct FileDescriptorTable<const N: usize> {
     slots: [Option<OpenFile>; N],
 }
