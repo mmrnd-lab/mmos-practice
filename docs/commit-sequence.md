@@ -735,3 +735,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 declared dependency path/base로 `/lib/libmmos_user_crt.so`를 읽고 leaf mapping을 설치하는 흐름을 검증
     - `make shared-object-dependency-load` 타깃이 boot disk 안 shared object dependency path와 base 값을 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch162 shared object dependency load`, `[user-link] exec dependency names /lib/libmmos_user_crt.so before path load` 확인
+
+147. `fba26cf` `feat(ch163): carry exec shared object dependency`
+    - `ExecDependencyLoadReport`와 `load_exec_image_with_shared_object_dependency_from_args()`를 추가해 exec path 준비와 shared object dependency load를 한 경계에서 묶음
+    - execv argument copy 결과로 `/sbin/init` image를 읽은 뒤 `USER_CRT_SHARED_OBJECT_DEPENDENCY`를 shared object path loader로 전달
+    - `ExecPathError::SharedObject`를 추가하고 syscall errno 변환에서 shared object load 실패를 I/O 오류 경계로 분리
+    - `make exec-shared-object-dependency` 타깃이 boot disk 안 `/sbin/init`과 CRT shared object dependency가 함께 준비된 상태를 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch163 exec shared object dependency`, `[user-link] exec image preparation carries the CRT shared object dependency` 확인

@@ -2872,6 +2872,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec dependency names the shared object path and base before the path loader runs",
     ),
     ChapterSet(
+        key="ch163_exec_shared_object_dependency",
+        label="Ch163 Exec Shared Object Dependency",
+        commit_candidates=["fba26cf"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "exec-shared-object-dependency",
+                "make exec-shared-object-dependency PROFILE=release",
+                must_contain=(
+                    "[user-link] exec-dependency=/sbin/init requires /lib/libmmos_user_crt.so",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch163 exec shared object dependency",
+                    "[user-link] exec image preparation carries the CRT shared object dependency",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=exec image preparation carries the CRT shared object dependency into the loader boundary",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
