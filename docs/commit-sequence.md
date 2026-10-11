@@ -114,6 +114,10 @@
     - `ProcessIoRuntime`을 추가해 process 생성과 stdio I/O context 등록을 하나의 runtime API로 묶음
     - 생성된 process의 task `owner_pid` lookup으로 fd 기반 checked write syscall이 동작함을 검증
 
+37. `2567552` `feat(ch43): add close fd lifecycle`
+    - fd table에 `close(fd)`를 추가해 open file slot을 비우고 가장 낮은 fd 재사용을 검증
+    - current process close syscall helper를 추가해 닫힌 fd에 대한 write가 `-EBADF`로 실패하도록 연결
+
 
 ## Reproduce Example
 

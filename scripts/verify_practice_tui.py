@@ -705,6 +705,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process creation registers stdio IO context used through task owner lookup",
     ),
     ChapterSet(
+        key="ch43_close_fd_lifecycle",
+        label="Ch43 Close FD Lifecycle",
+        commit_candidates=["2567552"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch43 close fd lifecycle",
+                    "[chapter] ch42 process owned io runtime",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=close(fd) releases the slot and later write returns EBADF",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
