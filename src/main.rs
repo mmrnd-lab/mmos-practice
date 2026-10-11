@@ -143,6 +143,10 @@ static mut CH114_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
     [0; demo_user_init::DEMO_INIT_ELF_SIZE];
 static mut CH114_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
     [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+static mut CH137_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
+    [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+static mut CH137_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
+    [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -747,6 +751,7 @@ pub extern "C" fn rust_main() -> ! {
     run_execv_frame_writeback_demo();
     run_execv_trap_dispatch_demo();
     run_execv_trap_resources_demo();
+    run_execv_prepared_entry_dispatch_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -2347,6 +2352,95 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve entry recipe routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch132 execv recipe store boundary\n");
         console::puts("[trap] execve recipe store boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+    }
+}
+
+fn run_execv_prepared_entry_dispatch_demo() {
+    const BASE: usize = 0x7000_0000;
+    const PATH: usize = BASE;
+    const ARG0: usize = BASE + 0x40;
+    const ARGV: usize = BASE + 0x100;
+
+    let mut user_mem = [0u8; 512];
+    put_cstr(&mut user_mem, PATH - BASE, b"/sbin/init");
+    put_cstr(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+    put_usize(&mut user_mem, ARGV - BASE, ARG0);
+    put_usize(
+        &mut user_mem,
+        ARGV - BASE + core::mem::size_of::<usize>(),
+        0,
+    );
+
+    let (elf, image) = unsafe { (&mut CH137_INIT_ELF, &mut CH137_EXT4_IMAGE) };
+    let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
+        return;
+    };
+    if demo_user_init::build_demo_ext4_image(image, &elf[..elf_len]).is_err() {
+        return;
+    }
+    let dev = ramdisk::RamDisk::new("ramblk0", image, 512);
+    let Ok(vfs) = vfs::Vfs::mount_ext4(&dev) else {
+        return;
+    };
+
+    let mut process_vm = vm::VmSpace::<2>::new();
+    if process_vm
+        .map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R)
+        .is_err()
+    {
+        return;
+    }
+    let mut runtime =
+        trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
+    let Ok(pid) = runtime.create_process(None, process_vm) else {
+        return;
+    };
+    let mut task_frame = trap::TrapFrame::default();
+    task_frame.sepc = 0x4000_1000;
+    task_frame.set_sp(0x4010_1000);
+    if runtime.add_runnable_task(1, pid, task_frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let mut live_frame = trap::TrapFrame::default();
+    live_frame.sepc = 0x4000_5000;
+    live_frame.set_a7(syscall::SYS_EXECVE);
+    live_frame.set_a0(PATH);
+    live_frame.set_a1(ARGV);
+    live_frame.set_a2(0);
+
+    let mut entry_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+        runtime, &vfs,
+    );
+    let user_source = trap::ExecvPreparedUserSource::new(&user_mem, BASE);
+    let replacement_vm = trap::ExecvPreparedReplacementVm::new(vm::VmSpace::<2>::new());
+    let outcome = trap::handle_execv_user_ecall_with_prepared_entry::<
+        4,
+        64,
+        4,
+        2,
+        2,
+        5,
+        512,
+        256,
+    >(
+        &mut live_frame,
+        &mut entry_store,
+        user_source,
+        replacement_vm,
+    );
+
+    let Some(exec_frame) = entry_store.task_frame(1) else {
+        return;
+    };
+    if outcome == trap::TrapOutcome::Resume
+        && live_frame.a0() == 0
+        && live_frame.sepc == 0x4000_5004
+        && exec_frame.sepc == 0x4000_0000
+    {
+        console::puts("[chapter] ch137 execve prepared entry dispatch\n");
+        console::puts("[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000\n");
     }
 }
 

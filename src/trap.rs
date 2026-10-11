@@ -747,6 +747,45 @@ pub fn handle_execv_user_ecall_with_prepared_store<
         .unwrap_or(TrapOutcome::Fatal(usize::MAX))
 }
 
+pub fn handle_execv_user_ecall_with_prepared_entry<
+    'a,
+    'v,
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+>(
+    frame: &mut TrapFrame,
+    store: &'a mut crate::trap_runtime::PreparedExecvEntryStore<
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >,
+    user_source: ExecvPreparedUserSource<'a>,
+    replacement_vm: ExecvPreparedReplacementVm<MAX_AREAS>,
+) -> TrapOutcome {
+    let recipe = store.entry_recipe(user_source, replacement_vm);
+    let input = store.entry_input(recipe);
+    handle_execv_user_ecall_with_prepared_store::<
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >(frame, store, input)
+}
+
 pub fn handle_blocking_syscall_result(
     frame: &mut TrapFrame,
     result: syscall::BlockingReadResult,
