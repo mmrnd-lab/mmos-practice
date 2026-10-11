@@ -2774,7 +2774,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch159_shared_object_page_table_install",
         label="Ch159 Shared Object Page Table Install",
-        commit_candidates=["HEAD"],
+        commit_candidates=["8d7e4ac"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

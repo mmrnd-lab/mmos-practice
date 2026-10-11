@@ -710,3 +710,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `plan_frame_backed_shared_object()`가 같은 page에 놓이는 shared object segment는 frame을 재사용하고 entry frame PA를 계산
     - unit test가 shared object segment frame 배정과 frame 부족 오류를 검증
     - QEMU runtime marker에서 `[chapter] ch158 shared object frame plan`, `[user-link] shared object mapping candidates receive PMM-backed frames before page table install` 확인
+
+143. `8d7e4ac` `feat(ch159): install shared object page table leaves`
+    - `install_frame_backed_shared_object_mapping_in_tables()`를 추가해 shared object frame plan을 root/L1/L0 page table leaf mapping으로 설치
+    - 실행 파일 mapping helper와 달리 stack page를 추가하지 않고 shared object segment leaf만 설치
+    - unit test가 shared object leaf PTE, table PTE, mapped page count를 검증
+    - QEMU runtime marker에서 `[chapter] ch159 shared object page table install`, `[user-link] shared object frame plan installs user leaf mappings without stack pages` 확인
