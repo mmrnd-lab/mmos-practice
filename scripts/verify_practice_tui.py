@@ -1165,6 +1165,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=kernel trap stack frame reservation is ready before satp commit",
     ),
     ChapterSet(
+        key="ch69_trap_entry_scratch_swap",
+        label="Ch69 Trap Entry Scratch Swap",
+        commit_candidates=["8b6e04d"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch69 trap entry scratch swap",
+                    "[chapter] ch68 kernel trap stack switch",
+                    "[chapter] ch67 satp commit preflight",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=sscratch is prepared to swap from user sp to kernel trap frame sp",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

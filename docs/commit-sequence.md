@@ -219,6 +219,11 @@
     - user sp 보존과 kernel trap frame 공간 예약 조건을 테스트와 런타임 probe로 검증
 
 
+61. `8b6e04d` `feat(ch69): prepare trap entry scratch swap`
+    - trap entry가 kernel frame stack pointer를 찾을 수 있도록 `sscratch` 준비 계약을 추가
+    - 첫 trap entry stack swap이 kernel stack을 활성화하고 user sp를 보존해야 함을 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
