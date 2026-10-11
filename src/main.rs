@@ -16,6 +16,8 @@ mod char_device;
 #[allow(dead_code)]
 mod fd_table;
 #[allow(dead_code)]
+mod idle;
+#[allow(dead_code)]
 mod ramdisk;
 #[allow(dead_code)]
 mod demo_user_init;
@@ -485,8 +487,12 @@ pub extern "C" fn rust_main() -> ! {
             let _ = idle_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
             let _ = idle_scheduler.on_tick();
             let _ = idle_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
+            let idle_decision = trap::schedule_after_blocked_syscall(
+                &blocked_frame,
+                &mut idle_scheduler,
+            );
             if blocked
-                && trap::schedule_after_blocked_syscall(&blocked_frame, &mut idle_scheduler)
+                && idle_decision
                     == Some(scheduler::ScheduleDecision::Idle {
                         blocked_tid: input_tid,
                     })
@@ -494,6 +500,14 @@ pub extern "C" fn rust_main() -> ! {
                 && idle_scheduler.task_state(input_tid) == Some(scheduler::TaskState::Blocked)
             {
                 console::puts("[chapter] ch52 idle when no runnable task\n");
+            }
+            if idle_decision
+                .and_then(idle::idle_action_for_schedule_decision)
+                == Some(idle::IdleAction::WaitForInterrupt {
+                    blocked_tid: input_tid,
+                })
+            {
+                console::puts("[chapter] ch53 idle wait for interrupt\n");
             }
         }
     }

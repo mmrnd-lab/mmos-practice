@@ -18,6 +18,7 @@ pub mod elf_loader;
 pub mod ext4;
 pub mod fd_table;
 pub mod irq_guard;
+pub mod idle;
 pub mod kheap;
 pub mod page_fault;
 pub mod page_frame_allocator;
@@ -63,6 +64,7 @@ mod tests {
     };
     use super::ext4::{Ext4Fs, FsError};
     use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
+    use super::idle::{idle_action_for_schedule_decision, IdleAction};
     use super::kheap::init_kheap;
     use super::page_fault::{
         handle_user_page_fault, PageFaultResult, SCAUSE_LOAD_PAGE_FAULT, SCAUSE_STORE_PAGE_FAULT,
@@ -1023,6 +1025,22 @@ mod tests {
         assert_eq!(scheduler.current_tid(), None);
         assert_eq!(scheduler.task_state(1), Some(TaskState::Blocked));
         assert_eq!(scheduler.task_frame(1).unwrap().sepc, 0xa000);
+    }
+
+
+    #[test]
+    fn idle_decision_maps_to_wait_for_interrupt_action() {
+        assert_eq!(
+            idle_action_for_schedule_decision(ScheduleDecision::Idle { blocked_tid: 7 }),
+            Some(IdleAction::WaitForInterrupt { blocked_tid: 7 })
+        );
+        assert_eq!(
+            idle_action_for_schedule_decision(ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 2,
+            }),
+            None
+        );
     }
 
     #[test]
