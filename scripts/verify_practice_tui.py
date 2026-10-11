@@ -1355,6 +1355,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=kernel code, stack, and trap entry remain mapped under the satp root",
     ),
     ChapterSet(
+        key="ch79_process_address_space_root",
+        label="Ch79 Process Address Space Root",
+        commit_candidates=["8e28c45"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch79 process address space root",
+                    "[chapter] ch78 kernel satp runtime guard",
+                    "[chapter] ch77 rooted satp commit sequence",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=process address space owns root table storage and satp token",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

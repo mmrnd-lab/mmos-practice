@@ -269,6 +269,11 @@
     - root page table storage를 boot stack 밖 static storage로 옮기고 kernel runtime guard를 테스트와 런타임 probe로 검증
 
 
+71. `8e28c45` `feat(ch79): introduce process address space root`
+    - root page table storage와 `satp` token을 함께 소유하는 `ProcessAddressSpace` 구조를 추가
+    - root table이 OS 전체에 하나뿐인 singleton이 아니라 process address space별 storage라는 점을 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
