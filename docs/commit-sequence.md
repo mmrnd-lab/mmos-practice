@@ -704,3 +704,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `plan_shared_object_mappings()`가 `preferred_base + ELF vaddr` 형태로 entry와 load segment mapping 주소를 계산
     - `make shared-object-mapping-plan` 타깃이 실제 CRT shared object가 ET_DYN이고 LOAD segment를 가진다는 점을 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch157 shared object mapping plan`, `[user-link] shared object segments become base-offset user mapping candidates` 확인
+
+142. `f2c6ef6` `feat(ch158): plan shared object segment frames`
+    - `SharedObjectFrameBackedPlan`과 `SharedObjectFramePlan`을 추가해 shared object mapping 후보에 PMM frame을 배정
+    - `plan_frame_backed_shared_object()`가 같은 page에 놓이는 shared object segment는 frame을 재사용하고 entry frame PA를 계산
+    - unit test가 shared object segment frame 배정과 frame 부족 오류를 검증
+    - QEMU runtime marker에서 `[chapter] ch158 shared object frame plan`, `[user-link] shared object mapping candidates receive PMM-backed frames before page table install` 확인
