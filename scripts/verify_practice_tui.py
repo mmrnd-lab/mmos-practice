@@ -2772,6 +2772,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=allocates PMM-backed frames for shared object mapping candidates before page table install",
     ),
     ChapterSet(
+        key="ch159_shared_object_page_table_install",
+        label="Ch159 Shared Object Page Table Install",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-page-table-install",
+                "make shared-object-page-table-install PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-page-table=leaf-mappings stack=none",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch159 shared object page table install",
+                    "[user-link] shared object frame plan installs user leaf mappings without stack pages",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=installs shared object frame-backed segment leaf mappings without adding stack pages",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

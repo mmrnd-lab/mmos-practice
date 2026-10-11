@@ -421,6 +421,53 @@ pub fn install_frame_backed_user_mapping_in_tables(
     })
 }
 
+pub fn install_frame_backed_shared_object_mapping_in_tables(
+    root: &mut RootPageTable,
+    l1: &mut RootPageTable,
+    l1_frame_pa: usize,
+    l0: &mut RootPageTable,
+    l0_frame_pa: usize,
+    plan: &SharedObjectFrameBackedPlan,
+) -> Result<UserFrameBackedMappingInstall, UserFrameBackedMappingError> {
+    if l1_frame_pa % PAGE_SIZE != 0 || l0_frame_pa % PAGE_SIZE != 0 {
+        return Err(UserFrameBackedMappingError::UnalignedTableFrame);
+    }
+
+    clear_root_page_table(l1);
+    clear_root_page_table(l0);
+
+    let root_vpn2 = vpn2(plan.entry_vaddr);
+    let l1_vpn1 = vpn1(plan.entry_vaddr);
+    root.entries[root_vpn2] = PageTableEntry::leaf(l1_frame_pa / PAGE_SIZE, 0);
+    l1.entries[l1_vpn1] = PageTableEntry::leaf(l0_frame_pa / PAGE_SIZE, 0);
+
+    let mut mapped_pages = 0usize;
+    let mut idx = 0usize;
+    while idx < plan.segment_count {
+        let seg = plan.segments[idx].ok_or(UserFrameBackedMappingError::MissingSegment)?;
+        ensure_same_leaf_table(plan.entry_vaddr, seg.vaddr)?;
+        let idx0 = vpn0(seg.vaddr);
+        let flags = pflags_to_pte(seg.flags) | PTE_A | PTE_D;
+        let existing = l0.entries[idx0];
+        if existing.is_valid() {
+            if existing.ppn() != seg.frame_pa / PAGE_SIZE {
+                return Err(UserFrameBackedMappingError::UnsupportedAddressRange);
+            }
+            l0.entries[idx0] = PageTableEntry::leaf(existing.ppn(), existing.flags() | flags);
+        } else {
+            l0.entries[idx0] = PageTableEntry::leaf(seg.frame_pa / PAGE_SIZE, flags);
+            mapped_pages += 1;
+        }
+        idx += 1;
+    }
+
+    Ok(UserFrameBackedMappingInstall {
+        l1_frame_pa,
+        l0_frame_pa,
+        mapped_pages,
+    })
+}
+
 pub fn install_frame_backed_user_mapping<const FREE_CAP: usize>(
     root: &mut RootPageTable,
     plan: &UserFrameBackedImagePlan,

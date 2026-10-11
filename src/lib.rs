@@ -168,6 +168,7 @@ mod tests {
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{
         build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
+        install_frame_backed_shared_object_mapping_in_tables,
         install_frame_backed_user_mapping_in_tables, install_user_vm_plan_in_root,
         is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
         plan_frame_backed_shared_object, plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
@@ -5301,6 +5302,41 @@ mod tests {
         assert_eq!(stack_entry.ppn(), 0x9000_1000 / super::sv39::PAGE_SIZE);
         assert_eq!(stack_entry.flags() & PTE_W, PTE_W);
         assert_eq!(install.mapped_pages, 2);
+    }
+
+    #[test]
+    fn frame_backed_shared_object_mapping_installs_segment_leafs_without_stack() {
+        let elf = build_test_dyn_elf();
+        let mapping = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_shared_object(&mapping, &mut pmm).unwrap();
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let install = install_frame_backed_shared_object_mapping_in_tables(
+            &mut root,
+            &mut l1,
+            0x9100_2000,
+            &mut l0,
+            0x9100_3000,
+            &plan,
+        )
+        .unwrap();
+
+        let root_entry = root.entries[vpn2(0x9000_0000)];
+        let l1_entry = l1.entries[vpn1(0x9000_0000)];
+        let shared_entry = l0.entries[vpn0(0x9000_0000)];
+
+        assert!(is_table_mapping(root_entry));
+        assert_eq!(root_entry.ppn(), 0x9100_2000 / super::sv39::PAGE_SIZE);
+        assert!(is_table_mapping(l1_entry));
+        assert_eq!(l1_entry.ppn(), 0x9100_3000 / super::sv39::PAGE_SIZE);
+        assert!(is_leaf_user_mapping(shared_entry));
+        assert_eq!(shared_entry.ppn(), 0x9100_0000 / super::sv39::PAGE_SIZE);
+        assert_eq!(shared_entry.flags() & PTE_X, PTE_X);
+        assert_eq!(install.mapped_pages, 1);
     }
 
     #[test]

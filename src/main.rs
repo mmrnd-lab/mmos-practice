@@ -3075,6 +3075,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] shared object segments become base-offset user mapping candidates\n");
     console::puts("[chapter] ch158 shared object frame plan\n");
     console::puts("[user-link] shared object mapping candidates receive PMM-backed frames before page table install\n");
+    console::puts("[chapter] ch159 shared object page table install\n");
+    console::puts("[user-link] shared object frame plan installs user leaf mappings without stack pages\n");
 }
 
 fn run_kernel_satp_guard_demo() {
