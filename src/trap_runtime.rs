@@ -221,6 +221,17 @@ impl<
         }
     }
 
+    pub const fn entry_recipe<'u>(
+        &self,
+        user_source: crate::trap::ExecvPreparedUserSource<'u>,
+        replacement_vm: crate::trap::ExecvPreparedReplacementVm<MAX_AREAS>,
+    ) -> crate::trap::ExecvPreparedEntryRecipe<'u, MAX_AREAS> {
+        crate::trap::ExecvPreparedEntryRecipe::new(
+            user_source,
+            replacement_vm,
+        )
+    }
+
     pub const fn entry_input<'u>(
         &self,
         recipe: crate::trap::ExecvPreparedEntryRecipe<'u, MAX_AREAS>,
