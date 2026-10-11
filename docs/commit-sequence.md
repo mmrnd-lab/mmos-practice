@@ -134,6 +134,10 @@
     - `WaitQueue`를 추가해 입력이 없는 blocking read가 현재 task를 대기열에 등록할 수 있도록 구성
     - `WouldBlock`을 만난 blocking read helper가 task 상태를 `Blocked`로 바꾸고 wakeup 시 `Runnable`로 되돌리는 경로를 검증
 
+42. `c5a175e` `feat(ch49): wake reader on serial rx event`
+    - serial RX event helper를 추가해 입력 byte가 준비되었을 때 read wait queue의 task를 깨울 수 있도록 구성
+    - RX event가 blocked reader를 `Runnable` 상태로 되돌리는 경로를 런타임 probe와 테스트로 검증
+
 
 ## Reproduce Example
 

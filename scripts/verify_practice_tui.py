@@ -800,6 +800,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=WouldBlock can park the current task on a read wait queue",
     ),
     ChapterSet(
+        key="ch49_serial_rx_wake_reader",
+        label="Ch49 Serial RX Wake Reader",
+        commit_candidates=["c5a175e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch49 serial rx wake reader",
+                    "[chapter] ch48 blocking read wait queue",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=serial RX event wakes a task parked on the read wait queue",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
