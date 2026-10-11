@@ -1796,6 +1796,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execv copyin, VFS ELF image loading, stack layout, and child task context replacement are applied as one pipeline",
     ),
     ChapterSet(
+        key="ch107_execv_syscall_surface",
+        label="Ch107 Execv Syscall Surface",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch107 execv syscall surface",
+                    "[syscall] execve path_ptr=0x70000000 argv_ptr=0x70000100 ret=0 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=decoded execve syscall arguments drive the checked execv apply pipeline and replace the child task context",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

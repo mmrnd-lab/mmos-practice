@@ -392,6 +392,12 @@
     - 아직 실제 user entry로 `sret`까지 이어 붙이지 않고, fork child task context가 통합 execv 경로로 교체되는 runtime marker를 검증
     - QEMU runtime marker에서 `[chapter] ch106 execv apply pipeline`, `[syscall] execv full path=/sbin/init entry=0x40000000 argc=1 ret=0` 확인
 
+94. `TBD` `feat(ch107): connect execv apply pipeline to syscall surface`
+    - RISC-V Linux ABI의 `execve` syscall 번호 221을 decode해 pathname pointer와 argv pointer를 `Syscall::Execv`로 보존
+    - decoded syscall 인자를 checked user memory, VFS, stack buffer, process trap runtime과 함께 106장의 apply pipeline으로 전달하는 syscall helper 추가
+    - 성공한 execv syscall surface는 기존 adapter 규칙대로 `0`을 반환하고, child task frame은 새 ELF entry와 initial stack pointer로 교체됨
+    - QEMU runtime marker에서 `[chapter] ch107 execv syscall surface`, `[syscall] execve path_ptr=0x70000000 argv_ptr=0x70000100 ret=0 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

@@ -110,14 +110,14 @@ mod tests {
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall,
-        handle_current_process_clone_syscall, BlockingReadResult,
+        handle_current_process_clone_syscall, handle_process_execv_checked_user_syscall, BlockingReadResult,
         handle_process_execv_syscall, handle_process_fork_syscall,
         handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
-        Syscall, SyscallResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_CLONE,
+        Syscall, SyscallResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_CLONE, SYS_EXECVE,
         SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
     };
     use super::trap::{
@@ -931,6 +931,77 @@ mod tests {
         let frame = runtime.task_frame(fork.child_tid).unwrap();
         assert_eq!(frame.sepc, 0x4000_0000);
         assert_eq!(frame.sp(), report.initial_sp);
+    }
+
+    #[test]
+    fn execv_syscall_surface_decodes_and_applies_pipeline() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let decoded = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
+        assert_eq!(
+            decoded,
+            Syscall::Execv {
+                path_ptr: PATH,
+                argv_ptr: ARGV,
+                envp_ptr: 0,
+            }
+        );
+
+        let mut user_vm = VmSpace::<1>::new();
+        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
+
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+        let mut stack = [0u8; 256];
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let mut parent_frame = TrapFrame::default();
+        parent_frame.sepc = 0x4000_0000;
+        parent_frame.set_sp(0x4010_0000);
+        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut child_frame = TrapFrame::default();
+        child_frame.sepc = 0x4000_1000;
+        child_frame.set_sp(0x4010_1000);
+        let fork = runtime
+            .fork_current_process(2, child_frame, VmSpace::<2>::new())
+            .unwrap();
+
+        let Syscall::Execv { path_ptr, argv_ptr, .. } = decoded else {
+            panic!("expected execv syscall");
+        };
+        let result = handle_process_execv_checked_user_syscall::<1, 4, 64, 4, 2, 2, 5>(
+            &mut runtime,
+            fork.child_tid,
+            &user,
+            path_ptr,
+            argv_ptr,
+            &vfs,
+            &mut scratch,
+            &mut stack,
+            0x4010_0000,
+            VmSpace::<2>::new(),
+        );
+
+        assert_eq!(result, SyscallResult::Continue(0));
+        let frame = runtime.task_frame(fork.child_tid).unwrap();
+        assert_eq!(frame.sepc, 0x4000_0000);
+        assert!(frame.sp() < 0x4010_0000);
     }
 
     #[test]

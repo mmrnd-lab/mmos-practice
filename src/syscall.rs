@@ -7,6 +7,7 @@ pub const SYS_READ: usize = 63;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 pub const SYS_CLONE: usize = 220;
+pub const SYS_EXECVE: usize = 221;
 pub const SYS_WAIT4: usize = 260;
 
 pub const EBADF: isize = 9;
@@ -66,6 +67,7 @@ pub enum Syscall {
     Write { fd: usize, ptr: usize, len: usize },
     Exit { code: i32 },
     Clone { flags: usize, stack_ptr: usize },
+    Execv { path_ptr: usize, argv_ptr: usize, envp_ptr: usize },
     Wait4 { pid: isize, status_ptr: usize, options: usize },
 }
 
@@ -106,6 +108,11 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
             flags: a0,
             stack_ptr: a1,
         }),
+        SYS_EXECVE => Some(Syscall::Execv {
+            path_ptr: a0,
+            argv_ptr: a1,
+            envp_ptr: a2,
+        }),
         SYS_WAIT4 => Some(Syscall::Wait4 {
             pid: a0 as isize,
             status_ptr: a1,
@@ -123,6 +130,7 @@ pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResu
         Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
         Some(Syscall::Clone { .. }) => SyscallResult::Unsupported,
+        Some(Syscall::Execv { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Wait4 { .. }) => SyscallResult::Unsupported,
         None => SyscallResult::Unsupported,
     }
@@ -434,6 +442,80 @@ pub fn handle_current_process_clone_syscall<
     match runtime.fork_current_process(child_tid, child_frame, child_vm) {
         Ok(report) => handle_process_fork_syscall(report),
         Err(error) => errno_result(process_wait_errno(error)),
+    }
+}
+
+pub fn execv_arg_errno(error: crate::exec_args::ExecvArgError) -> isize {
+    match error {
+        crate::exec_args::ExecvArgError::Copy(error) => user_copy_errno(error),
+        crate::exec_args::ExecvArgError::Stack(_)
+        | crate::exec_args::ExecvArgError::TooManyArgs
+        | crate::exec_args::ExecvArgError::MissingArgvNull => EINVAL,
+    }
+}
+
+pub fn exec_path_errno(error: crate::exec_path::ExecPathError) -> isize {
+    match error {
+        crate::exec_path::ExecPathError::Args(error) => execv_arg_errno(error),
+        crate::exec_path::ExecPathError::Load(_) => EIO,
+    }
+}
+
+pub fn execv_apply_errno(error: crate::exec_flow::ExecvApplyError) -> isize {
+    match error {
+        crate::exec_flow::ExecvApplyError::Args(error) => execv_arg_errno(error),
+        crate::exec_flow::ExecvApplyError::Path(error) => exec_path_errno(error),
+        crate::exec_flow::ExecvApplyError::Runtime(error) => process_wait_errno(error),
+    }
+}
+
+pub fn handle_process_execv_checked_user_syscall<
+    const USER_AREAS: usize,
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    tid: usize,
+    user: &crate::user_copy::CheckedUserSlice<'_, USER_AREAS>,
+    path_ptr: usize,
+    argv_ptr: usize,
+    vfs: &crate::vfs::Vfs<'_>,
+    scratch: &mut [u8],
+    stack_bytes: &mut [u8],
+    stack_top_va: usize,
+    new_vm: crate::vm::VmSpace<MAX_AREAS>,
+) -> SyscallResult {
+    match crate::exec_flow::apply_execv_from_user_args::<
+        USER_AREAS,
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(
+        runtime,
+        tid,
+        user,
+        path_ptr,
+        argv_ptr,
+        vfs,
+        scratch,
+        stack_bytes,
+        stack_top_va,
+        new_vm,
+    ) {
+        Ok((exec, _report)) => handle_process_execv_syscall(exec),
+        Err(error) => errno_result(execv_apply_errno(error)),
     }
 }
 
