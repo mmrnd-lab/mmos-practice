@@ -876,6 +876,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=scheduler reports an idle decision when every task is blocked",
     ),
     ChapterSet(
+        key="ch53_idle_wait_for_interrupt",
+        label="Ch53 Idle Wait For Interrupt",
+        commit_candidates=["f32c8da"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch53 idle wait for interrupt",
+                    "[chapter] ch52 idle when no runnable task",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=idle decision maps to a wait-for-interrupt action without entering an endless idle loop",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

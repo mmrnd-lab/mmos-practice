@@ -150,6 +150,10 @@
     - scheduler handoff 결과를 `ScheduleDecision`으로 명시해 task 전환과 idle 진입을 구분
     - 모든 task가 blocked 상태일 때 현재 tid를 비우고 idle decision을 반환하는 경로를 검증
 
+46. `f32c8da` `feat(ch53): map idle decision to wait-for-interrupt action`
+    - idle decision을 `IdleAction::WaitForInterrupt`로 번역하는 idle 경계 모듈을 추가
+    - runnable task가 없을 때 커널이 panic이 아니라 interrupt 대기 경로로 갈 수 있음을 런타임 probe로 검증
+
 
 ## Reproduce Example
 
