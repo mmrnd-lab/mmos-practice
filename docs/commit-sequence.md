@@ -229,6 +229,11 @@
     - trap return 직전에 `sscratch`를 kernel frame sp로 복구해 다음 user trap이 같은 계약으로 다시 진입할 수 있음을 검증
 
 
+63. `a10fe6b` `feat(ch71): prepare sscratch before entering user`
+    - `enter_user`가 `sret` 전에 `sscratch` CSR에 kernel trap frame 위치를 기록하도록 연결
+    - user trap entry가 기대하는 scratch 값이 CPU 안에 준비되는 조건을 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
