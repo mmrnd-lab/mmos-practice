@@ -106,9 +106,9 @@ mod tests {
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
-        handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
-        EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WAIT4,
-        SYS_WRITE,
+        handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
+        Syscall, SyscallResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT,
+        SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
     };
     use super::trap::{
         apply_schedule_decision, dispatch_trap_outcome,
@@ -2218,6 +2218,28 @@ mod tests {
         assert_eq!(report.parent_pid, parent_pid);
         assert_eq!(report.child_pid, child_pid);
         assert_eq!(report.exit_code, 31);
+    }
+
+    #[test]
+    fn process_trap_runtime_wait_without_children_returns_no_child() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4000_0000;
+        runtime.add_runnable_task(1, parent_pid, frame).unwrap();
+        runtime.start_first_task();
+
+        let mut wait_frame = TrapFrame::default();
+        assert_eq!(
+            runtime.wait_reap_current_child_or_block(&mut wait_frame),
+            Err(ProcError::NoChild)
+        );
+        assert_eq!(process_wait_errno(ProcError::NoChild), ECHILD);
+        assert_eq!(runtime.task_state(1), Some(TaskState::Running));
+        assert_eq!(runtime.current_tid(), Some(1));
     }
 
     #[test]

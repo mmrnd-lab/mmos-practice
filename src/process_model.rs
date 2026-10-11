@@ -15,6 +15,7 @@ pub enum ProcState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProcError {
     ChildListFull,
+    NoChild,
     NotZombie,
     TableFull,
     MissingAddressSpace,
@@ -190,6 +191,18 @@ impl<const MAX_PROCS: usize, const MAX_CHILDREN: usize, const MAX_AREAS: usize>
             idx += 1;
         }
         Err(ProcError::MissingProcess)
+    }
+
+    pub fn has_child(&self, parent_pid: usize) -> Result<bool, ProcError> {
+        let children = self.get(parent_pid)?.children;
+        let mut idx = 0usize;
+        while idx < MAX_CHILDREN {
+            if children[idx].is_some() {
+                return Ok(true);
+            }
+            idx += 1;
+        }
+        Ok(false)
     }
 }
 

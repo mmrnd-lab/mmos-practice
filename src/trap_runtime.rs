@@ -256,6 +256,11 @@ impl<
         self.wait_reap_child(parent_pid)
     }
 
+    pub fn current_process_has_children(&self) -> Result<bool, ProcError> {
+        let parent_pid = self.current_process_id()?;
+        self.processes.has_child(parent_pid)
+    }
+
     pub fn wait_reap_current_child_or_block(
         &mut self,
         frame: &mut TrapFrame,
@@ -264,6 +269,9 @@ impl<
             Ok(report) => Ok(ProcessWaitSyscallRuntime::Reaped(report)),
             Err(ProcError::NotZombie) => {
                 let parent_pid = self.current_process_id()?;
+                if !self.processes.has_child(parent_pid)? {
+                    return Err(ProcError::NoChild);
+                }
                 let tid = self.current_tid().ok_or(ProcError::MissingTask)?;
                 self.process_waiters.enqueue(parent_pid, tid)?;
                 self.scheduler.set_state(tid, TaskState::Blocked);

@@ -42,7 +42,8 @@ pub fn user_copy_errno(error: crate::user_copy::UserCopyError) -> isize {
 
 pub fn process_wait_errno(error: crate::process_model::ProcError) -> isize {
     match error {
-        crate::process_model::ProcError::NotZombie
+        crate::process_model::ProcError::NoChild
+        | crate::process_model::ProcError::NotZombie
         | crate::process_model::ProcError::MissingProcess => ECHILD,
         crate::process_model::ProcError::MissingTask => EINVAL,
         crate::process_model::ProcError::ChildListFull

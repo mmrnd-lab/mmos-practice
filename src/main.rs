@@ -684,6 +684,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_trap_runtime_wait_demo();
     run_wait_syscall_surface_demo();
     run_blocking_wait_wakeup_demo();
+    run_wait_no_child_boundary_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1077,6 +1078,35 @@ fn run_blocking_wait_wakeup_demo() {
         {
             console::puts("[chapter] ch97 blocking wait wakeup\n");
             console::puts("[syscall] wait blocked parent=1 child=2 wake=1 status=13\n");
+        }
+    }
+}
+
+fn run_wait_no_child_boundary_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut frame = trap::TrapFrame::default();
+    frame.sepc = 0x4000_0000;
+    frame.set_sp(0x4010_0000);
+    if runtime.add_runnable_task(1, parent_pid, frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let mut wait_frame = trap::TrapFrame::default();
+    if let Err(process_model::ProcError::NoChild) =
+        runtime.wait_reap_current_child_or_block(&mut wait_frame)
+    {
+        let errno = syscall::process_wait_errno(process_model::ProcError::NoChild);
+        if errno == syscall::ECHILD
+            && runtime.current_tid() == Some(1)
+            && runtime.task_state(1) == Some(scheduler::TaskState::Running)
+        {
+            console::puts("[chapter] ch98 wait no child boundary\n");
+            console::puts("[syscall] wait no-child parent=1 errno=10 blocked=0\n");
         }
     }
 }
