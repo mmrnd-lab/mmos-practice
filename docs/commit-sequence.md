@@ -434,6 +434,12 @@
     - execve ecall은 current process VM 기준 copyin, image replacement, live frame writeback을 한 trap dispatch helper 안에서 수행
     - QEMU runtime marker에서 `[chapter] ch113 execv trap dispatch`, `[trap] execve ecall routed a0=0 sepc=0x40003004 entry=0x40000000` 확인
 
+101. `83fb670` `feat(ch114): collect execve trap runtime resources`
+    - `ExecvTrapRuntimeResources`를 추가해 trap dispatch가 필요로 하는 process runtime, user memory bytes, VFS, scratch/stack buffer, new VM을 한 묶음으로 전달
+    - resource 묶음이 `CurrentExecvRuntimeContext`를 만들어 113장의 trap dispatch helper에 넘기도록 연결
+    - caller가 syscall context 구조를 직접 만들지 않고 trap-side resource bundle을 통해 execve ecall dispatch를 수행
+    - QEMU runtime marker에서 `[chapter] ch114 execv trap resources`, `[trap] execve resources routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

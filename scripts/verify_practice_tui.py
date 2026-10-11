@@ -1922,6 +1922,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap dispatch routes execve ecall through current runtime context",
     ),
     ChapterSet(
+        key="ch114_execv_trap_resources",
+        label="Ch114 Execv Trap Resources",
+        commit_candidates=["83fb670"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch114 execv trap resources",
+                    "[trap] execve resources routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=trap-side execve resources build the current runtime context",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
