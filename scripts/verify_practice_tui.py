@@ -744,7 +744,7 @@ CHAPTERS: List[ChapterSet] = [
     ),
     ChapterSet(
         key="ch45_console_read_bytes",
-        label="Ch46 Console Read Bytes",
+        label="Ch45 Console Read Bytes",
         commit_candidates=["7b75884"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
@@ -763,8 +763,8 @@ CHAPTERS: List[ChapterSet] = [
     ),
     ChapterSet(
         key="ch46_nonblocking_read_wouldblock",
-        label="Ch47 Nonblocking Read WouldBlock",
-        commit_candidates=["9e2da10"],
+        label="Ch46 Nonblocking Read WouldBlock",
+        commit_candidates=["e005518"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -783,7 +783,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch48_blocking_read_wait_queue",
         label="Ch48 Blocking Read Wait Queue",
-        commit_candidates=["40094ef"],
+        commit_candidates=["e75d4df"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -802,7 +802,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch49_serial_rx_wake_reader",
         label="Ch49 Serial RX Wake Reader",
-        commit_candidates=["c5a175e"],
+        commit_candidates=["0e4274d"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -821,7 +821,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch50_blocked_syscall_scheduler_handoff",
         label="Ch50 Blocked Syscall Scheduler Handoff",
-        commit_candidates=["9d580d8"],
+        commit_candidates=["01a170a"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -840,7 +840,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch51_schedule_next_runnable_task",
         label="Ch51 Schedule Next Runnable Task",
-        commit_candidates=["bfed71c"],
+        commit_candidates=["cea8a1e"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -859,7 +859,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch52_idle_when_no_runnable_task",
         label="Ch52 Idle When No Runnable Task",
-        commit_candidates=["2413668"],
+        commit_candidates=["778284c"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -878,7 +878,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch53_idle_wait_for_interrupt",
         label="Ch53 Idle Wait For Interrupt",
-        commit_candidates=["f32c8da"],
+        commit_candidates=["f66b43d"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -897,7 +897,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch54_restore_next_task_frame",
         label="Ch54 Restore Next Task Frame",
-        commit_candidates=["6932e91"],
+        commit_candidates=["e6eb041"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -916,7 +916,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch55_trap_schedule_dispatch",
         label="Ch55 Trap Schedule Dispatch",
-        commit_candidates=["a386d29"],
+        commit_candidates=["539d6fd"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -935,7 +935,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch56_trap_runtime_scheduler_state",
         label="Ch56 Trap Runtime Scheduler State",
-        commit_candidates=["adcd155"],
+        commit_candidates=["7dad7c9"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -954,7 +954,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch57_global_trap_runtime_state",
         label="Ch57 Global Trap Runtime State",
-        commit_candidates=["93d4029"],
+        commit_candidates=["d07b2f9"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -973,7 +973,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch58_trap_dispatch_global_runtime",
         label="Ch58 Trap Dispatch Global Runtime",
-        commit_candidates=["6b93cdb"],
+        commit_candidates=["e9ae537"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -992,7 +992,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch59_launch_task_global_runtime",
         label="Ch59 Launch Task Global Runtime",
-        commit_candidates=["HEAD"],
+        commit_candidates=["98ec0f4"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

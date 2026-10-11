@@ -126,55 +126,55 @@
     - runtime 검증용 buffered console character device를 추가해 실제 byte read가 가능하도록 구성
     - `read(fd, user_buf, len)`이 console input bytes를 copyout해 user memory에 저장하는 경로를 검증
 
-40. `9e2da10` `feat(ch46): map nonblocking read wouldblock`
+40. `e005518` `feat(ch46): map nonblocking read wouldblock`
     - `CharError::WouldBlock`을 syscall errno `-EAGAIN`으로 매핑해 non-blocking read 실패 정책을 고정
     - buffered console input을 모두 소비한 뒤 추가 `read()`가 `-EAGAIN`으로 실패하는 경로를 검증
 
-41. `40094ef` `feat(ch48): add blocking read wait queue`
+41. `e75d4df` `feat(ch48): add blocking read wait queue`
     - `WaitQueue`를 추가해 입력이 없는 blocking read가 현재 task를 대기열에 등록할 수 있도록 구성
     - `WouldBlock`을 만난 blocking read helper가 task 상태를 `Blocked`로 바꾸고 wakeup 시 `Runnable`로 되돌리는 경로를 검증
 
-42. `c5a175e` `feat(ch49): wake reader on serial rx event`
+42. `0e4274d` `feat(ch49): wake reader on serial rx event`
     - serial RX event helper를 추가해 입력 byte가 준비되었을 때 read wait queue의 task를 깨울 수 있도록 구성
     - RX event가 blocked reader를 `Runnable` 상태로 되돌리는 경로를 런타임 probe와 테스트로 검증
 
-43. `9d580d8` `feat(ch50): hand off blocked syscall to scheduler`
+43. `01a170a` `feat(ch50): hand off blocked syscall to scheduler`
     - `TrapOutcome::Schedule`을 추가해 blocking read가 user mode로 바로 복귀하지 않아야 함을 표현
     - blocked syscall 결과는 trap frame을 완료 처리하지 않고 scheduler handoff로 이어지도록 검증
 
-44. `bfed71c` `feat(ch51): schedule next runnable task after blocked syscall`
+44. `cea8a1e` `feat(ch51): schedule next runnable task after blocked syscall`
     - blocked syscall의 trap frame을 현재 task slot에 저장한 뒤 다음 runnable task를 선택하는 scheduler handoff를 추가
     - blocked task는 `Blocked` 상태로 남기고 다음 task가 `Running` 상태가 되는 경로를 검증
 
-45. `2413668` `feat(ch52): report idle when no runnable task exists`
+45. `778284c` `feat(ch52): report idle when no runnable task exists`
     - scheduler handoff 결과를 `ScheduleDecision`으로 명시해 task 전환과 idle 진입을 구분
     - 모든 task가 blocked 상태일 때 현재 tid를 비우고 idle decision을 반환하는 경로를 검증
 
-46. `f32c8da` `feat(ch53): map idle decision to wait-for-interrupt action`
+46. `f66b43d` `feat(ch53): map idle decision to wait-for-interrupt action`
     - idle decision을 `IdleAction::WaitForInterrupt`로 번역하는 idle 경계 모듈을 추가
     - runnable task가 없을 때 커널이 panic이 아니라 interrupt 대기 경로로 갈 수 있음을 런타임 probe로 검증
 
-47. `6932e91` `feat(ch54): restore next task frame after schedule decision`
+47. `e6eb041` `feat(ch54): restore next task frame after schedule decision`
     - switched schedule decision이 고른 next task의 saved trap frame을 현재 dispatch frame으로 복사하는 helper를 추가
     - blocked task frame 저장 이후 next task register snapshot으로 복귀 대상이 바뀌는 경로를 검증
 
-48. `a386d29` `feat(ch55): dispatch schedule outcome through trap handoff`
+48. `539d6fd` `feat(ch55): dispatch schedule outcome through trap handoff`
     - `TrapOutcome::Schedule`을 scheduler handoff, next task frame 복원, idle action으로 이어 주는 dispatch helper를 추가
     - trap dispatch가 user로 즉시 복귀하지 않고 scheduler decision을 적용하는 흐름을 검증
 
-49. `adcd155` `feat(ch56): add trap runtime scheduler state`
+49. `7dad7c9` `feat(ch56): add trap runtime scheduler state`
     - trap dispatch helper가 사용할 scheduler state를 소유하는 `TrapRuntime` 경계를 추가
     - 지역 scheduler probe가 아니라 runtime object를 통해 schedule dispatch와 frame 복원이 이어짐을 검증
 
-50. `93d4029` `feat(ch57): add global trap runtime state`
+50. `d07b2f9` `feat(ch57): add global trap runtime state`
     - interrupt guard로 보호되는 global trap runtime 접근 경계를 추가
     - 실제 trap dispatch가 참조할 수 있는 전역 runtime state를 통해 schedule dispatch가 동작함을 검증
 
-51. `6b93cdb` `feat(ch58): route trap schedule through global runtime`
+51. `e9ae537` `feat(ch58): route trap schedule through global runtime`
     - `TrapOutcome::Schedule`을 global trap runtime dispatch로 연결하는 trap 경계 helper를 추가
     - RISC-V trap dispatch가 schedule outcome을 무시하지 않고 global runtime decision을 적용하도록 연결
 
-52. `TBD` `feat(ch59): install launch task into global runtime`
+52. `98ec0f4` `feat(ch59): install launch task into global runtime`
     - user init launch plan의 trap frame을 global trap runtime의 initial task로 등록하는 helper를 추가
     - 실제 `/sbin/init` launch handoff에서 만든 task context가 scheduler state에 들어감을 검증
 
