@@ -68,6 +68,13 @@
 24. `cd96cdc` `feat(ch28): execute first user-init via sret`
     - trap entry/return 경로를 연결해 U-mode로 실제 진입
     - user `write/exit` syscall이 커널 trap 경로를 왕복하며 로그를 남기는지 확인
+25. `29c58d3` `feat(ch31): add character device abstraction`
+    - `DeviceKind::Char`를 실제 `CharacterDevice` trait 경계와 연결
+    - `CharError`와 mock 문자 장치 테스트로 read/write 처리 규칙을 고정
+26. `f28af35` `feat(ch32): route serial output through character device`
+    - 기존 UART 출력 경로를 `SerialDevice`와 `console::write()` 경유로 재배치
+    - user `write(1, ...)` syscall이 콘솔 문자 장치 경계를 통해 출력되도록 연결
+
 
 ## Reproduce Example
 

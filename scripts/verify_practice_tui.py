@@ -487,6 +487,34 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=kernel enters U-mode and user-init emits syscall write/exit logs",
     ),
     ChapterSet(
+        key="ch31_character_device",
+        label="Ch31 Character Device Foundation",
+        commit_candidates=["29c58d3"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+        ],
+        note="unit signature=CharacterDevice trait, CharError, and mock character device behavior",
+    ),
+    ChapterSet(
+        key="ch32_serial_character_device",
+        label="Ch32 Serial Character Device",
+        commit_candidates=["f28af35"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch32 serial character device",
+                    "[chapter] ch28 first user sret",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=console output is routed through the serial CharacterDevice path",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
