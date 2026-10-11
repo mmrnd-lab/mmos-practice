@@ -1,12 +1,11 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::syscall;
+use crate::{scheduler::Scheduler, syscall};
 #[cfg(not(target_arch = "riscv64"))]
 use crate::{
     page_fault::{self, PageFaultResult},
     pmm::PageFrameManager,
-    scheduler::Scheduler,
     vm::VmSpace,
 };
 
@@ -231,6 +230,13 @@ pub fn handle_blocking_syscall_result(
         syscall::BlockingReadResult::Ready(result) => handle_syscall_result(frame, result),
         syscall::BlockingReadResult::Blocked => TrapOutcome::Schedule,
     }
+}
+
+pub fn schedule_after_blocked_syscall<const N: usize>(
+    frame: &TrapFrame,
+    scheduler: &mut Scheduler<N>,
+) -> Option<(usize, usize)> {
+    scheduler.schedule_after_current_blocked(*frame)
 }
 
 pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapOutcome {

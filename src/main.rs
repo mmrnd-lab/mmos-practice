@@ -464,6 +464,20 @@ pub extern "C" fn rust_main() -> ! {
             {
                 console::puts("[chapter] ch50 blocked syscall scheduler handoff\n");
             }
+            let next_tid = input_tid + 1;
+            let mut handoff_scheduler = scheduler::Scheduler::<3>::new();
+            let _ = handoff_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
+            let _ = handoff_scheduler.add_runnable(next_tid, trap::TrapFrame::default());
+            let _ = handoff_scheduler.on_tick();
+            let _ = handoff_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
+            if blocked
+                && trap::schedule_after_blocked_syscall(&blocked_frame, &mut handoff_scheduler)
+                    == Some((input_tid, next_tid))
+                && handoff_scheduler.current_tid() == Some(next_tid)
+                && handoff_scheduler.task_state(input_tid) == Some(scheduler::TaskState::Blocked)
+            {
+                console::puts("[chapter] ch51 schedule next runnable task\n");
+            }
         }
     }
 

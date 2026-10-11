@@ -61,6 +61,19 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
         None
     }
 
+    pub fn task_frame(&self, tid: usize) -> Option<TrapFrame> {
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(task) = self.slots[idx] {
+                if task.tid == tid {
+                    return Some(task.tf);
+                }
+            }
+            idx += 1;
+        }
+        None
+    }
+
     pub fn add_runnable(&mut self, tid: usize, tf: TrapFrame) -> Result<(), SchedError> {
         let mut idx = 0usize;
         while idx < MAX_TASKS {
@@ -93,6 +106,27 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
             idx += 1;
         }
         false
+    }
+
+    pub fn schedule_after_current_blocked(&mut self, current_tf: TrapFrame) -> Option<(usize, usize)> {
+        let cur = self.current_idx?;
+        let mut current = self.slots[cur]?;
+        let prev_tid = current.tid;
+        current.tf = current_tf;
+        self.slots[cur] = Some(current);
+
+        let next = self.find_next_runnable((cur + 1) % MAX_TASKS)?;
+        if next == cur {
+            return None;
+        }
+
+        if let Some(mut task) = self.slots[next] {
+            task.state = TaskState::Running;
+            self.slots[next] = Some(task);
+        }
+        self.current_idx = Some(next);
+        let next_tid = self.slots[next].map(|task| task.tid)?;
+        Some((prev_tid, next_tid))
     }
 
     pub fn on_tick(&mut self) -> Option<(usize, usize)> {

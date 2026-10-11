@@ -92,7 +92,8 @@ mod tests {
     };
     use super::trap::{
         handle_blocking_syscall_result, handle_syscall_result, handle_timer_tick_with_scheduler,
-        handle_trap, handle_user_page_fault_outcome, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
+        handle_trap, handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapFrame,
+        TrapOutcome, SCAUSE_USER_ECALL,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -974,6 +975,31 @@ mod tests {
         );
         assert_eq!(frame.sepc, 0x1004);
         assert_eq!(frame.a0() as isize, -EAGAIN);
+    }
+
+    #[test]
+    fn scheduler_handoff_saves_blocked_frame_and_selects_next_task() {
+        let mut scheduler = Scheduler::<3>::new();
+        scheduler.add_runnable(1, TrapFrame::default()).unwrap();
+        scheduler.add_runnable(2, TrapFrame::default()).unwrap();
+        let _ = scheduler.on_tick();
+        assert_eq!(scheduler.current_tid(), Some(1));
+        scheduler.set_state(1, TaskState::Blocked);
+
+        let mut blocked_frame = TrapFrame::default();
+        blocked_frame.sepc = 0x9000;
+        blocked_frame.set_a0(0x1234);
+
+        assert_eq!(
+            schedule_after_blocked_syscall(&blocked_frame, &mut scheduler),
+            Some((1, 2))
+        );
+        assert_eq!(scheduler.current_tid(), Some(2));
+        assert_eq!(scheduler.task_state(1), Some(TaskState::Blocked));
+        assert_eq!(scheduler.task_state(2), Some(TaskState::Running));
+        let saved = scheduler.task_frame(1).unwrap();
+        assert_eq!(saved.sepc, 0x9000);
+        assert_eq!(saved.a0(), 0x1234);
     }
 
     #[test]
