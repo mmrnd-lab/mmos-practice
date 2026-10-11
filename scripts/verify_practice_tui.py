@@ -265,6 +265,15 @@ CHAPTERS: List[ChapterSet] = [
             Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
         ],
     ),
+    ChapterSet(
+        key="ch19_user_vm_plan",
+        label="Ch19 User VM Plan",
+        commit_candidates=["7fdd138"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+        ],
+    ),
 ]
 
 

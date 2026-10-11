@@ -28,6 +28,9 @@
 12. `be06b86` `feat(exec): materialize init elf into user image and trap context`
     - ELF load plan을 실제 user image(복사 + BSS zero-fill)로 연결
     - TrapFrame entry/sp/sstatus를 exec 컨텍스트로 구성
+13. `7fdd138` `feat(vm): build sv39 user vm plan for init exec image`
+    - init ELF/stack이 차지하는 영역을 Sv39 root table(vpn2, 1GiB leaf)로 구성
+    - `satp` 값까지 함께 계산해 U-mode 진입 직전 상태를 검증
 
 ## Reproduce Example
 
