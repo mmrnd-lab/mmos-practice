@@ -2674,7 +2674,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch155_relocation_writeback_boundary",
         label="Ch155 Relocation Writeback Boundary",
-        commit_candidates=["HEAD"],
+        commit_candidates=["0cd939b"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

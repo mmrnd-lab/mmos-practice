@@ -686,3 +686,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `calculate_relative_relocation_plan()`이 relocation 후보 목록을 apply value 목록으로 변환
     - QEMU runtime marker에서 `[chapter] ch154 relative relocation apply value`, `[user-link] R_RISCV_RELATIVE computes relocation value as base plus addend` 확인
 
+139. `0cd939b` `feat(ch155): write relocation apply values`
+    - `write_relocation_apply()`가 relocation apply value를 대상 image buffer에 little-endian u64로 기록
+    - writeback 전에 `target_offset + 8` 범위를 검사하고 벗어난 target은 `RelocationTargetOutOfRange`로 거절
+    - `write_relocation_apply_plan()`이 계산된 apply 목록을 순회하며 실제 image buffer에 반영
+    - unit test가 little-endian write, 범위 초과 거절, 여러 apply 값 기록을 검증
+    - QEMU runtime marker에서 `[chapter] ch155 relocation writeback boundary`, `[user-link] relocation apply values write checked little-endian u64 slots` 확인
+
