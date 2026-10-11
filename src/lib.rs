@@ -101,7 +101,8 @@ mod tests {
         TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
     };
     use super::trap_runtime::{
-        reset_global_trap_runtime, switched_tids, with_global_trap_runtime, TrapRuntime,
+        install_initial_user_task, reset_global_trap_runtime, switched_tids,
+        with_global_trap_runtime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -1875,6 +1876,39 @@ mod tests {
         assert_eq!(launch.trapframe.a0(), 2);
         assert_eq!(launch.trapframe.a1(), launch.argv_ptr);
         assert_eq!(launch.trapframe.a2(), launch.envp_ptr);
+    }
+
+
+    #[test]
+    fn user_launch_task_is_installed_into_global_trap_runtime() {
+        reset_global_trap_runtime();
+
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut stack = [0u8; 512];
+        let launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345,
+            &mut stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        install_initial_user_task(1, launch.trapframe).unwrap();
+
+        assert_eq!(
+            with_global_trap_runtime(|runtime| runtime.current_tid()),
+            Some(1)
+        );
+        let installed = with_global_trap_runtime(|runtime| runtime.task_frame(1).unwrap());
+        assert_eq!(installed.sepc, loaded.entry);
+        assert_eq!(installed.sp(), launch.sp);
+        assert_eq!(installed.a0(), 1);
+        assert_eq!(installed.a1(), launch.argv_ptr);
+        assert_eq!(installed.a2(), launch.envp_ptr);
+
+        reset_global_trap_runtime();
     }
 
     #[test]

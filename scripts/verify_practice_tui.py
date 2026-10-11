@@ -990,6 +990,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap dispatch schedule outcome uses global trap runtime",
     ),
     ChapterSet(
+        key="ch59_launch_task_global_runtime",
+        label="Ch59 Launch Task Global Runtime",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch59 launch task global runtime",
+                    "[chapter] ch58 trap dispatch global runtime",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=user init launch trap frame is installed into global trap runtime",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

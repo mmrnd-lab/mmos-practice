@@ -106,3 +106,12 @@ pub fn reset_global_trap_runtime() {
         *runtime = TrapRuntime::new();
     });
 }
+
+pub fn install_initial_user_task(tid: usize, frame: TrapFrame) -> Result<(), SchedError> {
+    with_global_trap_runtime(|runtime| {
+        *runtime = TrapRuntime::new();
+        runtime.add_runnable(tid, frame)?;
+        runtime.start_first_task();
+        Ok(())
+    })
+}

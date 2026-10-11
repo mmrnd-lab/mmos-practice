@@ -747,6 +747,12 @@ fn run_user_launch_demo() {
             console::puts("[runtime] loaded /sbin/init from virtio ext4 into exec image\n");
             console::puts("[chapter] ch26 user init launch handoff\n");
             console::puts("[launch] vm+stack+trapframe ready for first sret\n");
+            if trap_runtime::install_initial_user_task(1, p.trapframe).is_ok()
+                && trap_runtime::with_global_trap_runtime(|runtime| runtime.current_tid())
+                    == Some(1)
+            {
+                console::puts("[chapter] ch59 launch task global runtime\n");
+            }
             console::puts("[chapter] ch28 first user sret\n");
 
             #[cfg(target_arch = "riscv64")]

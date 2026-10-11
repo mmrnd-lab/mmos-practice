@@ -174,6 +174,10 @@
     - `TrapOutcome::Schedule`을 global trap runtime dispatch로 연결하는 trap 경계 helper를 추가
     - RISC-V trap dispatch가 schedule outcome을 무시하지 않고 global runtime decision을 적용하도록 연결
 
+52. `TBD` `feat(ch59): install launch task into global runtime`
+    - user init launch plan의 trap frame을 global trap runtime의 initial task로 등록하는 helper를 추가
+    - 실제 `/sbin/init` launch handoff에서 만든 task context가 scheduler state에 들어감을 검증
+
 
 ## Reproduce Example
 
