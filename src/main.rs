@@ -909,6 +909,19 @@ fn run_user_launch_demo() {
                                                                     console::puts(
                                                                         "[chapter] ch69 trap entry scratch swap\n",
                                                                     );
+                                                                    let ret =
+                                                                        trap::simulate_trap_entry_return_scratch(
+                                                                            scratch,
+                                                                        );
+                                                                    if ret.restored_user_sp
+                                                                        == loaded.stack_top
+                                                                        && ret.next_sscratch
+                                                                            == scratch.kernel_frame_sp
+                                                                    {
+                                                                        console::puts(
+                                                                            "[chapter] ch70 trap entry asm stack switch\n",
+                                                                        );
+                                                                    }
                                                                 }
                                                             }
                                                         }

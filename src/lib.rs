@@ -103,7 +103,8 @@ mod tests {
         dispatch_trap_outcome_with_global_runtime, handle_blocking_syscall_result,
         handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
         handle_user_page_fault_outcome, prepare_kernel_trap_stack_switch,
-        prepare_trap_entry_scratch, simulate_trap_entry_stack_swap,
+        prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
+        simulate_trap_entry_stack_swap,
         schedule_after_blocked_syscall, KernelTrapStackError, KernelTrapStackSwitch,
         TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL, TRAP_FRAME_SIZE,
     };
@@ -1554,6 +1555,16 @@ mod tests {
 
         assert_eq!(swap.active_sp, scratch.kernel_frame_sp);
         assert_eq!(swap.saved_user_sp, scratch.user_sp);
+    }
+
+    #[test]
+    fn trap_entry_return_restores_scratch_for_next_user_trap() {
+        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000)
+            .unwrap();
+        let ret = simulate_trap_entry_return_scratch(scratch);
+
+        assert_eq!(ret.restored_user_sp, scratch.user_sp);
+        assert_eq!(ret.next_sscratch, scratch.kernel_frame_sp);
     }
 
     #[test]

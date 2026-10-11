@@ -46,6 +46,12 @@ pub struct TrapEntryStackSwap {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrapEntryReturnScratch {
+    pub restored_user_sp: usize,
+    pub next_sscratch: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KernelTrapStackError {
     StackTooSmall,
     MisalignedTop,
@@ -92,6 +98,13 @@ pub fn simulate_trap_entry_stack_swap(scratch: TrapEntryScratch) -> TrapEntrySta
     TrapEntryStackSwap {
         active_sp: scratch.sscratch,
         saved_user_sp: scratch.user_sp,
+    }
+}
+
+pub fn simulate_trap_entry_return_scratch(scratch: TrapEntryScratch) -> TrapEntryReturnScratch {
+    TrapEntryReturnScratch {
+        restored_user_sp: scratch.user_sp,
+        next_sscratch: scratch.kernel_frame_sp,
     }
 }
 
@@ -166,8 +179,7 @@ core::arch::global_asm!(
     .align 2
     .global __mmos_trap_entry
 __mmos_trap_entry:
-    csrw sscratch, sp
-    addi sp, sp, -272
+    csrrw sp, sscratch, sp
 
     sd zero,   0(sp)
     sd ra,     8(sp)
@@ -249,6 +261,7 @@ __mmos_trap_entry:
     ld t4,   232(sp)
     ld t5,   240(sp)
     ld t6,   248(sp)
+    csrw sscratch, sp
     ld sp,    16(sp)
     sret
 "#
