@@ -2189,8 +2189,8 @@ fn run_execv_trap_resources_demo() {
         &mut live_frame,
         trap::SCAUSE_USER_ECALL,
         0,
-        resource_store.resources(
-            &mut runtime,
+        runtime.execv_resources(
+            &mut resource_store,
             &user_mem,
             BASE,
             vm::VmSpace::<2>::new(),
@@ -2209,6 +2209,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve resources routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch115 execv resource store\n");
         console::puts("[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch116 execv runtime resources\n");
+        console::puts("[trap] execve runtime resources routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 

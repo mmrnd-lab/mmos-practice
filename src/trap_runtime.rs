@@ -256,6 +256,33 @@ impl<
         let _ = self.scheduler.on_tick();
     }
 
+    pub fn execv_resources<
+        'a,
+        'v,
+        const SCRATCH_BYTES: usize,
+        const STACK_BYTES: usize,
+    >(
+        &'a mut self,
+        store: &'a mut crate::trap::ExecvTrapResourceStore<
+            'v,
+            SCRATCH_BYTES,
+            STACK_BYTES,
+            MAX_AREAS,
+        >,
+        user_bytes: &'a [u8],
+        user_base: usize,
+        new_vm: VmSpace<MAX_AREAS>,
+    ) -> crate::trap::ExecvTrapRuntimeResources<
+        'a,
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    > {
+        store.resources(self, user_bytes, user_base, new_vm)
+    }
+
     pub fn dispatch_exit(
         &mut self,
         frame: &mut TrapFrame,

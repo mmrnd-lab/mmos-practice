@@ -1385,8 +1385,8 @@ mod tests {
             &mut live_frame,
             SCAUSE_USER_ECALL,
             0,
-            resource_store.resources(
-                &mut runtime,
+            runtime.execv_resources(
+                &mut resource_store,
                 &user_mem,
                 BASE,
                 VmSpace::<2>::new(),
