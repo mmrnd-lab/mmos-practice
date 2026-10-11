@@ -146,6 +146,10 @@
     - blocked syscall의 trap frame을 현재 task slot에 저장한 뒤 다음 runnable task를 선택하는 scheduler handoff를 추가
     - blocked task는 `Blocked` 상태로 남기고 다음 task가 `Running` 상태가 되는 경로를 검증
 
+45. `2413668` `feat(ch52): report idle when no runnable task exists`
+    - scheduler handoff 결과를 `ScheduleDecision`으로 명시해 task 전환과 idle 진입을 구분
+    - 모든 task가 blocked 상태일 때 현재 tid를 비우고 idle decision을 반환하는 경로를 검증
+
 
 ## Reproduce Example
 
