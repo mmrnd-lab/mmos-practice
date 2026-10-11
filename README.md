@@ -71,6 +71,19 @@ make run-stdin-probe PROFILE=release INPUT_BYTE=K RUN_SECONDS=6
 성공 기준은 `[stdin-probe] received=K`와 `[user-init] exit=0`이다. 다음 단계에서는 이 raw byte 입력을
 line reader와 shell prompt로 확장한다.
 
+## 최소 user shell (109장 진행)
+
+`user/shell`은 128 byte 고정 line buffer를 사용해 console input을 한 줄로 모은다.
+CR/LF, backspace, 최대 길이를 처리하고 `help`, `echo`, `exit` builtin을 제공한다.
+아직 init child process 연결 전이므로 독립 `build/shell.img`에서는 shell ELF를 `/sbin/init` 위치에 넣어 실행한다.
+
+```bash
+make run-shell PROFILE=release RUN_SECONDS=8
+```
+
+scripted input으로 `help`, `echo hello shell`, `exit`를 차례로 전달해 prompt 반복과 정상 종료를 확인한다.
+다음 단계에서 같은 ELF를 `/bin/sh`에 설치하고 `/sbin/init`이 child process로 실행하도록 전환한다.
+
 ## 실제 `/sbin/init` 로딩 경로 (27장 이후)
 
 현재 런타임 통합 경로는 메모리 안에서 만든 데모 ext4 이미지를 주 경로로 사용하지 않는다.

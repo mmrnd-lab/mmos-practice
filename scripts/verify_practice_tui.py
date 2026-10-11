@@ -3094,6 +3094,26 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=QEMU console byte reaches user read(0) buffer",
     ),
     ChapterSet(
+        key="ch109_minimal_user_shell",
+        label="Ch109 Minimal User Shell Builtins",
+        commit_candidates=["ch109_minimal_user_shell"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-shell",
+                "make run-shell PROFILE=release RUN_SECONDS=8",
+                must_contain=(
+                    "[shell] MMOS shell ready",
+                    "builtins: help echo exit",
+                    "hello shell",
+                    "[shell] exit",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=bounded line reader dispatches help echo and exit builtins",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

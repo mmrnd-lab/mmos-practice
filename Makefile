@@ -18,6 +18,8 @@ BOOT_DISK := $(BUILD_DIR)/drive0.img
 USER_INIT_ELF := $(BUILD_DIR)/user-init.elf
 USER_STDIN_PROBE_ELF := $(BUILD_DIR)/user-stdin-probe.elf
 STDIN_PROBE_DISK := $(BUILD_DIR)/stdin-probe.img
+USER_SHELL_ELF := $(BUILD_DIR)/user-shell.elf
+SHELL_DISK := $(BUILD_DIR)/shell.img
 USER_CRT_RLIB := user/crt/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_crt.rlib
 USER_LIBC_RLIB := user/libc/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_libc.rlib
 USER_LIBC_SO := $(BUILD_DIR)/lib/libmmos_user_libc.so
@@ -47,7 +49,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-stdin-probe stdin-probe-disk user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-stdin-probe run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-stdin-probe stdin-probe-disk user-shell shell-disk user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-stdin-probe run-shell run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -102,6 +104,13 @@ $(USER_STDIN_PROBE_ELF): require-container user/common/mmos_user_app.ld user/std
 	cp user/stdin-probe/target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-user-stdin-probe $(USER_STDIN_PROBE_ELF)
 
 user-stdin-probe: $(USER_STDIN_PROBE_ELF)
+
+$(USER_SHELL_ELF): require-container user/common/mmos_user_app.ld user/shell/build.rs user/shell/src/main.rs $(USER_CRT_RLIB) $(USER_LIBC_RLIB) | $(BUILD_DIR)
+	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-T/workspace/mmos-practice/user/common/mmos_user_app.ld' cargo build --manifest-path user/shell/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
+	cp user/shell/target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-user-shell $(USER_SHELL_ELF)
+	$(CROSS_COMPILE)strip $(USER_SHELL_ELF)
+
+user-shell: $(USER_SHELL_ELF)
 
 user-link-model: require-container $(USER_CRT_RLIB) $(USER_LIBC_RLIB) $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -h $(USER_INIT_ELF) | grep -q 'Type:[[:space:]]*EXEC'
@@ -230,6 +239,11 @@ $(STDIN_PROBE_DISK): require-container $(UIMAGE) $(USER_STDIN_PROBE_ELF) $(USER_
 
 stdin-probe-disk: $(STDIN_PROBE_DISK)
 
+$(SHELL_DISK): require-container $(UIMAGE) $(USER_SHELL_ELF) $(USER_LIBC_SO) boot/extlinux.conf | $(BUILD_DIR)
+	./scripts/build-boot-disk.sh $(SHELL_DISK) $(UIMAGE) boot/extlinux.conf $(USER_SHELL_ELF) $(USER_LIBC_SO)
+
+shell-disk: $(SHELL_DISK)
+
 $(UBOOT_BIN): require-container | $(BUILD_DIR)
 	@if [ ! -d external/u-boot ]; then \
 		echo "error: missing external/u-boot (run ./scripts/init-submodules.sh first)"; \
@@ -285,6 +299,20 @@ run-stdin-probe: require-container $(STDIN_PROBE_DISK)
 		-bios default \
 		-kernel $(KERNEL_ELF) \
 		-drive file=$(STDIN_PROBE_DISK),format=raw,id=drive0 \
+		-device virtio-blk-device,drive=drive0 \
+		-no-reboot \
+		-smp 1 \
+		-m 512M || test $$? -eq 124
+
+run-shell: require-container $(SHELL_DISK)
+	@echo "running minimal shell with scripted help/echo/exit input"
+	@{ sleep 2; printf 'help\necho hello shell\nexit\n'; } | timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		$(QEMU_VIRTIO_MODERN) \
+		-machine virt \
+		-nographic \
+		-bios default \
+		-kernel $(KERNEL_ELF) \
+		-drive file=$(SHELL_DISK),format=raw,id=drive0 \
 		-device virtio-blk-device,drive=drive0 \
 		-no-reboot \
 		-smp 1 \
