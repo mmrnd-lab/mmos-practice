@@ -344,6 +344,11 @@
     - child process의 TCB와 scheduler slot을 제거하고 parent의 child slot을 비움
     - QEMU runtime marker에서 `[chapter] ch95 process wait child reap`, `[proc] wait parent=1 child=2 code=7 tasks=2 sched=2 next=3` 확인
 
+86. `605f148` `feat(ch96): add wait syscall surface`
+    - Linux/RISC-V `wait4` syscall number를 decode하고 wait 결과를 child PID return value와 status copyout으로 분리
+    - `ProcessTrapRuntime`에서 current task의 owner PID를 parent로 해석해 `wait_reap_current_child()`로 연결
+    - QEMU runtime marker에서 `[chapter] ch96 wait syscall surface`, `[syscall] wait parent=1 child=2 status=9` 확인
+
 
 ## Reproduce Example
 
