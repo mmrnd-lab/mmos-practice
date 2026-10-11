@@ -665,3 +665,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - VFS 테스트가 `/lib/libmmos_user_crt.so`를 읽어 `plan_shared_object_from_vfs()`로 loader plan을 만든다
     - QEMU runtime marker에서 `[chapter] ch151 user image shared object artifact`, `[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate` 확인
 
+136. `916d267` `feat(ch152): inspect shared object dynamic metadata`
+    - `PT_DYNAMIC` program header와 `DT_RELA`/`DT_RELASZ`/`DT_RELAENT` dynamic entry를 읽는 `inspect_shared_object_dynamic()`을 추가
+    - `SharedObjectDynamicInfo`가 dynamic segment offset/size와 RELA table 후보 정보를 보존
+    - `make shared-object-metadata` 타깃이 실제 `libmmos_user_crt.so`에서 `DYNAMIC` segment와 `RELAENT=24`를 확인
+    - unit test는 동적 metadata가 있는 `ET_DYN` 후보와 dynamic segment가 없는 후보를 구분
+    - QEMU runtime marker에서 `[chapter] ch152 shared object dynamic metadata`, `[user-link] dynamic segment exposes RELA metadata before relocation apply` 확인
+

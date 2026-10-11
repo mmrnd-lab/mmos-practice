@@ -2599,7 +2599,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch152_shared_object_dynamic_metadata",
         label="Ch152 Shared Object Dynamic Metadata",
-        commit_candidates=["HEAD"],
+        commit_candidates=["916d267"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
