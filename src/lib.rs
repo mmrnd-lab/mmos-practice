@@ -80,7 +80,9 @@ mod tests {
     use super::exec_args::{
         copyin_execv_args, materialize_execv_stack, ExecvArgBlock, ExecvArgError,
     };
-    use super::exec_path::load_exec_image_from_args;
+    use super::exec_path::{
+        load_exec_image_from_args, load_exec_image_with_shared_object_dependency_from_args,
+    };
     use super::exec_flow::apply_execv_from_user_args;
     use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
     use super::idle::{idle_action_for_schedule_decision, IdleAction};
@@ -959,6 +961,71 @@ mod tests {
         assert_eq!(exec.entry, report.entry);
         assert_eq!(exec.segment_count, 1);
         assert_eq!(exec.segments[0].unwrap().vaddr, 0x4000_0000);
+    }
+
+    #[test]
+    fn execv_args_load_exec_image_and_shared_object_dependency() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let mut vm = VmSpace::<1>::new();
+        vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
+        let mut block = ExecvArgBlock::<4, 64>::new();
+        copyin_execv_args(&user, PATH, ARGV, &mut block).unwrap();
+
+        let init = build_test_init_elf();
+        let mut shared_object = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut shared_object, 0x1d8, 0);
+        let mut disk = vec![0u8; super::demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+        super::demo_user_init::build_demo_ext4_image_with_shared_object(
+            &mut disk,
+            &init,
+            &shared_object,
+        )
+        .unwrap();
+        let dev = RamDisk::new("ramblk0", &disk, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut exec_scratch = [0u8; 512];
+        let mut shared_scratch = [0u8; 1024];
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let (exec, shared, report) = load_exec_image_with_shared_object_dependency_from_args(
+            &vfs,
+            &block,
+            &mut exec_scratch,
+            &mut shared_scratch,
+            0x4010_0000,
+            USER_CRT_SHARED_OBJECT_DEPENDENCY,
+            &mut pmm,
+            &mut root,
+            &mut l1,
+            0x9100_2000,
+            &mut l0,
+            0x9100_3000,
+        )
+        .unwrap();
+
+        let shared_entry = l0.entries[vpn0(0x9000_0000)];
+        assert_eq!(exec.entry, 0x4000_0000);
+        assert_eq!(report.exec.path_len, 10);
+        assert_eq!(report.exec.argc, 1);
+        assert_eq!(report.dependency_path, "/lib/libmmos_user_crt.so");
+        assert_eq!(report.dependency_base, USER_CRT_SHARED_OBJECT_DEPENDENCY.preferred_base);
+        assert_eq!(report.dependency_entry, shared.entry_vaddr);
+        assert_eq!(report.dependency_mapped_pages, 1);
+        assert!(is_leaf_user_mapping(shared_entry));
     }
 
     #[test]

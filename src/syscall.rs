@@ -549,7 +549,8 @@ pub fn execv_arg_errno(error: crate::exec_args::ExecvArgError) -> isize {
 pub fn exec_path_errno(error: crate::exec_path::ExecPathError) -> isize {
     match error {
         crate::exec_path::ExecPathError::Args(error) => execv_arg_errno(error),
-        crate::exec_path::ExecPathError::Load(_) => EIO,
+        crate::exec_path::ExecPathError::Load(_)
+        | crate::exec_path::ExecPathError::SharedObject(_) => EIO,
     }
 }
 
