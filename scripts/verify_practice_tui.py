@@ -1816,7 +1816,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch108_current_execv_syscall_runtime",
         label="Ch108 Current Execv Syscall Runtime",
-        commit_candidates=["HEAD"],
+        commit_candidates=["6ab1b3c"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

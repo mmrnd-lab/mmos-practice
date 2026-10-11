@@ -398,7 +398,7 @@
     - 성공한 execv syscall surface는 기존 adapter 규칙대로 `0`을 반환하고, child task frame은 새 ELF entry와 initial stack pointer로 교체됨
     - QEMU runtime marker에서 `[chapter] ch107 execv syscall surface`, `[syscall] execve path_ptr=0x70000000 argv_ptr=0x70000100 ret=0 entry=0x40000000` 확인
 
-95. `TBD` `feat(ch108): execute execv syscall against current runtime task`
+95. `6ab1b3c` `feat(ch108): execute execv syscall against current runtime task`
     - `ProcessTrapRuntime::current_tid()`를 사용해 explicit target tid 없이 현재 실행 중인 task를 exec 대상으로 고르는 helper 추가
     - decoded `execve` pathname/argv pointer, checked user memory, mounted VFS, stack buffer, current process runtime을 한 syscall 경계로 연결
     - 성공한 current execve syscall은 기존 규칙대로 `0`을 반환하고 current task frame을 새 ELF entry와 initial stack pointer로 교체
