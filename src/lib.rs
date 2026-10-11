@@ -8,6 +8,7 @@ pub mod ramdisk;
 pub mod block_io;
 pub mod char_device;
 pub mod serial;
+pub mod serial_rx;
 pub mod console;
 pub mod context_switch;
 pub mod demo_user_init;
@@ -75,6 +76,7 @@ mod tests {
     use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
+    use super::serial_rx::{wake_reader_on_rx_event, SerialRxEvent};
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
@@ -914,6 +916,27 @@ mod tests {
         assert!(waiters.contains(task.tid));
         assert_eq!(waiters.wake_one(&mut scheduler), Some(task.tid));
         assert_eq!(scheduler.task_state(task.tid), Some(TaskState::Runnable));
+    }
+
+    #[test]
+    fn serial_rx_event_wakes_blocked_reader() {
+        let mut scheduler = Scheduler::<2>::new();
+        scheduler.add_runnable(7, TrapFrame::default()).unwrap();
+        let _ = scheduler.on_tick();
+        scheduler.set_state(7, TaskState::Blocked);
+        let mut waiters = WaitQueue::<2>::new();
+        waiters.enqueue(7).unwrap();
+
+        assert_eq!(
+            wake_reader_on_rx_event(SerialRxEvent::new(0), &mut waiters, &mut scheduler),
+            None
+        );
+        assert_eq!(scheduler.task_state(7), Some(TaskState::Blocked));
+        assert_eq!(
+            wake_reader_on_rx_event(SerialRxEvent::new(1), &mut waiters, &mut scheduler),
+            Some(7)
+        );
+        assert_eq!(scheduler.task_state(7), Some(TaskState::Runnable));
     }
 
     #[test]

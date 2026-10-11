@@ -9,6 +9,8 @@ mod block;
 #[allow(dead_code)]
 mod block_io;
 mod serial;
+#[allow(dead_code)]
+mod serial_rx;
 mod console;
 mod char_device;
 #[allow(dead_code)]
@@ -423,7 +425,7 @@ pub extern "C" fn rust_main() -> ! {
             let _ = scheduler.add_runnable(input_tid, trap::TrapFrame::default());
             let _ = scheduler.on_tick();
             let mut waiters = wait_queue::WaitQueue::<2>::new();
-            if syscall::handle_current_process_blocking_read_checked_user_syscall(
+            let blocked = syscall::handle_current_process_blocking_read_checked_user_syscall(
                 current,
                 input_tid,
                 &mut input_user,
@@ -433,11 +435,23 @@ pub extern "C" fn rust_main() -> ! {
                 &mut blocking_scratch,
                 &mut scheduler,
                 &mut waiters,
-            ) == syscall::BlockingReadResult::Blocked
+            ) == syscall::BlockingReadResult::Blocked;
+            if blocked
                 && scheduler.task_state(input_tid) == Some(scheduler::TaskState::Blocked)
                 && waiters.contains(input_tid)
             {
                 console::puts("[chapter] ch48 blocking read wait queue\n");
+            }
+            let woken = serial_rx::wake_reader_on_rx_event(
+                serial_rx::SerialRxEvent::new(1),
+                &mut waiters,
+                &mut scheduler,
+            );
+            if blocked
+                && woken == Some(input_tid)
+                && scheduler.task_state(input_tid) == Some(scheduler::TaskState::Runnable)
+            {
+                console::puts("[chapter] ch49 serial rx wake reader\n");
             }
         }
     }
