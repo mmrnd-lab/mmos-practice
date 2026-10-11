@@ -41,6 +41,7 @@ impl PageTableEntry {
     }
 }
 
+#[repr(C, align(4096))]
 #[derive(Debug)]
 pub struct RootPageTable {
     pub entries: [PageTableEntry; PT_ENTRIES],
@@ -55,6 +56,18 @@ impl RootPageTable {
 
     pub fn map_gib_identity(&mut self, vpn2: usize, ppn: usize, flags: u64) {
         self.entries[vpn2] = PageTableEntry::leaf(ppn, flags);
+    }
+
+    pub fn physical_addr(&self) -> usize {
+        self as *const Self as usize
+    }
+
+    pub fn ppn(&self) -> usize {
+        self.physical_addr() / PAGE_SIZE
+    }
+
+    pub fn is_page_aligned(&self) -> bool {
+        self.physical_addr() % PAGE_SIZE == 0
     }
 }
 

@@ -1754,6 +1754,14 @@ mod tests {
         assert_eq!(root.entries[2].ppn(), 0x20000);
     }
 
+    #[test]
+    fn sv39_root_table_storage_is_page_aligned_and_yields_ppn() {
+        let root = RootPageTable::new();
+        assert_eq!(core::mem::size_of::<RootPageTable>(), super::sv39::PAGE_SIZE);
+        assert!(root.is_page_aligned());
+        assert_eq!(root.ppn(), root.physical_addr() / super::sv39::PAGE_SIZE);
+    }
+
 
     #[test]
     fn kernel_identity_mapping_is_global_and_supervisor_only() {
@@ -1782,6 +1790,22 @@ mod tests {
         assert!(is_leaf_user_mapping(user_entry));
         assert!(install_kernel_identity_mapping(&mut root).is_ok());
         assert!(is_kernel_mapping(root.entries[super::user_vm::KERNEL_IDENTITY_VPN2]));
+    }
+
+    #[test]
+    fn user_vm_plan_can_be_installed_in_aligned_root_storage() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        let install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+
+        assert_eq!(root_frame_pa % super::sv39::PAGE_SIZE, 0);
+        assert_eq!(install.root_frame_pa, root_frame_pa);
+        assert_eq!(install.root_ppn, root_frame_pa / super::sv39::PAGE_SIZE);
+        assert_eq!(install.satp, make_satp(root_frame_pa / super::sv39::PAGE_SIZE, 0));
+        assert!(is_leaf_user_mapping(root.entries[1]));
     }
 
     #[test]

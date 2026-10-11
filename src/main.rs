@@ -845,6 +845,7 @@ fn run_user_launch_demo() {
                                                 console::puts(
                                                     "[chapter] ch65 satp commit boundary\n",
                                                 );
+<<<<<<< HEAD
                                                 let mut root = sv39::RootPageTable::new();
                                                 let _ = user_vm::install_user_vm_plan_in_root(
                                                     &loaded,
@@ -852,8 +853,23 @@ fn run_user_launch_demo() {
                                                     &mut root,
                                                 )
                                                 .unwrap();
+=======
+                                                let root_frame_pa = pmm.alloc().unwrap();
+                                                let root = unsafe {
+                                                    user_vm::root_page_table_from_identity_frame_mut(
+                                                        root_frame_pa,
+                                                    )
+                                                };
+                                                let root_install =
+                                                    user_vm::install_user_vm_plan_in_root(
+                                                        &loaded,
+                                                        root_frame_pa,
+                                                        root,
+                                                    )
+                                                    .unwrap();
+>>>>>>> 953320b (feat(ch74): bind satp to root page table storage)
                                                 if user_vm::install_kernel_identity_mapping(
-                                                    &mut root,
+                                                    root,
                                                 )
                                                 .is_err()
                                                 {
@@ -974,6 +990,25 @@ fn run_user_launch_demo() {
                                                                                                 console::puts(
                                                                                                     "[chapter] ch73 user launch csr sequence\n",
                                                                                                 );
+                                                                                                if root_frame_pa
+                                                                                                    % sv39::PAGE_SIZE
+                                                                                                    == 0
+                                                                                                    && root_install
+                                                                                                        .root_ppn
+                                                                                                        == root_frame_pa
+                                                                                                            / sv39::PAGE_SIZE
+                                                                                                    && root_install
+                                                                                                        .satp
+                                                                                                        == sv39::make_satp(
+                                                                                                            root_frame_pa
+                                                                                                                / sv39::PAGE_SIZE,
+                                                                                                            0,
+                                                                                                        )
+                                                                                                {
+                                                                                                    console::puts(
+                                                                                                        "[chapter] ch74 root page table storage\n",
+                                                                                                    );
+                                                                                                }
                                                                                             }
                                                                                         }
                                                                                     }

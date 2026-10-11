@@ -99,6 +99,12 @@ pub fn install_user_vm_plan_in_root(
     })
 }
 
+pub unsafe fn root_page_table_from_identity_frame_mut<'a>(
+    root_frame_pa: usize,
+) -> &'a mut RootPageTable {
+    unsafe { &mut *(root_frame_pa as *mut RootPageTable) }
+}
+
 fn clear_root_page_table(root: &mut RootPageTable) {
     let mut idx = 0usize;
     while idx < PT_ENTRIES {
