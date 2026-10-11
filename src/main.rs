@@ -48,7 +48,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch19 trap outcome bridge\\n");
+    uart::puts("[chapter] ch20 scheduler switch\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }

@@ -6,6 +6,7 @@
 pub mod block;
 pub mod ramdisk;
 pub mod block_io;
+pub mod context_switch;
 pub mod device;
 pub mod elf_loader;
 pub mod ext4;
@@ -14,6 +15,7 @@ pub mod kheap;
 pub mod page_fault;
 pub mod page_frame_allocator;
 pub mod pmm;
+pub mod scheduler;
 pub mod syscall;
 pub mod sv39;
 pub mod trap;
@@ -34,6 +36,7 @@ mod tests {
     use super::block::{BlockDevice, BlockError};
     use super::ramdisk::RamDisk;
     use super::block_io::read_bytes;
+    use super::context_switch::switch_context;
     use super::device::{Device, DeviceKind};
     use super::elf_loader::{
         load_init_from_vfs, load_user_elf, pflags_to_pte, parse_elf_header, ElfError,
@@ -45,12 +48,13 @@ mod tests {
     };
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
+    use super::scheduler::{Scheduler, TaskState};
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
     use super::trap::{
-        handle_trap, handle_user_page_fault_outcome, TrapFrame, TrapOutcome,
+        handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame, TrapOutcome,
         SCAUSE_USER_ECALL,
     };
     use super::user_exec::{
@@ -296,6 +300,65 @@ mod tests {
             &mut pmm,
         );
         assert_eq!(outcome, TrapOutcome::Exit(-1));
+    }
+
+    #[test]
+    fn scheduler_round_robin_switches_between_two_tasks() {
+        let mut sched = Scheduler::<4>::new();
+        sched.add_runnable(1, TrapFrame::default()).unwrap();
+        sched.add_runnable(2, TrapFrame::default()).unwrap();
+
+        assert_eq!(sched.on_tick(), None);
+        assert_eq!(sched.current_tid(), Some(1));
+        assert_eq!(sched.on_tick(), Some((1, 2)));
+        assert_eq!(sched.current_tid(), Some(2));
+    }
+
+    #[test]
+    fn scheduler_skips_blocked_task() {
+        let mut sched = Scheduler::<4>::new();
+        sched.add_runnable(1, TrapFrame::default()).unwrap();
+        sched.add_runnable(2, TrapFrame::default()).unwrap();
+        sched.set_state(2, TaskState::Blocked);
+
+        assert_eq!(sched.on_tick(), None);
+        assert_eq!(sched.current_tid(), Some(1));
+        assert_eq!(sched.on_tick(), None);
+        assert_eq!(sched.current_tid(), Some(1));
+    }
+
+    #[test]
+    fn timer_tick_handler_updates_scheduler_ticks() {
+        let mut sched = Scheduler::<2>::new();
+        sched.add_runnable(1, TrapFrame::default()).unwrap();
+        let mut tf = TrapFrame::default();
+
+        assert_eq!(sched.tick_count(), 0);
+        assert_eq!(
+            handle_timer_tick_with_scheduler(&mut tf, &mut sched),
+            TrapOutcome::Resume
+        );
+        assert_eq!(sched.tick_count(), 1);
+    }
+
+    #[test]
+    fn context_switch_saves_prev_and_restores_next() {
+        let mut live = TrapFrame::default();
+        live.sepc = 0x1000;
+        live.set_sp(0x8000_1000);
+
+        let mut prev_slot = TrapFrame::default();
+        let mut next_slot = TrapFrame::default();
+        next_slot.sepc = 0x2000;
+        next_slot.set_sp(0x8000_2000);
+
+        let rec = switch_context(1, 2, &mut live, &mut prev_slot, &next_slot);
+        assert_eq!(rec.prev_tid, 1);
+        assert_eq!(rec.next_tid, 2);
+        assert_eq!(prev_slot.sepc, 0x1000);
+        assert_eq!(prev_slot.sp(), 0x8000_1000);
+        assert_eq!(live.sepc, 0x2000);
+        assert_eq!(live.sp(), 0x8000_2000);
     }
 
     #[test]

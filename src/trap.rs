@@ -6,6 +6,7 @@ use crate::syscall;
 use crate::{
     page_fault::{self, PageFaultResult},
     pmm::PageFrameManager,
+    scheduler::Scheduler,
     vm::VmSpace,
 };
 
@@ -138,4 +139,13 @@ pub fn handle_user_page_fault_outcome<const A: usize, const F: usize>(
         PageFaultResult::InvalidAccess | PageFaultResult::OutOfMemory => TrapOutcome::Exit(-1),
         PageFaultResult::Ignored => TrapOutcome::Fatal(scause),
     }
+}
+
+#[cfg(not(target_arch = "riscv64"))]
+pub fn handle_timer_tick_with_scheduler<const N: usize>(
+    _frame: &mut TrapFrame,
+    scheduler: &mut Scheduler<N>,
+) -> TrapOutcome {
+    let _ = scheduler.on_tick();
+    TrapOutcome::Resume
 }
