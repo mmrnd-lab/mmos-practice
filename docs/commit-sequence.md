@@ -304,6 +304,11 @@
     - commit 뒤에도 kernel identity mapping 아래에서 supervisor 코드가 계속 실행되고 chapter marker를 출력할 수 있음을 테스트와 런타임 시그니처로 검증
 
 
+78. `c671750` `feat(ch86): gate supervisor user memory access`
+    - S-mode가 U page를 읽고 쓸 때만 `sstatus.SUM`을 여는 `user_access` gate를 추가
+    - raw user pointer를 읽는 `write` syscall 경로가 user memory access gate 안에서만 user slice를 만들도록 보강
+
+
 ## Reproduce Example
 
 ```bash

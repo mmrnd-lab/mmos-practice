@@ -1488,6 +1488,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared user satp is written persistently and kernel output continues under the new root",
     ),
     ChapterSet(
+        key="ch86_user_memory_access_gate",
+        label="Ch86 User Memory Access Gate",
+        commit_candidates=["c671750"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch86 user memory access gate",
+                    "[chapter] ch85 persistent satp commit",
+                    "[chapter] ch84 user frame materialize",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=supervisor opens a scoped SUM window after persistent satp commit",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
