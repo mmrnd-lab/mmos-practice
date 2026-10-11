@@ -39,16 +39,14 @@ pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResu
 
 #[cfg(target_arch = "riscv64")]
 fn handle_write(fd: usize, ptr: usize, len: usize) -> SyscallResult {
-    if fd != 1 {
-        return SyscallResult::Continue(-1);
-    }
     if len == 0 {
         return SyscallResult::Continue(0);
     }
 
     let capped = core::cmp::min(len, 1024);
     let bytes = unsafe { core::slice::from_raw_parts(ptr as *const u8, capped) };
-    match crate::console::write(bytes) {
+    let table = crate::fd_table::stdio_table(crate::console::device());
+    match table.write(fd, bytes) {
         Ok(written) => SyscallResult::Continue(written as isize),
         Err(_) => SyscallResult::Continue(-1),
     }

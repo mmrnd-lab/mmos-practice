@@ -12,6 +12,8 @@ mod serial;
 mod console;
 mod char_device;
 #[allow(dead_code)]
+mod fd_table;
+#[allow(dead_code)]
 mod ramdisk;
 #[allow(dead_code)]
 mod demo_user_init;
@@ -87,6 +89,7 @@ pub extern "C" fn rust_main() -> ! {
     console::puts(CONSOLE_KIND);
     console::puts("\n");
     console::puts("[chapter] ch32 serial character device\n");
+    console::puts("[chapter] ch33 fd table stdio\n");
 
     let mut boot_tf = trap::TrapFrame::default();
     boot_tf.set_sp(0x8050_0000);

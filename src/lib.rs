@@ -14,6 +14,7 @@ pub mod demo_user_init;
 pub mod device;
 pub mod elf_loader;
 pub mod ext4;
+pub mod fd_table;
 pub mod irq_guard;
 pub mod kheap;
 pub mod page_fault;
@@ -54,6 +55,7 @@ mod tests {
         load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte, ElfError,
     };
     use super::ext4::{Ext4Fs, FsError};
+    use super::fd_table::{stdio_table, FileDescriptorTable, FileError, OpenFile};
     use super::kheap::init_kheap;
     use super::page_fault::{
         handle_user_page_fault, PageFaultResult, SCAUSE_LOAD_PAGE_FAULT, SCAUSE_STORE_PAGE_FAULT,
@@ -137,6 +139,32 @@ mod tests {
             self.written.borrow_mut().extend_from_slice(bytes);
             Ok(bytes.len())
         }
+    }
+
+    #[test]
+    fn fd_table_preopens_stdio_to_console_slots() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"in")));
+        let table = stdio_table(dev);
+
+        assert!(table.get(0).is_ok());
+        assert!(table.get(1).is_ok());
+        assert!(table.get(2).is_ok());
+        assert_eq!(table.write(1, b"stdout"), Ok(6));
+        assert_eq!(table.write(2, b"stderr"), Ok(6));
+        assert_eq!(dev.written(), b"stdoutstderr".to_vec());
+        assert_eq!(table.write(0, b"nope"), Err(FileError::NotWritable));
+        assert_eq!(table.write(3, b"nope"), Err(FileError::BadFd));
+    }
+
+    #[test]
+    fn fd_table_allocates_lowest_free_descriptor() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let mut table = FileDescriptorTable::<4>::new();
+
+        assert_eq!(table.allocate(OpenFile::write_only_character(dev)), Ok(0));
+        assert_eq!(table.allocate(OpenFile::write_only_character(dev)), Ok(1));
+        assert_eq!(table.write(1, b"fd1"), Ok(3));
+        assert_eq!(dev.written(), b"fd1".to_vec());
     }
 
     #[test]
