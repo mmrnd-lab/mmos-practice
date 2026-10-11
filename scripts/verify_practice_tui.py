@@ -2747,6 +2747,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=turns ET_DYN load segments into preferred-base user mapping candidates before page table install",
     ),
     ChapterSet(
+        key="ch158_shared_object_frame_plan",
+        label="Ch158 Shared Object Frame Plan",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-frame-plan",
+                "make shared-object-frame-plan PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-frame-plan=pmm-backed-segments page-table-ready",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch158 shared object frame plan",
+                    "[user-link] shared object mapping candidates receive PMM-backed frames before page table install",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=allocates PMM-backed frames for shared object mapping candidates before page table install",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

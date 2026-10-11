@@ -170,10 +170,11 @@ mod tests {
         build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
         install_frame_backed_user_mapping_in_tables, install_user_vm_plan_in_root,
         is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
-        plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
+        plan_frame_backed_shared_object, plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
         KernelRuntimeSatpGuard,
         KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
-        SatpCommitPreflight, SatpCommitPreflightError, UserFrameBackedImageError,
+        SatpCommitPreflight, SatpCommitPreflightError, SharedObjectFramePlanError,
+        UserFrameBackedImageError,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
@@ -5137,6 +5138,39 @@ mod tests {
         assert_eq!(
             plan_frame_backed_user_image(&loaded, &mut pmm, 512),
             Err(UserFrameBackedImageError::OutOfFrames)
+        );
+    }
+
+    #[test]
+    fn frame_backed_shared_object_plan_allocates_segment_frame() {
+        let elf = build_test_dyn_elf();
+        let mapping = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+
+        let plan = plan_frame_backed_shared_object(&mapping, &mut pmm).unwrap();
+        let segment = plan.segments[0].unwrap();
+
+        assert_eq!(plan.base, 0x5000_0000);
+        assert_eq!(plan.entry_vaddr, 0x9000_0000);
+        assert_eq!(plan.entry_frame_pa, 0x9100_0000);
+        assert_eq!(plan.segment_count, 1);
+        assert_eq!(segment.vaddr, 0x9000_0000);
+        assert_eq!(segment.frame_pa, 0x9100_0000);
+        assert_eq!(segment.file_size, 160);
+        assert_eq!(segment.flags, 5);
+    }
+
+    #[test]
+    fn frame_backed_shared_object_plan_reports_out_of_frames() {
+        let elf = build_test_dyn_elf();
+        let mapping = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<0>::new(0x9100_0000, 0x9100_0000, super::sv39::PAGE_SIZE);
+
+        assert_eq!(
+            plan_frame_backed_shared_object(&mapping, &mut pmm),
+            Err(SharedObjectFramePlanError::OutOfFrames)
         );
     }
 

@@ -1,7 +1,7 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::elf_loader::{pflags_to_pte, LoadedUserImage};
+use crate::elf_loader::{pflags_to_pte, LoadedUserImage, SharedObjectMappingPlan};
 use crate::sv39::{
     make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_G, PTE_R,
     PTE_U, PTE_V, PTE_W, PTE_X, PT_ENTRIES,
@@ -67,11 +67,38 @@ pub struct UserFrameBackedImagePlan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectFramePlan {
+    pub vaddr: usize,
+    pub frame_pa: usize,
+    pub file_size: usize,
+    pub mem_size: usize,
+    pub flags: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectFrameBackedPlan {
+    pub base: usize,
+    pub entry_vaddr: usize,
+    pub entry_frame_pa: usize,
+    pub segment_count: usize,
+    pub segments: [Option<SharedObjectFramePlan>; 4],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserFrameBackedImageError {
     NoSegments,
     TooManySegments,
     SegmentTooLarge,
     StackTooLarge,
+    OutOfFrames,
+    EntryNotMapped,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharedObjectFramePlanError {
+    NoSegments,
+    TooManySegments,
+    SegmentTooLarge,
     OutOfFrames,
     EntryNotMapped,
 }
@@ -273,6 +300,68 @@ pub fn plan_frame_backed_user_image<const FREE_CAP: usize>(
         stack_frame_start_pa,
         stack_pages,
         segment_count: loaded.segment_count,
+        segments,
+    })
+}
+
+pub fn plan_frame_backed_shared_object<const FREE_CAP: usize>(
+    mapping: &SharedObjectMappingPlan,
+    pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
+) -> Result<SharedObjectFrameBackedPlan, SharedObjectFramePlanError> {
+    if mapping.segment_count == 0 {
+        return Err(SharedObjectFramePlanError::NoSegments);
+    }
+    if mapping.segment_count > 4 {
+        return Err(SharedObjectFramePlanError::TooManySegments);
+    }
+
+    let mut segments: [Option<SharedObjectFramePlan>; 4] = [None; 4];
+    let mut entry_frame_pa = 0usize;
+    let mut seg_idx = 0usize;
+    while seg_idx < mapping.segment_count {
+        let seg = mapping.segments[seg_idx].ok_or(SharedObjectFramePlanError::NoSegments)?;
+        let page_offset = seg.vaddr & (PAGE_SIZE - 1);
+        if page_offset + seg.mem_size > PAGE_SIZE {
+            return Err(SharedObjectFramePlanError::SegmentTooLarge);
+        }
+
+        let page_vaddr = seg.vaddr & !(PAGE_SIZE - 1);
+        let mut frame_pa = 0usize;
+        let mut prev = 0usize;
+        while prev < seg_idx {
+            if let Some(prev_seg) = segments[prev] {
+                if (prev_seg.vaddr & !(PAGE_SIZE - 1)) == page_vaddr {
+                    frame_pa = prev_seg.frame_pa;
+                    break;
+                }
+            }
+            prev += 1;
+        }
+        if frame_pa == 0 {
+            frame_pa = pmm.alloc().ok_or(SharedObjectFramePlanError::OutOfFrames)?;
+        }
+        if mapping.entry_vaddr >= seg.vaddr && mapping.entry_vaddr < seg.vaddr + seg.mem_size {
+            entry_frame_pa = frame_pa + (mapping.entry_vaddr - page_vaddr);
+        }
+        segments[seg_idx] = Some(SharedObjectFramePlan {
+            vaddr: seg.vaddr,
+            frame_pa,
+            file_size: seg.file_size,
+            mem_size: seg.mem_size,
+            flags: seg.flags,
+        });
+        seg_idx += 1;
+    }
+
+    if entry_frame_pa == 0 {
+        return Err(SharedObjectFramePlanError::EntryNotMapped);
+    }
+
+    Ok(SharedObjectFrameBackedPlan {
+        base: mapping.base,
+        entry_vaddr: mapping.entry_vaddr,
+        entry_frame_pa,
+        segment_count: mapping.segment_count,
         segments,
     })
 }
