@@ -3079,6 +3079,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] shared object frame plan installs user leaf mappings without stack pages\n");
     console::puts("[chapter] ch160 shared object load pipeline\n");
     console::puts("[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings\n");
+    console::puts("[chapter] ch161 shared object path load\n");
+    console::puts("[user-link] shared object path load reads VFS bytes before running the load pipeline\n");
 }
 
 fn run_kernel_satp_guard_demo() {

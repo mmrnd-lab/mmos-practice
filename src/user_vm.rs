@@ -5,10 +5,12 @@ use crate::elf_loader::{
     materialize_shared_object_relocations, pflags_to_pte, plan_shared_object_mappings, ElfError,
     LoadedUserImage, SharedObjectMappingPlan,
 };
+use crate::ext4::FsError;
 use crate::sv39::{
     make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_G, PTE_R,
     PTE_U, PTE_V, PTE_W, PTE_X, PT_ENTRIES,
 };
+use crate::vfs::Vfs;
 
 pub const GIB_SHIFT: usize = 30;
 const PPN_GIB_SHIFT: usize = 18;
@@ -121,6 +123,12 @@ pub enum SharedObjectLoadPipelineError {
     Elf(ElfError),
     Frame(SharedObjectFramePlanError),
     Mapping(UserFrameBackedMappingError),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharedObjectPathLoadError {
+    Fs(FsError),
+    Pipeline(SharedObjectLoadPipelineError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -522,6 +530,32 @@ pub fn load_shared_object_pipeline_in_tables<const FREE_CAP: usize>(
         segment_count: frame_plan.segment_count,
         mapped_pages: install.mapped_pages,
     })
+}
+
+pub fn load_shared_object_from_vfs_in_tables<const FREE_CAP: usize>(
+    vfs: &Vfs<'_>,
+    path: &str,
+    scratch: &mut [u8],
+    preferred_base: usize,
+    pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
+    root: &mut RootPageTable,
+    l1: &mut RootPageTable,
+    l1_frame_pa: usize,
+    l0: &mut RootPageTable,
+    l0_frame_pa: usize,
+) -> Result<SharedObjectLoadPipeline, SharedObjectPathLoadError> {
+    let used = vfs.read_all(path, scratch).map_err(SharedObjectPathLoadError::Fs)?;
+    load_shared_object_pipeline_in_tables(
+        &mut scratch[..used],
+        preferred_base,
+        pmm,
+        root,
+        l1,
+        l1_frame_pa,
+        l0,
+        l0_frame_pa,
+    )
+    .map_err(SharedObjectPathLoadError::Pipeline)
 }
 
 pub fn install_frame_backed_user_mapping<const FREE_CAP: usize>(

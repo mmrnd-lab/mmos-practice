@@ -2822,6 +2822,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=combines shared object relocation materialization, frame planning, and leaf mapping install",
     ),
     ChapterSet(
+        key="ch161_shared_object_path_load",
+        label="Ch161 Shared Object Path Load",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-path-load",
+                "make shared-object-path-load PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-path-load=/lib/libmmos_user_crt.so pipeline=ready",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch161 shared object path load",
+                    "[user-link] shared object path load reads VFS bytes before running the load pipeline",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=loads shared object bytes from VFS path before running the shared object load pipeline",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
