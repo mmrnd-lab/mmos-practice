@@ -279,6 +279,11 @@
     - scheduler의 address-space switch가 PCB에 복사된 `satp` 대신 address-space table에서 해석한 `satp`를 사용할 수 있음을 테스트와 런타임 probe로 검증
 
 
+73. `5fd41c4` `feat(ch81): probe satp hardware commit roundtrip`
+    - address-space table에서 얻은 `satp`를 실제 CSR에 잠깐 쓰고 `sfence.vma` 뒤 bare `satp=0`으로 복구하는 probe를 추가
+    - hardware commit probe 전에 새 root table에도 kernel identity mapping이 유지되는지 확인하고 테스트와 런타임 시그니처로 검증
+
+
 ## Reproduce Example
 
 ```bash

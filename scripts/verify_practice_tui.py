@@ -1393,6 +1393,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=PCB address_space_id resolves satp through address-space table",
     ),
     ChapterSet(
+        key="ch81_satp_hardware_commit_probe",
+        label="Ch81 SATP Hardware Commit Probe",
+        commit_candidates=["5fd41c4"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch81 satp hardware commit probe",
+                    "[chapter] ch80 pcb address space handle",
+                    "[chapter] ch79 process address space root",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=temporary satp CSR write, sfence.vma, and restore-to-bare probe",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
