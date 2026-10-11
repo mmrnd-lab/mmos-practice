@@ -1563,7 +1563,11 @@ fn run_execv_path_vfs_image_demo() {
         return;
     }
 
-    let (elf, image) = unsafe { (&mut CH105_INIT_ELF, &mut CH105_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH105_INIT_ELF), &mut *(&raw mut CH105_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -1618,7 +1622,11 @@ fn run_execv_apply_pipeline_demo() {
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
-    let (elf, image) = unsafe { (&mut CH106_INIT_ELF, &mut CH106_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH106_INIT_ELF), &mut *(&raw mut CH106_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -1713,7 +1721,11 @@ fn run_execv_syscall_surface_demo() {
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
-    let (elf, image) = unsafe { (&mut CH107_INIT_ELF, &mut CH107_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH107_INIT_ELF), &mut *(&raw mut CH107_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -1807,7 +1819,11 @@ fn run_current_execv_syscall_runtime_demo() {
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
-    let (elf, image) = unsafe { (&mut CH108_INIT_ELF, &mut CH108_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH108_INIT_ELF), &mut *(&raw mut CH108_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -1886,7 +1902,11 @@ fn run_execv_dispatch_context_demo() {
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
-    let (elf, image) = unsafe { (&mut CH109_INIT_ELF, &mut CH109_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH109_INIT_ELF), &mut *(&raw mut CH109_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -1956,7 +1976,11 @@ fn run_execv_runtime_context_demo() {
         return;
     };
 
-    let (elf, image) = unsafe { (&mut CH110_INIT_ELF, &mut CH110_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH110_INIT_ELF), &mut *(&raw mut CH110_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2031,7 +2055,11 @@ fn run_execv_frame_dispatch_demo() {
         0,
     );
 
-    let (elf, image) = unsafe { (&mut CH111_INIT_ELF, &mut CH111_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH111_INIT_ELF), &mut *(&raw mut CH111_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2112,7 +2140,11 @@ fn run_execv_frame_writeback_demo() {
         0,
     );
 
-    let (elf, image) = unsafe { (&mut CH112_INIT_ELF, &mut CH112_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH112_INIT_ELF), &mut *(&raw mut CH112_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2195,7 +2227,11 @@ fn run_execv_trap_dispatch_demo() {
         0,
     );
 
-    let (elf, image) = unsafe { (&mut CH113_INIT_ELF, &mut CH113_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH113_INIT_ELF), &mut *(&raw mut CH113_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2281,7 +2317,11 @@ fn run_execv_trap_resources_demo() {
         0,
     );
 
-    let (elf, image) = unsafe { (&mut CH114_INIT_ELF, &mut CH114_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH114_INIT_ELF), &mut *(&raw mut CH114_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2426,7 +2466,11 @@ fn run_execv_prepared_entry_dispatch_demo() {
         0,
     );
 
-    let (elf, image) = unsafe { (&mut CH137_INIT_ELF, &mut CH137_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH137_INIT_ELF), &mut *(&raw mut CH137_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2507,7 +2551,11 @@ fn run_prepared_process_syscall_entry_demo() {
         0,
     );
 
-    let (elf, image) = unsafe { (&mut CH138_INIT_ELF, &mut CH138_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH138_INIT_ELF), &mut *(&raw mut CH138_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2585,7 +2633,11 @@ fn run_prepared_process_syscall_entry_demo() {
 }
 
 fn run_process_syscall_write_entry_demo() {
-    let (elf, image) = unsafe { (&mut CH139_INIT_ELF, &mut CH139_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH139_INIT_ELF), &mut *(&raw mut CH139_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2680,7 +2732,11 @@ fn run_process_syscall_write_entry_demo() {
 }
 
 fn run_process_syscall_read_entry_demo() {
-    let (elf, image) = unsafe { (&mut CH140_INIT_ELF, &mut CH140_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH140_INIT_ELF), &mut *(&raw mut CH140_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2778,7 +2834,11 @@ fn run_process_syscall_read_entry_demo() {
 }
 
 fn run_process_syscall_close_entry_demo() {
-    let (elf, image) = unsafe { (&mut CH141_INIT_ELF, &mut CH141_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH141_INIT_ELF), &mut *(&raw mut CH141_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
@@ -2884,7 +2944,11 @@ fn run_process_syscall_close_entry_demo() {
 }
 
 fn run_process_syscall_openat_entry_demo() {
-    let (elf, image) = unsafe { (&mut CH142_INIT_ELF, &mut CH142_EXT4_IMAGE) };
+    // The chapter buffers are exclusively borrowed during this probe.
+    // Do not call this path concurrently or re-enter it from an interrupt.
+    let (elf, image) = unsafe {
+        (&mut *(&raw mut CH142_INIT_ELF), &mut *(&raw mut CH142_EXT4_IMAGE))
+    };
     let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
         return;
     };
