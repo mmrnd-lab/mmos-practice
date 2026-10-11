@@ -35,6 +35,7 @@ pub mod trap;
 pub mod trap_runtime;
 pub mod user_copy;
 pub mod uart;
+pub mod user_access;
 pub mod user_exec;
 pub mod user_init;
 pub mod user_launch;
@@ -124,6 +125,10 @@ mod tests {
         install_exec_context, load_init_exec_image, materialize_frame_backed_user_image,
         materialize_segments, ExecError, FrameBackedMaterializeError, FrameRegionMut,
         UserExecImage, UserRegionMut,
+    };
+    use super::user_access::{
+        enable_user_memory_access_status, restore_user_memory_access_status,
+        user_access_window_from_status, user_memory_access_enabled, SSTATUS_SUM,
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::user_launch::prepare_user_init_launch;
@@ -380,6 +385,20 @@ mod tests {
         );
         assert_eq!(io.write_fd(3, b"copied-path"), Ok(11));
         assert_eq!(dev.written(), b"copied-path".to_vec());
+    }
+
+    #[test]
+    fn user_memory_access_status_window_enables_sum_then_restores() {
+        let previous = 0x20;
+        let enabled = enable_user_memory_access_status(previous);
+        let restored = restore_user_memory_access_status(previous);
+        let window = user_access_window_from_status(previous);
+
+        assert_eq!(enabled, previous | SSTATUS_SUM);
+        assert!(user_memory_access_enabled(enabled));
+        assert_eq!(restored, previous);
+        assert_eq!(window.enabled_sstatus, enabled);
+        assert_eq!(window.restored_sstatus, restored);
     }
 
     #[test]

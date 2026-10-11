@@ -200,9 +200,12 @@ fn handle_write(fd: usize, ptr: usize, len: usize) -> SyscallResult {
     }
 
     let capped = core::cmp::min(len, 1024);
-    let bytes = unsafe { core::slice::from_raw_parts(ptr as *const u8, capped) };
-    let table = crate::fd_table::stdio_table(crate::console::device());
-    match table.write(fd, bytes) {
+    let result = crate::user_access::with_user_memory_access(|| {
+        let bytes = unsafe { core::slice::from_raw_parts(ptr as *const u8, capped) };
+        let table = crate::fd_table::stdio_table(crate::console::device());
+        table.write(fd, bytes)
+    });
+    match result {
         Ok(written) => SyscallResult::Continue(written as isize),
         Err(_) => SyscallResult::Continue(-1),
     }

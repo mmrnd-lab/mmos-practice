@@ -56,6 +56,8 @@ mod trap;
 mod trap_runtime;
 mod uart;
 #[allow(dead_code)]
+mod user_access;
+#[allow(dead_code)]
 mod user_copy;
 #[allow(dead_code)]
 mod user_exec;
@@ -88,6 +90,7 @@ static mut USER_FRAME_BACKED_MAPPING_READY: bool = false;
 static mut USER_FRAME_BACKED_MATERIALIZE_READY: bool = false;
 static mut PERSISTENT_SATP_COMMIT_SATP: usize = 0;
 static mut PERSISTENT_SATP_COMMIT_READY: bool = false;
+static mut USER_MEMORY_ACCESS_GATE_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -767,6 +770,20 @@ fn run_persistent_satp_commit_demo() {
             );
         }
         console::puts("[chapter] ch85 persistent satp commit\n");
+        let access = user_access::with_user_memory_access(|| {
+            user_access::user_access_window_from_status(0)
+        });
+        if user_access::user_memory_access_enabled(access.enabled_sstatus)
+            && !user_access::user_memory_access_enabled(access.restored_sstatus)
+        {
+            unsafe {
+                core::ptr::write_volatile(
+                    core::ptr::addr_of_mut!(USER_MEMORY_ACCESS_GATE_READY),
+                    true,
+                );
+            }
+            console::puts("[chapter] ch86 user memory access gate\n");
+        }
     }
 }
 
