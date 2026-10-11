@@ -91,8 +91,8 @@ TUI 없이 특정 챕터를 바로 확인하려면 `--cli`를 붙입니다.
 
 ```bash
 ./scripts/verify_practice_tui.py --list
-./scripts/verify_practice_tui.py --cli ch27_first_user_sret
-./scripts/verify_practice_tui.py --cli ch28_user_app_build --quiet
+./scripts/verify_practice_tui.py --cli ch28_first_user_sret
+./scripts/verify_practice_tui.py --cli ch24_user_app_build --quiet
 ./scripts/verify_practice_tui.py --cli --all --keep-going --quiet
 ```
 

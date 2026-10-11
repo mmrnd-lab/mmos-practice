@@ -292,7 +292,7 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=storage boot chain via U-Boot",
     ),
     ChapterSet(
-        key="ch14_fs",
+        key="ch15_fs",
         label="Ch15 Kernel FS Foundation",
         commit_candidates=["5a9772d"],
         steps=[
@@ -306,7 +306,7 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=ext4/extlinux boot path active",
     ),
     ChapterSet(
-        key="ch16_elf",
+        key="ch17_elf",
         label="Ch17 ELF Loader and Exec Prep",
         commit_candidates=["17491b1"],
         steps=[
@@ -397,76 +397,8 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=scheduler/process model demo logs are visible in QEMU",
     ),
     ChapterSet(
-        key="ch24_user_stack_abi",
-        label="Ch24 User ABI Stack Layout (argc/argv/envp)",
-        commit_candidates=["d7f8cb4"],
-        steps=[
-            Step(
-                "user-stack-tests",
-                "make test && cargo test --lib --target x86_64-unknown-linux-gnu user_stack_builder_writes_argc_argv_envp_layout",
-                must_contain=(
-                    "user_stack_builder_writes_argc_argv_envp_layout ... ok",
-                ),
-            ),
-        ],
-        note="runtime signature=initial user stack ABI is validated by focused tests",
-    ),
-    ChapterSet(
-        key="ch25_user_init_launch_handoff",
-        label="Ch25 User Init Launch Handoff",
-        commit_candidates=["3ab359e"],
-        steps=[
-            Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step(
-                "run-nographic",
-                "make run-nographic PROFILE=release RUN_SECONDS=4",
-                must_contain=(
-                    "[chapter] ch25 user init launch handoff",
-                    "[launch] vm+stack+trapframe ready for first sret",
-                ),
-            ),
-        ],
-        note="runtime signature=exec/vm/stack handoff checkpoints are visible before first sret",
-    ),
-    ChapterSet(
-        key="ch26_runtime_user_init_load",
-        label="Ch26 Runtime User Init Load + Handoff",
-        commit_candidates=["da7e19e"],
-        steps=[
-            Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step(
-                "run-nographic",
-                "make run-nographic PROFILE=release RUN_SECONDS=4",
-                must_contain=(
-                    "[chapter] ch18 exec prep",
-                    "[runtime] loaded /sbin/init from ext4 into exec image",
-                    "[chapter] ch25 user init launch handoff",
-                ),
-            ),
-        ],
-        note="runtime signature=kernel path mounts ext4 demo image and prepares first user handoff",
-    ),
-    ChapterSet(
-        key="ch27_first_user_sret",
-        label="Ch27 First User SRET Execution",
-        commit_candidates=["2371b8b"],
-        steps=[
-            Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step(
-                "run-nographic",
-                "make run-nographic PROFILE=release RUN_SECONDS=4",
-                must_contain=(
-                    "[chapter] ch27 first user sret",
-                    "[user-init] hello from user app",
-                    "[user-init] exit=0",
-                ),
-            ),
-        ],
-        note="runtime signature=kernel enters U-mode and user-init emits syscall write/exit logs",
-    ),
-    ChapterSet(
-        key="ch28_user_app_build",
-        label="Ch28 User App Build Foundation",
+        key="ch24_user_app_build",
+        label="Ch24 User App Build Foundation",
         commit_candidates=["25e3344"],
         steps=[
             Step(
@@ -487,23 +419,75 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=real user-init ELF is built/injected and can be inspected with readelf (-S/-l) for section+segment sanity",
     ),
     ChapterSet(
-        key="live_ch25_launch_handoff",
-        label="Live Ch25 Runtime (HEAD)",
-        commit_candidates=["HEAD"],
+        key="ch25_user_stack_abi",
+        label="Ch25 User ABI Stack Layout (argc/argv/envp)",
+        commit_candidates=["d7f8cb4"],
         steps=[
+            Step(
+                "user-stack-tests",
+                "make test && cargo test --lib --target x86_64-unknown-linux-gnu user_stack_builder_writes_argc_argv_envp_layout",
+                must_contain=(
+                    "user_stack_builder_writes_argc_argv_envp_layout ... ok",
+                ),
+            ),
+        ],
+        note="runtime signature=initial user stack ABI is validated by focused tests",
+    ),
+    ChapterSet(
+        key="ch26_user_init_launch_handoff",
+        label="Ch26 User Init Launch Handoff",
+        commit_candidates=["3ab359e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=4",
                 must_contain=(
-                    "[chapter] ch25 user init launch handoff",
+                    "[chapter] ch26 user init launch handoff",
                     "[launch] vm+stack+trapframe ready for first sret",
                 ),
             ),
         ],
-        note="live signature=launch handoff is built from vm+stack+trapframe probe",
+        note="runtime signature=exec/vm/stack handoff checkpoints are visible before first sret",
     ),
     ChapterSet(
-        key="live_ch26_runtime_integration",
+        key="ch27_runtime_user_init_load",
+        label="Ch27 Runtime User Init Load + Handoff",
+        commit_candidates=["da7e19e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch18 exec prep",
+                    "[runtime] loaded /sbin/init from virtio ext4 into exec image",
+                    "[chapter] ch26 user init launch handoff",
+                ),
+            ),
+        ],
+        note="runtime signature=kernel path mounts the virtio ext4 image and prepares first user handoff",
+    ),
+    ChapterSet(
+        key="ch28_first_user_sret",
+        label="Ch28 First User SRET Execution",
+        commit_candidates=["2371b8b"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch28 first user sret",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=kernel enters U-mode and user-init emits syscall write/exit logs",
+    ),
+    ChapterSet(
+        key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
         steps=[
@@ -511,15 +495,15 @@ CHAPTERS: List[ChapterSet] = [
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=4",
                 must_contain=(
-                    "[runtime] loaded /sbin/init from ext4 into exec image",
+                    "[chapter] ch26 user init launch handoff",
                     "[launch] vm+stack+trapframe ready for first sret",
                 ),
             ),
         ],
-        note="live signature=ext4->elf->launch integration path executes in QEMU runtime",
+        note="live signature=launch handoff is built from vm+stack+trapframe probe",
     ),
     ChapterSet(
-        key="live_ch27_first_sret",
+        key="live_ch27_runtime_integration",
         label="Live Ch27 Runtime (HEAD)",
         commit_candidates=["HEAD"],
         steps=[
@@ -527,7 +511,23 @@ CHAPTERS: List[ChapterSet] = [
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=4",
                 must_contain=(
-                    "[chapter] ch27 first user sret",
+                    "[runtime] loaded /sbin/init from virtio ext4 into exec image",
+                    "[launch] vm+stack+trapframe ready for first sret",
+                ),
+            ),
+        ],
+        note="live signature=virtio ext4->elf->launch integration path executes in QEMU runtime",
+    ),
+    ChapterSet(
+        key="live_ch28_first_sret",
+        label="Live Ch28 Runtime (HEAD)",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch28 first user sret",
                     "[user-init] hello from user app",
                     "[user-init] exit=0",
                 ),
@@ -2097,7 +2097,7 @@ def select_cli_chapters(targets: Sequence[str], all_chapters: bool) -> List[Chap
         if matches[0] not in selected:
             selected.append(matches[0])
     if not selected:
-        raise SystemExit("no chapter selected; pass a chapter key such as ch27_first_user_sret or use --all")
+        raise SystemExit("no chapter selected; pass a chapter key such as ch28_first_user_sret or use --all")
     return selected
 
 
@@ -2205,7 +2205,7 @@ def run_cli(args: argparse.Namespace) -> int:
 
 def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify mmos-practice chapter checkpoints.")
-    parser.add_argument("targets", nargs="*", help="chapter key/label/prefix, e.g. ch27_first_user_sret or ch27")
+    parser.add_argument("targets", nargs="*", help="chapter key/label/prefix, e.g. ch28_first_user_sret or ch28")
     parser.add_argument("--cli", action="store_true", help="run without TUI and print pass/fail results")
     parser.add_argument("--list", action="store_true", help="list available chapter keys and exit")
     parser.add_argument("--all", action="store_true", help="run all non-live chapter sets")
