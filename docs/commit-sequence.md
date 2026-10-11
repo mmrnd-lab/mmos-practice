@@ -470,6 +470,12 @@
     - caller는 dispatch state를 직접 생성하지 않고 plan을 준비한 뒤 `prepare(&vfs)`로 state를 만든다
     - QEMU runtime marker에서 `[chapter] ch119 execv dispatch plan`, `[trap] execve dispatch plan routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+107. `37e4577` `feat(ch120): move execve dispatch plan into runtime`
+    - `ProcessTrapRuntime`이 execve stack top 정책을 보관하고, `execv_dispatch_plan()`으로 plan을 만들어 주도록 연결
+    - caller는 `ExecvTrapDispatchPlan::new(...)`를 직접 호출하지 않고 runtime에서 plan을 얻은 뒤 VFS 참조로 dispatch state를 준비
+    - runtime 초기화 시점에 먼저 정할 수 있는 execve 정책과 VFS mount 이후에 준비되는 dispatch state 경계를 분리
+    - QEMU runtime marker에서 `[chapter] ch120 execv runtime plan`, `[trap] execve runtime plan routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
