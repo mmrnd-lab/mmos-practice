@@ -83,6 +83,10 @@
     - `/`, `/dev`, `/dev/console`을 해석하는 최소 devfs namespace를 추가
     - character/block device node를 표현하고 console device node를 `OpenFile`로 연결
 
+29. `d816c1e` `feat(ch35): add open path fd allocation`
+    - `/dev/console` path lookup 결과를 `OpenFile`로 만들고 fd table의 빈 슬롯에 등록
+    - `SYS_OPENAT` decode와 `handle_open_path()` helper를 추가해 다음 syscall 통합 단계의 발판 고정
+
 
 ## Reproduce Example
 

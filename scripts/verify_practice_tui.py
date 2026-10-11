@@ -553,6 +553,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=/dev/console resolves through the devfs namespace model",
     ),
     ChapterSet(
+        key="ch35_open_path_fd_allocation",
+        label="Ch35 Open Path and FD Allocation",
+        commit_candidates=["d816c1e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch35 open syscall path",
+                    "[chapter] ch34 devfs device nodes",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=open path helper allocates a new fd for /dev/console",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
