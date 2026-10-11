@@ -3051,6 +3051,30 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve copies envp table into replacement user stack",
     ),
     ChapterSet(
+        key="ch171_user_crt_env_lookup",
+        label="Ch171 User CRT Env Lookup",
+            commit_candidates=["28e01ce"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-crt-env-lookup",
+                "make user-crt-env-lookup PROFILE=release",
+                must_contain=("[user-crt] env-lookup=KEY=VALUE value-writer",),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch171 user crt env lookup",
+                    "[user-crt] app can ask CRT to print an env value by key",
+                    "[user-init] getenv PATH=/bin",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=CRT helper resolves PATH value from envp table",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

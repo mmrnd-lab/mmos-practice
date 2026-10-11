@@ -784,3 +784,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - syscall/exec apply 경로가 decoded `envp_ptr`를 더 이상 버리지 않고 argument copy/materialize 단계까지 전달
     - null `envp_ptr`는 기존 호출 호환성을 위해 empty environment로 처리
     - QEMU runtime marker에서 `[chapter] ch170 execve envp copyin`, `[syscall] execve envp0=PATH=/bin stack_envc=1` 확인
+
+154. `28e01ce` `feat(ch171): add user crt env lookup helper`
+    - CRT가 `envp` pointer table에서 `KEY=VALUE` entry를 찾고 value 부분을 출력하는 `write_env_value()` helper를 제공
+    - user init은 raw `envp[0]` 출력에 더해 CRT helper로 `PATH` 값을 조회해 `/bin`을 출력
+    - `make user-crt-env-lookup` 타깃과 verifier가 helper symbol과 runtime output을 확인
+    - QEMU runtime marker에서 `[chapter] ch171 user crt env lookup`, `[user-init] getenv PATH=/bin` 확인
