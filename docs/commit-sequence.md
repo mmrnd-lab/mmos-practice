@@ -764,3 +764,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 shared object 파일이 있을 때 dispatch 경로가 `/sbin/init` 실행 image와 shared object leaf mapping을 설치하고, dependency 파일이 없으면 `-EIO`로 실패하는 경계를 검증
     - `make exec-dispatch-shared-object-runtime` 타깃이 dispatch 경계가 shared object aware exec apply를 선택하는 상태를 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch166 exec dispatch shared object runtime`, `[user-link] exec dispatch path can select the shared object aware apply runtime` 확인
+
+151. `16d65bd` `feat(ch168): call app main from user crt entry`
+    - `user/crt`가 final user ELF의 `_start` symbol을 제공하고 initial stack pointer를 Rust CRT start helper로 전달
+    - CRT start helper가 kernel이 만든 `argc`, `argv`, `envp` stack layout을 읽어 app-exported `main()`을 호출
+    - `user/init`은 `_start()` 대신 `main()`을 구현하고 반환 코드는 CRT `exit()` 경로로 처리
+    - `make user-crt-entry` 타깃과 verifier가 `_start`/`main` symbol 및 runtime handoff marker를 함께 확인
+    - QEMU runtime marker에서 `[chapter] ch168 user crt entry main`, `[user-init] main reached through crt entry` 확인

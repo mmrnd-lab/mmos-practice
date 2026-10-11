@@ -2972,6 +2972,32 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec dispatch path can select the shared object aware apply runtime",
     ),
     ChapterSet(
+        key="ch168_user_crt_entry_main",
+        label="Ch168 User CRT Entry Calls Main",
+        commit_candidates=["16d65bd"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-crt-entry",
+                "make user-crt-entry PROFILE=release",
+                must_contain=(
+                    "[user-crt] entry=_start app=main initial-stack=argc+argv+envp",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch168 user crt entry main",
+                    "[user-crt] _start decodes initial stack before app main",
+                    "[user-init] main reached through crt entry",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=CRT _start decodes initial stack before app main",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
