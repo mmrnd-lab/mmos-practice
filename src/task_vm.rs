@@ -5,6 +5,7 @@ use crate::{
     process_model::{ProcError, ProcessTable, TaskTable},
     scheduler::ScheduleDecision,
 };
+use crate::sv39::SATP_MODE_SV39;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AddressSpaceSwitch {
@@ -70,6 +71,50 @@ pub fn prepare_satp_commit(prev_satp: usize, applied: AppliedAddressSpaceSwitch)
         prev_satp,
         next_satp: applied.active_satp,
         needs_sfence_vma: prev_satp != applied.active_satp,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SatpHardwareCommitPlan {
+    pub next_satp: usize,
+    pub flush_after_write: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SatpHardwareCommitError {
+    Unchanged,
+    UnsupportedMode { mode: usize },
+}
+
+pub fn prepare_satp_hardware_commit(
+    plan: SatpCommitPlan,
+) -> Result<SatpHardwareCommitPlan, SatpHardwareCommitError> {
+    if !plan.needs_sfence_vma {
+        return Err(SatpHardwareCommitError::Unchanged);
+    }
+
+    let mode = plan.next_satp >> 60;
+    if mode != SATP_MODE_SV39 {
+        return Err(SatpHardwareCommitError::UnsupportedMode { mode });
+    }
+
+    Ok(SatpHardwareCommitPlan {
+        next_satp: plan.next_satp,
+        flush_after_write: true,
+    })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SatpHardwareCommitResult {
+    pub active_satp: usize,
+    pub flushed_tlb: bool,
+}
+
+pub unsafe fn commit_satp_hardware(plan: SatpHardwareCommitPlan) -> SatpHardwareCommitResult {
+    write_satp_and_flush(plan.next_satp);
+    SatpHardwareCommitResult {
+        active_satp: plan.next_satp,
+        flushed_tlb: plan.flush_after_write,
     }
 }
 

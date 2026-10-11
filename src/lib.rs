@@ -86,7 +86,8 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_G, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::task_vm::{
-        address_space_switch_for_decision, apply_address_space_switch, prepare_satp_commit,
+        address_space_switch_for_decision, apply_address_space_switch,
+        prepare_satp_commit, prepare_satp_hardware_commit, SatpHardwareCommitError,
     };
     use super::syscall::{
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
@@ -2362,6 +2363,48 @@ mod tests {
         assert_eq!(commit.prev_satp, first_launch.satp);
         assert_eq!(commit.next_satp, second_launch.satp);
         assert!(commit.needs_sfence_vma);
+    }
+
+    #[test]
+    fn satp_hardware_commit_plan_requires_sv39_and_changed_satp() {
+        let changed = prepare_satp_commit(
+            make_satp(0x11111, 0),
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 2,
+                active_satp: make_satp(0x22222, 0),
+            },
+        );
+        let hardware = prepare_satp_hardware_commit(changed).unwrap();
+
+        assert_eq!(hardware.next_satp, make_satp(0x22222, 0));
+        assert!(hardware.flush_after_write);
+
+        let unchanged = prepare_satp_commit(
+            make_satp(0x33333, 0),
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 1,
+                active_satp: make_satp(0x33333, 0),
+            },
+        );
+        assert_eq!(
+            prepare_satp_hardware_commit(unchanged),
+            Err(SatpHardwareCommitError::Unchanged)
+        );
+
+        let bare = prepare_satp_commit(
+            make_satp(0x11111, 0),
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 2,
+                active_satp: 0x22222,
+            },
+        );
+        assert_eq!(
+            prepare_satp_hardware_commit(bare),
+            Err(SatpHardwareCommitError::UnsupportedMode { mode: 0 })
+        );
     }
 
     #[test]

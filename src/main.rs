@@ -940,6 +940,21 @@ fn run_user_launch_demo() {
                                                                                 console::puts(
                                                                                     "[chapter] ch71 enter user sscratch prepare\n",
                                                                                 );
+                                                                                if let Ok(hw) =
+                                                                                    task_vm::prepare_satp_hardware_commit(
+                                                                                        commit,
+                                                                                    )
+                                                                                {
+                                                                                    if hw.next_satp
+                                                                                        == commit
+                                                                                            .next_satp
+                                                                                        && hw.flush_after_write
+                                                                                    {
+                                                                                        console::puts(
+                                                                                            "[chapter] ch72 satp hardware commit gate\n",
+                                                                                        );
+                                                                                    }
+                                                                                }
                                                                             }
                                                                         }
                                                                     }
