@@ -1814,6 +1814,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=decoded execve syscall arguments drive the checked execv apply pipeline and replace the child task context",
     ),
     ChapterSet(
+        key="ch108_current_execv_syscall_runtime",
+        label="Ch108 Current Execv Syscall Runtime",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch108 current execv syscall runtime",
+                    "[syscall] execve current tid=1 pid=1 ret=0 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve syscall helper uses the current runtime task instead of an explicit target tid",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

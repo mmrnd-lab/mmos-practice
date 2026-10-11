@@ -519,6 +519,46 @@ pub fn handle_process_execv_checked_user_syscall<
     }
 }
 
+pub fn handle_current_process_execv_checked_user_syscall<
+    const USER_AREAS: usize,
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    user: &crate::user_copy::CheckedUserSlice<'_, USER_AREAS>,
+    path_ptr: usize,
+    argv_ptr: usize,
+    vfs: &crate::vfs::Vfs<'_>,
+    scratch: &mut [u8],
+    stack_bytes: &mut [u8],
+    stack_top_va: usize,
+    new_vm: crate::vm::VmSpace<MAX_AREAS>,
+) -> SyscallResult {
+    let Some(tid) = runtime.current_tid() else {
+        return errno_result(EINVAL);
+    };
+    handle_process_execv_checked_user_syscall::<
+        USER_AREAS,
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(
+        runtime, tid, user, path_ptr, argv_ptr, vfs, scratch, stack_bytes, stack_top_va, new_vm,
+    )
+}
+
 pub fn handle_process_execv_syscall(
     _report: crate::trap_runtime::ProcessExecRuntime,
 ) -> SyscallResult {
