@@ -86,6 +86,8 @@ static mut SATP_HARDWARE_COMMIT_PROBE_READY: bool = false;
 static mut USER_FRAME_BACKED_IMAGE_READY: bool = false;
 static mut USER_FRAME_BACKED_MAPPING_READY: bool = false;
 static mut USER_FRAME_BACKED_MATERIALIZE_READY: bool = false;
+static mut PERSISTENT_SATP_COMMIT_SATP: usize = 0;
+static mut PERSISTENT_SATP_COMMIT_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -674,6 +676,7 @@ pub extern "C" fn rust_main() -> ! {
     run_user_frame_backed_image_demo();
     run_user_frame_backed_mapping_demo();
     run_user_frame_backed_materialize_demo();
+    run_persistent_satp_commit_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -734,6 +737,36 @@ fn run_user_frame_backed_mapping_demo() {
 fn run_user_frame_backed_materialize_demo() {
     if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_MATERIALIZE_READY)) } {
         console::puts("[chapter] ch84 user frame materialize\n");
+    }
+}
+
+fn run_persistent_satp_commit_demo() {
+    let next_satp =
+        unsafe { core::ptr::read_volatile(core::ptr::addr_of!(PERSISTENT_SATP_COMMIT_SATP)) };
+    if next_satp == 0 {
+        return;
+    }
+
+    let commit = task_vm::prepare_satp_commit(
+        0,
+        task_vm::AppliedAddressSpaceSwitch {
+            prev_tid: 1,
+            next_tid: 2,
+            active_satp: next_satp,
+        },
+    );
+    let Ok(hardware) = task_vm::prepare_satp_hardware_commit(commit) else {
+        return;
+    };
+    let committed = unsafe { task_vm::commit_satp_hardware(hardware) };
+    if committed.active_satp == next_satp && committed.flushed_tlb {
+        unsafe {
+            core::ptr::write_volatile(
+                core::ptr::addr_of_mut!(PERSISTENT_SATP_COMMIT_READY),
+                true,
+            );
+        }
+        console::puts("[chapter] ch85 persistent satp commit\n");
     }
 }
 
@@ -1388,6 +1421,33 @@ fn run_user_launch_demo() {
                                                                                                                                                                                         ),
                                                                                                                                                                                         true,
                                                                                                                                                                                     );
+                                                                                                                                                                                }
+                                                                                                                                                                                let persistent_commit =
+                                                                                                                                                                                    task_vm::prepare_satp_commit(
+                                                                                                                                                                                        0,
+                                                                                                                                                                                        task_vm::AppliedAddressSpaceSwitch {
+                                                                                                                                                                                            prev_tid: handle_space
+                                                                                                                                                                                                .prev_tid,
+                                                                                                                                                                                            next_tid: handle_space
+                                                                                                                                                                                                .next_tid,
+                                                                                                                                                                                            active_satp: handle_space
+                                                                                                                                                                                                .next_satp,
+                                                                                                                                                                                        },
+                                                                                                                                                                                    );
+                                                                                                                                                                                if task_vm::prepare_satp_hardware_commit(
+                                                                                                                                                                                    persistent_commit,
+                                                                                                                                                                                )
+                                                                                                                                                                                .is_ok()
+                                                                                                                                                                                {
+                                                                                                                                                                                    unsafe {
+                                                                                                                                                                                        core::ptr::write_volatile(
+                                                                                                                                                                                            core::ptr::addr_of_mut!(
+                                                                                                                                                                                                PERSISTENT_SATP_COMMIT_SATP
+                                                                                                                                                                                            ),
+                                                                                                                                                                                            handle_space
+                                                                                                                                                                                                .next_satp,
+                                                                                                                                                                                        );
+                                                                                                                                                                                    }
                                                                                                                                                                                 }
                                                                                                                                                                             }
                                                                                                                                                                         }

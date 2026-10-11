@@ -13,6 +13,9 @@ const PPN_GIB_SHIFT: usize = 18;
 pub const KERNEL_IDENTITY_VPN2: usize = 2;
 pub const KERNEL_IDENTITY_PPN: usize = KERNEL_IDENTITY_VPN2 << PPN_GIB_SHIFT;
 pub const KERNEL_IDENTITY_FLAGS: u64 = PTE_R | PTE_W | PTE_X | PTE_A | PTE_D | PTE_G;
+pub const KERNEL_MMIO_VPN2: usize = 0;
+pub const KERNEL_MMIO_PPN: usize = KERNEL_MMIO_VPN2 << PPN_GIB_SHIFT;
+pub const KERNEL_MMIO_FLAGS: u64 = PTE_R | PTE_W | PTE_A | PTE_D | PTE_G;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserVmError {
@@ -500,17 +503,22 @@ pub fn is_leaf_user_mapping(entry: crate::sv39::PageTableEntry) -> bool {
 
 
 pub fn install_kernel_identity_mapping(root: &mut RootPageTable) -> Result<(), KernelMapError> {
-    let existing = root.entries[KERNEL_IDENTITY_VPN2];
+    install_supervisor_identity_leaf(root, KERNEL_IDENTITY_VPN2, KERNEL_IDENTITY_PPN, KERNEL_IDENTITY_FLAGS)?;
+    install_supervisor_identity_leaf(root, KERNEL_MMIO_VPN2, KERNEL_MMIO_PPN, KERNEL_MMIO_FLAGS)?;
+    Ok(())
+}
+
+fn install_supervisor_identity_leaf(
+    root: &mut RootPageTable,
+    vpn2: usize,
+    ppn: usize,
+    flags: u64,
+) -> Result<(), KernelMapError> {
+    let existing = root.entries[vpn2];
     if existing.is_valid() && (existing.flags() & PTE_U) != 0 {
-        return Err(KernelMapError::UserMappingOverlap {
-            vpn2: KERNEL_IDENTITY_VPN2,
-        });
+        return Err(KernelMapError::UserMappingOverlap { vpn2 });
     }
-    root.map_gib_identity(
-        KERNEL_IDENTITY_VPN2,
-        KERNEL_IDENTITY_PPN,
-        KERNEL_IDENTITY_FLAGS,
-    );
+    root.map_gib_identity(vpn2, ppn, flags);
     Ok(())
 }
 

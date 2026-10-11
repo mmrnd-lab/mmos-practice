@@ -87,7 +87,7 @@ mod tests {
     };
     use super::task_vm::{
         address_space_switch_for_decision, address_space_switch_for_decision_with_spaces,
-        apply_address_space_switch,
+        apply_address_space_switch, commit_satp_hardware,
         prepare_rooted_satp_commit_sequence, prepare_rooted_user_launch_csr_sequence,
         prepare_satp_commit, prepare_satp_hardware_commit,
         prepare_user_launch_csr_sequence, probe_satp_hardware_commit_roundtrip,
@@ -1776,6 +1776,7 @@ mod tests {
         let mut root = RootPageTable::new();
         install_kernel_identity_mapping(&mut root).unwrap();
         let entry = root.entries[super::user_vm::KERNEL_IDENTITY_VPN2];
+        let mmio = root.entries[super::user_vm::KERNEL_MMIO_VPN2];
 
         assert!(is_kernel_mapping(entry));
         assert_eq!(entry.flags() & PTE_U, 0);
@@ -1783,6 +1784,13 @@ mod tests {
         assert_ne!(entry.flags() & PTE_R, 0);
         assert_ne!(entry.flags() & PTE_W, 0);
         assert_ne!(entry.flags() & PTE_X, 0);
+        assert!(mmio.is_valid());
+        assert_eq!(mmio.ppn(), super::user_vm::KERNEL_MMIO_PPN);
+        assert_eq!(mmio.flags() & PTE_U, 0);
+        assert_ne!(mmio.flags() & PTE_G, 0);
+        assert_ne!(mmio.flags() & PTE_R, 0);
+        assert_ne!(mmio.flags() & PTE_W, 0);
+        assert_eq!(mmio.flags() & PTE_X, 0);
     }
 
     #[test]
@@ -2757,6 +2765,23 @@ mod tests {
         assert_eq!(probe.restored_satp, 0);
         assert!(probe.flushed_on_commit);
         assert!(probe.flushed_on_restore);
+    }
+
+    #[test]
+    fn satp_hardware_commit_keeps_new_active_satp() {
+        let changed = prepare_satp_commit(
+            0,
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 2,
+                active_satp: make_satp(0x22222, 0),
+            },
+        );
+        let hardware = prepare_satp_hardware_commit(changed).unwrap();
+        let committed = unsafe { commit_satp_hardware(hardware) };
+
+        assert_eq!(committed.active_satp, make_satp(0x22222, 0));
+        assert!(committed.flushed_tlb);
     }
 
     #[test]
