@@ -227,6 +227,27 @@ impl<
         )
     }
 
+    pub fn dispatch_execv_user_ecall<
+        'a,
+        const MAX_ARGS: usize,
+        const ARG_BYTES: usize,
+    >(
+        &'a mut self,
+        frame: &mut TrapFrame,
+        user_bytes: &'a [u8],
+        user_base: usize,
+        new_vm: VmSpace<MAX_AREAS>,
+    ) -> TrapOutcome {
+        self.dispatch_execv_trap::<MAX_ARGS, ARG_BYTES>(
+            frame,
+            crate::trap::SCAUSE_USER_ECALL,
+            0,
+            user_bytes,
+            user_base,
+            new_vm,
+        )
+    }
+
     pub fn task_frame(&self, tid: usize) -> Option<TrapFrame> {
         self.runtime.task_frame(tid)
     }

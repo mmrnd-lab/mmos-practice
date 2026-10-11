@@ -2187,10 +2187,8 @@ fn run_execv_trap_resources_demo() {
 
     let mut prepared_runtime =
         trap_runtime::PreparedExecvTrapRuntime::<4, 2, 2, 5, 512, 256>::new(runtime, &vfs);
-    let outcome = prepared_runtime.dispatch_execv_trap::<4, 64>(
+    let outcome = prepared_runtime.dispatch_execv_user_ecall::<4, 64>(
         &mut live_frame,
-        trap::SCAUSE_USER_ECALL,
-        0,
         &user_mem,
         BASE,
         vm::VmSpace::<2>::new(),
@@ -2222,6 +2220,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve prepared dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch122 execv prepared runtime\n");
         console::puts("[trap] execve prepared runtime routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch123 execv prepared ecall\n");
+        console::puts("[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 
