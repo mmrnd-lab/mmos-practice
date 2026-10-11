@@ -591,3 +591,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `clone`과 `execve`의 `TrapOutcome`을 `TrapDispatchResult`로 정규화하는 helper를 추가하고, `wait4`의 blocking/ready dispatch 결과는 그대로 보존
     - unit test는 하나의 entry가 clone parent/child writeback, wait4 status copyout, execve prepared entry 교체를 각각 라우팅하는지 검증
     - QEMU runtime marker에서 `[chapter] ch138 prepared process syscall entry`, `[trap] process syscall entry routed execve a0=0 sepc=0x40006004 entry=0x40000000` 확인
+
+124. `b0c839b` `feat(ch139): route write through process syscall entry`
+    - `handle_prepared_process_syscall_entry_with_current_io()`를 추가해 `SYS_WRITE`를 current process fd table과 checked user copyin 경로로 처리
+    - `SYS_WRITE`가 아닌 syscall은 기존 `handle_prepared_process_syscall_entry()`로 위임해 ch138의 clone/wait4/execve 라우팅을 보존
+    - unit test는 process syscall entry가 `write(1, user_ptr, len)`을 current process stdio fd로 dispatch하고 live trap frame에 `a0/sepc`를 writeback하는지 검증
+    - QEMU runtime marker에서 `[chapter] ch139 process syscall write entry`, `[trap] process syscall entry routed write a0=8 sepc=0x40007004` 확인
