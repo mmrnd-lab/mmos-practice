@@ -17,6 +17,71 @@ use crate::{
     vm::VmSpace,
 };
 
+#[derive(Debug, Clone, Copy)]
+struct ProcessWaitQueue<const MAX_WAITERS: usize> {
+    entries: [Option<(usize, usize)>; MAX_WAITERS],
+}
+
+impl<const MAX_WAITERS: usize> ProcessWaitQueue<MAX_WAITERS> {
+    pub const fn new() -> Self {
+        Self {
+            entries: [None; MAX_WAITERS],
+        }
+    }
+
+    fn contains(&self, parent_pid: usize, tid: usize) -> bool {
+        let mut idx = 0usize;
+        while idx < MAX_WAITERS {
+            if self.entries[idx] == Some((parent_pid, tid)) {
+                return true;
+            }
+            idx += 1;
+        }
+        false
+    }
+
+    fn enqueue(&mut self, parent_pid: usize, tid: usize) -> Result<(), ProcError> {
+        if self.contains(parent_pid, tid) {
+            return Ok(());
+        }
+
+        let mut idx = 0usize;
+        while idx < MAX_WAITERS {
+            if self.entries[idx].is_none() {
+                self.entries[idx] = Some((parent_pid, tid));
+                return Ok(());
+            }
+            idx += 1;
+        }
+        Err(ProcError::TableFull)
+    }
+
+    fn wake_parent<const MAX_TASKS: usize>(
+        &mut self,
+        parent_pid: usize,
+        scheduler: &mut Scheduler<MAX_TASKS>,
+    ) -> Option<usize> {
+        let mut idx = 0usize;
+        while idx < MAX_WAITERS {
+            if let Some((queued_parent, tid)) = self.entries[idx] {
+                if queued_parent == parent_pid {
+                    self.entries[idx] = None;
+                    scheduler.set_state(tid, TaskState::Runnable);
+                    return Some(tid);
+                }
+            }
+            idx += 1;
+        }
+        None
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProcessWaitSyscallRuntime {
+    Reaped(ProcessWaitReapRuntime),
+    Blocked(TrapDispatchResult),
+}
+
 pub struct TrapRuntime<const MAX_TASKS: usize> {
     scheduler: Scheduler<MAX_TASKS>,
 }
@@ -87,6 +152,7 @@ pub struct ProcessTrapRuntime<
     processes: ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
     tasks: TaskTable<MAX_TASKS>,
     scheduler: Scheduler<MAX_TASKS>,
+    process_waiters: ProcessWaitQueue<MAX_TASKS>,
 }
 
 impl<
@@ -101,6 +167,7 @@ impl<
             processes: ProcessTable::new(),
             tasks: TaskTable::new(),
             scheduler: Scheduler::new(),
+            process_waiters: ProcessWaitQueue::new(),
         }
     }
 
@@ -139,6 +206,15 @@ impl<
         current_tid: usize,
         code: i32,
     ) -> TrapDispatchResult {
+        let parent_pid = self
+            .tasks
+            .owner_pid(current_tid)
+            .ok()
+            .and_then(|owner_pid| self.processes.get(owner_pid).ok().and_then(|p| p.parent));
+        if let Some(parent_pid) = parent_pid {
+            self.process_waiters
+                .wake_parent(parent_pid, &mut self.scheduler);
+        }
         dispatch_exit_outcome_with_process_runtime(
             frame,
             &mut self.processes,
@@ -178,6 +254,27 @@ impl<
     pub fn wait_reap_current_child(&mut self) -> Result<ProcessWaitReapRuntime, ProcError> {
         let parent_pid = self.current_process_id()?;
         self.wait_reap_child(parent_pid)
+    }
+
+    pub fn wait_reap_current_child_or_block(
+        &mut self,
+        frame: &mut TrapFrame,
+    ) -> Result<ProcessWaitSyscallRuntime, ProcError> {
+        match self.wait_reap_current_child() {
+            Ok(report) => Ok(ProcessWaitSyscallRuntime::Reaped(report)),
+            Err(ProcError::NotZombie) => {
+                let parent_pid = self.current_process_id()?;
+                let tid = self.current_tid().ok_or(ProcError::MissingTask)?;
+                self.process_waiters.enqueue(parent_pid, tid)?;
+                self.scheduler.set_state(tid, TaskState::Blocked);
+                Ok(ProcessWaitSyscallRuntime::Blocked(dispatch_trap_outcome(
+                    frame,
+                    &mut self.scheduler,
+                    TrapOutcome::Schedule,
+                )))
+            }
+            Err(error) => Err(error),
+        }
     }
 
     pub fn process_state(&self, pid: usize) -> Result<crate::process_model::ProcState, ProcError> {

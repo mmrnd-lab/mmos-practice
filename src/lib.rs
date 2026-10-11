@@ -124,7 +124,7 @@ mod tests {
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
-        with_global_trap_runtime, ProcessTrapRuntime, TrapRuntime,
+        with_global_trap_runtime, ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -2168,6 +2168,56 @@ mod tests {
         assert_eq!(report.child_pid, child_pid);
         assert_eq!(report.exit_code, 21);
         assert_eq!(runtime.process_state(child_pid), Ok(ProcState::Reaped));
+    }
+
+    #[test]
+    fn process_trap_runtime_wait_blocks_until_child_exit_wakes_parent() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let child_pid = runtime
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, parent_pid), (2, child_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            runtime.add_runnable_task(tid, pid, frame).unwrap();
+        }
+        runtime.start_first_task();
+
+        let mut parent_frame = TrapFrame::default();
+        let wait = runtime
+            .wait_reap_current_child_or_block(&mut parent_frame)
+            .unwrap();
+        assert_eq!(
+            wait,
+            ProcessWaitSyscallRuntime::Blocked(TrapDispatchResult::Switched(
+                ScheduleDecision::Switched {
+                    prev_tid: 1,
+                    next_tid: 2,
+                }
+            ))
+        );
+        assert_eq!(runtime.task_state(1), Some(TaskState::Blocked));
+        assert_eq!(runtime.current_tid(), Some(2));
+
+        let mut child_frame = TrapFrame::default();
+        assert_eq!(
+            runtime.dispatch_exit(&mut child_frame, 2, 31),
+            TrapDispatchResult::Switched(ScheduleDecision::Switched {
+                prev_tid: 2,
+                next_tid: 1,
+            })
+        );
+        assert_eq!(runtime.task_state(1), Some(TaskState::Running));
+        assert_eq!(runtime.current_tid(), Some(1));
+
+        let report = runtime.wait_reap_current_child().unwrap();
+        assert_eq!(report.parent_pid, parent_pid);
+        assert_eq!(report.child_pid, child_pid);
+        assert_eq!(report.exit_code, 31);
     }
 
     #[test]

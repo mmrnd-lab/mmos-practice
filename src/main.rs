@@ -683,6 +683,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_trap_runtime_reap_demo();
     run_process_trap_runtime_wait_demo();
     run_wait_syscall_surface_demo();
+    run_blocking_wait_wakeup_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1022,6 +1023,60 @@ fn run_wait_syscall_surface_demo() {
         }
         Err(error) => {
             let _ = syscall::process_wait_errno(error);
+        }
+    }
+}
+
+fn run_blocking_wait_wakeup_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(child_pid) = runtime.create_process(Some(parent_pid), vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    for (tid, pid) in [(1usize, parent_pid), (2, child_pid)] {
+        let mut frame = trap::TrapFrame::default();
+        frame.sepc = 0x4000_0000 + tid * 0x1000;
+        frame.set_a0(tid);
+        frame.set_sp(0x4010_0000 + tid * 0x1000);
+        if runtime.add_runnable_task(tid, pid, frame).is_err() {
+            return;
+        }
+    }
+    runtime.start_first_task();
+
+    let mut parent_frame = trap::TrapFrame::default();
+    let Ok(trap_runtime::ProcessWaitSyscallRuntime::Blocked(wait_dispatch)) =
+        runtime.wait_reap_current_child_or_block(&mut parent_frame)
+    else {
+        return;
+    };
+    if wait_dispatch
+        != trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+            prev_tid: 1,
+            next_tid: 2,
+        })
+    {
+        return;
+    }
+
+    let mut child_frame = trap::TrapFrame::default();
+    if runtime.dispatch_exit(&mut child_frame, 2, 13)
+        != trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+            prev_tid: 2,
+            next_tid: 1,
+        })
+    {
+        return;
+    }
+
+    if let Ok(report) = runtime.wait_reap_current_child() {
+        if report.parent_pid == parent_pid && report.child_pid == child_pid && report.exit_code == 13
+        {
+            console::puts("[chapter] ch97 blocking wait wakeup\n");
+            console::puts("[syscall] wait blocked parent=1 child=2 wake=1 status=13\n");
         }
     }
 }
