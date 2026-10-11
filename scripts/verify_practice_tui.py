@@ -952,6 +952,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap runtime owns scheduler state used by schedule dispatch",
     ),
     ChapterSet(
+        key="ch57_global_trap_runtime_state",
+        label="Ch57 Global Trap Runtime State",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch57 global trap runtime state",
+                    "[chapter] ch56 trap runtime scheduler state",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=global trap runtime state can dispatch schedule handoff",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

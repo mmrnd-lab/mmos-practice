@@ -99,7 +99,9 @@ mod tests {
         handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapDispatchResult,
         TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
     };
-    use super::trap_runtime::{switched_tids, TrapRuntime};
+    use super::trap_runtime::{
+        reset_global_trap_runtime, switched_tids, with_global_trap_runtime, TrapRuntime,
+    };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
@@ -1147,6 +1149,37 @@ mod tests {
         assert_eq!(dispatch_frame.sepc, 0xf000);
         assert_eq!(dispatch_frame.a0(), 0x55);
         assert_eq!(dispatch_frame.sp(), 0x10000);
+    }
+
+
+    #[test]
+    fn global_trap_runtime_dispatches_schedule_state() {
+        reset_global_trap_runtime();
+
+        let mut next_frame = TrapFrame::default();
+        next_frame.sepc = 0x11000;
+        next_frame.set_a0(0x56);
+
+        let mut dispatch_frame = TrapFrame::default();
+        dispatch_frame.sepc = 0x10000;
+
+        let result = with_global_trap_runtime(|runtime| {
+            runtime.add_runnable(1, TrapFrame::default()).unwrap();
+            runtime.add_runnable(2, next_frame).unwrap();
+            runtime.start_first_task();
+            runtime.mark_blocked(1);
+            runtime.dispatch_schedule(&mut dispatch_frame)
+        });
+
+        assert_eq!(switched_tids(result), Some((1, 2)));
+        assert_eq!(
+            with_global_trap_runtime(|runtime| runtime.current_tid()),
+            Some(2)
+        );
+        assert_eq!(dispatch_frame.sepc, 0x11000);
+        assert_eq!(dispatch_frame.a0(), 0x56);
+
+        reset_global_trap_runtime();
     }
 
     #[test]

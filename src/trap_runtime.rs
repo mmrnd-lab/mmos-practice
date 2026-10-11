@@ -1,7 +1,10 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
+use core::cell::UnsafeCell;
+
 use crate::{
+    irq_guard::IrqGuard,
     scheduler::{SchedError, ScheduleDecision, Scheduler, TaskState},
     trap::{dispatch_trap_outcome, TrapDispatchResult, TrapFrame, TrapOutcome},
 };
@@ -65,4 +68,41 @@ pub fn switched_tids(result: TrapDispatchResult) -> Option<(usize, usize)> {
         }
         _ => None,
     }
+}
+
+
+pub const GLOBAL_TRAP_RUNTIME_TASKS: usize = 4;
+
+struct GlobalTrapRuntime {
+    inner: UnsafeCell<TrapRuntime<GLOBAL_TRAP_RUNTIME_TASKS>>,
+}
+
+unsafe impl Sync for GlobalTrapRuntime {}
+
+impl GlobalTrapRuntime {
+    pub const fn new() -> Self {
+        Self {
+            inner: UnsafeCell::new(TrapRuntime::new()),
+        }
+    }
+
+    fn with<R>(&self, f: impl FnOnce(&mut TrapRuntime<GLOBAL_TRAP_RUNTIME_TASKS>) -> R) -> R {
+        let _guard = IrqGuard::new();
+        let runtime = unsafe { &mut *self.inner.get() };
+        f(runtime)
+    }
+}
+
+static GLOBAL_TRAP_RUNTIME: GlobalTrapRuntime = GlobalTrapRuntime::new();
+
+pub fn with_global_trap_runtime<R>(
+    f: impl FnOnce(&mut TrapRuntime<GLOBAL_TRAP_RUNTIME_TASKS>) -> R,
+) -> R {
+    GLOBAL_TRAP_RUNTIME.with(f)
+}
+
+pub fn reset_global_trap_runtime() {
+    with_global_trap_runtime(|runtime| {
+        *runtime = TrapRuntime::new();
+    });
 }

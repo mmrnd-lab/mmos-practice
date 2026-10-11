@@ -20,6 +20,8 @@ mod fd_table;
 #[allow(dead_code)]
 mod idle;
 #[allow(dead_code)]
+mod irq_guard;
+#[allow(dead_code)]
 mod ramdisk;
 #[allow(dead_code)]
 mod demo_user_init;
@@ -586,6 +588,31 @@ pub extern "C" fn rust_main() -> ! {
             {
                 console::puts("[chapter] ch56 trap runtime scheduler state\n");
             }
+            trap_runtime::reset_global_trap_runtime();
+            let mut global_next_frame = trap::TrapFrame::default();
+            global_next_frame.sepc = 0x8060_0000;
+            global_next_frame.set_a0(0x56);
+            let mut global_frame = blocked_frame;
+            let global_result = trap_runtime::with_global_trap_runtime(|runtime| {
+                let _ = runtime.add_runnable(input_tid, trap::TrapFrame::default());
+                let _ = runtime.add_runnable(next_tid, global_next_frame);
+                runtime.start_first_task();
+                let _ = runtime.mark_blocked(input_tid);
+                runtime.dispatch_schedule(&mut global_frame)
+            });
+            if global_result
+                == trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+                    prev_tid: input_tid,
+                    next_tid,
+                })
+                && trap_runtime::with_global_trap_runtime(|runtime| runtime.current_tid())
+                    == Some(next_tid)
+                && global_frame.sepc == 0x8060_0000
+                && global_frame.a0() == 0x56
+            {
+                console::puts("[chapter] ch57 global trap runtime state\n");
+            }
+            trap_runtime::reset_global_trap_runtime();
         }
     }
 
