@@ -33,6 +33,9 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - 대상 호스트 선택: `localhost` / `` / ``
 - 챕터별 검증 세트 독립 선택/실행
 - 실행 명령, 중간 로그, 최종 결과를 분할 화면에서 실시간 갱신
+- `R` 실행 전 preflight 수행:
+  - repo sync(`git fetch origin --prune`, `git pull --ff-only origin main`)
+  - 컨테이너 이미지 재빌드(`podman build -t mmos-practice:latest .`)
 - 선택한 챕터 기준 `git history`/`changes(diff)`를 TUI에서 바로 조회
 - 선택한 챕터의 변경 파일을 전체 소스로 열람하고, 추가/수정 라인을 배경색으로 구분
 - 소스 뷰어에서 기본 syntax highlighting(언어별 키워드/문자열/주석/숫자) 제공
@@ -46,6 +49,8 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - `A`: 전체 선택
 - `C`: 전체 해제
 - `H`: 호스트 순환
+- `Y`: preflight repo sync ON/OFF
+- `I`: preflight image rebuild ON/OFF
 - `R`: 선택한 검증 실행
 - `L`: 선택한 챕터의 git history 조회
 - `D`: 선택한 챕터의 changes(diff/patch) 조회

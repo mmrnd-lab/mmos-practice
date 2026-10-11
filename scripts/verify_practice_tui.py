@@ -145,6 +145,8 @@ class AppState:
     resolved_commits: dict[str, str] = field(default_factory=dict)
     theme: UiTheme = field(default_factory=UiTheme)
     source_view: SourceViewerState = field(default_factory=SourceViewerState)
+    sync_before_run: bool = True
+    rebuild_image_before_run: bool = True
 
 
 CHAPTERS: List[ChapterSet] = [
@@ -886,7 +888,9 @@ def wrap_checkout_command(repo: str, commit: str, inner_cmd: str) -> str:
         f"""
         set -e
         cd {shlex.quote(repo)}
-        if ! podman image exists mmos-practice:latest >/dev/null 2>&1; then
+        if [ "${FORCE_REBUILD_IMAGE:-0}" = "1" ]; then
+          podman build -t mmos-practice:latest .
+        elif ! podman image exists mmos-practice:latest >/dev/null 2>&1; then
           podman build -t mmos-practice:latest .
         fi
         if [ ! -d external/u-boot ] || [ ! -d external/opensbi ]; then
@@ -906,6 +910,37 @@ def wrap_checkout_command(repo: str, commit: str, inner_cmd: str) -> str:
     ).strip()
 
 
+def preflight_prepare(host: str, repo: str, state: AppState, stdscr: curses.window) -> bool:
+    cmds = [
+        "set -e",
+        f"cd {shlex.quote(repo)}",
+        "test -d .git",
+    ]
+
+    if state.sync_before_run:
+        cmds.extend(
+            [
+                "git fetch origin --prune",
+                "if git show-ref --verify --quiet refs/heads/main; then git checkout -q main; fi",
+                "git pull --ff-only origin main || true",
+            ]
+        )
+
+    if state.rebuild_image_before_run:
+        cmds.append("podman build -t mmos-practice:latest .")
+    else:
+        cmds.append(
+            "if ! podman image exists mmos-practice:latest >/dev/null 2>&1; then podman build -t mmos-practice:latest .; fi"
+        )
+
+    state.current_action = "preflight: sync/build image"
+    rc, _ = run_streaming(host, "\n".join(cmds), state, stdscr)
+    if rc != 0:
+        state.status_line = f"Preflight failed (rc={rc})"
+        return False
+    return True
+
+
 def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[ChapterSet]) -> None:
     selected = [ch for i, ch in enumerate(chapters) if state.checked[i]]
     if not selected:
@@ -918,6 +953,12 @@ def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[Chap
     state.stop_requested = False
     state.status_line = f"Running {len(selected)} chapter set(s) on {host}: {repo}"
     state.resolved_commits.clear()
+
+    if not preflight_prepare(host, repo, state, stdscr):
+        state.running = False
+        state.current_action = "idle"
+        state.current_cmd = ""
+        return
 
     for chapter in selected:
         if state.stop_requested:
@@ -1347,7 +1388,7 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         header.bkgd(" ", state.theme.header)
     except curses.error:
         pass
-    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [L] history  [D] changes  [F] source  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
+    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [Y] sync  [I] rebuild-img  [R] run  [L] history  [D] changes  [F] source  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
     header.addnstr(1, 2, hotkeys, w - 4)
 
     draw_box(left, "Chapter Sets")
@@ -1386,8 +1427,9 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
     right.addnstr(4, 40, f"SKIP={s}", right_w - 42, state.theme.skip_text)
     right.addnstr(5, 2, f"Selected: {selected.label}", right_w - 4)
     right.addnstr(6, 2, f"Commit: {cached}", right_w - 4)
+    right.addnstr(7, 2, f"Preflight: sync={'ON' if state.sync_before_run else 'OFF'} image-rebuild={'ON' if state.rebuild_image_before_run else 'OFF'}", right_w - 4)
 
-    y = 8
+    y = 9
     y += render_wrapped(right, y, 2, f"Action: {state.current_action}", right_w - 4, 2)
     y += render_wrapped(right, y, 2, f"Cmd: {state.current_cmd}", right_w - 4, 4)
 
@@ -1506,6 +1548,12 @@ def main(stdscr: curses.window) -> int:
         elif ch in (ord("h"), ord("H")):
             state.host_idx = (state.host_idx + 1) % len(HOSTS)
             state.status_line = f"Host switched to {HOSTS[state.host_idx]}"
+        elif ch in (ord("y"), ord("Y")):
+            state.sync_before_run = not state.sync_before_run
+            state.status_line = f"sync-before-run={'ON' if state.sync_before_run else 'OFF'}"
+        elif ch in (ord("i"), ord("I")):
+            state.rebuild_image_before_run = not state.rebuild_image_before_run
+            state.status_line = f"rebuild-image-before-run={'ON' if state.rebuild_image_before_run else 'OFF'}"
         elif ch in (ord("r"), ord("R")):
             state.log_lines.clear()
             state.log_follow = True
