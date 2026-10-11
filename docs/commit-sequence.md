@@ -75,6 +75,10 @@
     - 기존 UART 출력 경로를 `SerialDevice`와 `console::write()` 경유로 재배치
     - user `write(1, ...)` syscall이 콘솔 문자 장치 경계를 통해 출력되도록 연결
 
+27. `316b2eb` `feat(ch33): add process fd table for stdio writes`
+    - `OpenFile`과 `FileDescriptorTable`을 추가해 fd가 프로세스별 open file 슬롯 인덱스임을 코드로 고정
+    - `stdin/stdout/stderr`를 console 문자 장치에 preopen하고 `write(1, ...)`이 fd table을 거치도록 변경
+
 
 ## Reproduce Example
 
