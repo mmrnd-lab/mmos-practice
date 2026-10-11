@@ -91,6 +91,12 @@ static mut USER_FRAME_BACKED_MATERIALIZE_READY: bool = false;
 static mut PERSISTENT_SATP_COMMIT_SATP: usize = 0;
 static mut PERSISTENT_SATP_COMMIT_READY: bool = false;
 static mut USER_MEMORY_ACCESS_GATE_READY: bool = false;
+static mut FIRST_USER_SRET_FRAME: trap::TrapFrame = trap::TrapFrame {
+    regs: [0; 32],
+    sepc: 0,
+    sstatus: 0,
+};
+static mut FIRST_USER_SRET_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -783,6 +789,14 @@ fn run_persistent_satp_commit_demo() {
                 );
             }
             console::puts("[chapter] ch86 user memory access gate\n");
+            if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(FIRST_USER_SRET_READY)) } {
+                console::puts("[chapter] ch87 first user sret syscall\n");
+                let frame = unsafe { &*core::ptr::addr_of!(FIRST_USER_SRET_FRAME) };
+                #[cfg(target_arch = "riscv64")]
+                unsafe {
+                    trap::enter_user(frame);
+                }
+            }
         }
     }
 }
@@ -1409,7 +1423,12 @@ fn run_user_launch_demo() {
                                                                                                                                                                                     / sv39::PAGE_SIZE
                                                                                                                                                                             && mapping
                                                                                                                                                                                 .mapped_pages
-                                                                                                                                                                                == frame_plan
+                                                                                                                                                                                >= frame_plan
+                                                                                                                                                                                    .stack_pages
+                                                                                                                                                                                    + 1
+                                                                                                                                                                            && mapping
+                                                                                                                                                                                .mapped_pages
+                                                                                                                                                                                <= frame_plan
                                                                                                                                                                                     .segment_count
                                                                                                                                                                                     + frame_plan
                                                                                                                                                                                         .stack_pages
@@ -1463,6 +1482,18 @@ fn run_user_launch_demo() {
                                                                                                                                                                                             ),
                                                                                                                                                                                             handle_space
                                                                                                                                                                                                 .next_satp,
+                                                                                                                                                                                        );
+                                                                                                                                                                                        core::ptr::write_volatile(
+                                                                                                                                                                                            core::ptr::addr_of_mut!(
+                                                                                                                                                                                                FIRST_USER_SRET_FRAME
+                                                                                                                                                                                            ),
+                                                                                                                                                                                            p.trapframe,
+                                                                                                                                                                                        );
+                                                                                                                                                                                        core::ptr::write_volatile(
+                                                                                                                                                                                            core::ptr::addr_of_mut!(
+                                                                                                                                                                                                FIRST_USER_SRET_READY
+                                                                                                                                                                                            ),
+                                                                                                                                                                                            true,
                                                                                                                                                                                         );
                                                                                                                                                                                     }
                                                                                                                                                                                 }

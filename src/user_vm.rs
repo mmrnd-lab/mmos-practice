@@ -215,17 +215,32 @@ pub fn plan_frame_backed_user_image<const FREE_CAP: usize>(
         return Err(UserFrameBackedImageError::StackTooLarge);
     }
 
-    let mut segments = [None; 4];
+    let mut segments: [Option<UserSegmentFramePlan>; 4] = [None; 4];
     let mut entry_frame_pa = 0usize;
     let mut seg_idx = 0usize;
     while seg_idx < loaded.segment_count {
         let seg = loaded.segments[seg_idx].ok_or(UserFrameBackedImageError::NoSegments)?;
-        if seg.mem_size > PAGE_SIZE {
+        let page_offset = seg.vaddr & (PAGE_SIZE - 1);
+        if page_offset + seg.mem_size > PAGE_SIZE {
             return Err(UserFrameBackedImageError::SegmentTooLarge);
         }
-        let frame_pa = pmm.alloc().ok_or(UserFrameBackedImageError::OutOfFrames)?;
+        let page_vaddr = seg.vaddr & !(PAGE_SIZE - 1);
+        let mut frame_pa = 0usize;
+        let mut prev = 0usize;
+        while prev < seg_idx {
+            if let Some(prev_seg) = segments[prev] {
+                if (prev_seg.vaddr & !(PAGE_SIZE - 1)) == page_vaddr {
+                    frame_pa = prev_seg.frame_pa;
+                    break;
+                }
+            }
+            prev += 1;
+        }
+        if frame_pa == 0 {
+            frame_pa = pmm.alloc().ok_or(UserFrameBackedImageError::OutOfFrames)?;
+        }
         if loaded.entry >= seg.vaddr && loaded.entry < seg.vaddr + seg.mem_size {
-            entry_frame_pa = frame_pa + (loaded.entry - seg.vaddr);
+            entry_frame_pa = frame_pa + (loaded.entry - page_vaddr);
         }
         segments[seg_idx] = Some(UserSegmentFramePlan {
             vaddr: seg.vaddr,
@@ -287,11 +302,18 @@ pub fn install_frame_backed_user_mapping_in_tables(
     while idx < plan.segment_count {
         let seg = plan.segments[idx].ok_or(UserFrameBackedMappingError::MissingSegment)?;
         ensure_same_leaf_table(plan.entry_vaddr, seg.vaddr)?;
-        l0.entries[vpn0(seg.vaddr)] = PageTableEntry::leaf(
-            seg.frame_pa / PAGE_SIZE,
-            pflags_to_pte(seg.flags) | PTE_A | PTE_D,
-        );
-        mapped_pages += 1;
+        let idx0 = vpn0(seg.vaddr);
+        let flags = pflags_to_pte(seg.flags) | PTE_A | PTE_D;
+        let existing = l0.entries[idx0];
+        if existing.is_valid() {
+            if existing.ppn() != seg.frame_pa / PAGE_SIZE {
+                return Err(UserFrameBackedMappingError::UnsupportedAddressRange);
+            }
+            l0.entries[idx0] = PageTableEntry::leaf(existing.ppn(), existing.flags() | flags);
+        } else {
+            l0.entries[idx0] = PageTableEntry::leaf(seg.frame_pa / PAGE_SIZE, flags);
+            mapped_pages += 1;
+        }
         idx += 1;
     }
 

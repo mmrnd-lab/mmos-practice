@@ -2804,6 +2804,23 @@ mod tests {
     }
 
     #[test]
+    fn first_user_sret_frame_can_be_stored_for_late_entry() {
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4001_0000;
+        frame.set_sp(0x4010_0000);
+        frame.set_a0(1);
+        frame.set_a1(0x4001_1000);
+        frame.set_a2(4);
+        frame.set_a7(SYS_WRITE);
+
+        let stored = frame;
+
+        assert_eq!(stored.sepc, 0x4001_0000);
+        assert_eq!(stored.sp(), 0x4010_0000);
+        assert_eq!(stored.a7(), SYS_WRITE);
+    }
+
+    #[test]
     fn user_launch_csr_sequence_orders_scratch_satp_flush_and_sret_state() {
         let mut frame = TrapFrame::default();
         frame.sepc = 0x4001_0000;
@@ -2955,6 +2972,28 @@ mod tests {
     }
 
     #[test]
+    fn frame_backed_user_image_reuses_frame_for_segments_on_same_page() {
+        let elf = build_test_init_elf();
+        let mut loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let first = loaded.segments[0].unwrap();
+        loaded.segment_count = 2;
+        loaded.segments[1] = Some(super::elf_loader::LoadSegment {
+            vaddr: first.vaddr + 0x20,
+            mem_size: 4,
+            file_size: 4,
+            flags: 4,
+            data: &first.data[..4],
+        });
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+
+        assert_eq!(plan.segments[0].unwrap().frame_pa, 0x9000_0000);
+        assert_eq!(plan.segments[1].unwrap().frame_pa, 0x9000_0000);
+        assert_eq!(plan.stack_frame_start_pa, 0x9000_1000);
+    }
+
+    #[test]
     fn frame_backed_user_mapping_installs_4k_leafs_below_root() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
@@ -2991,6 +3030,42 @@ mod tests {
         assert_eq!(stack_entry.ppn(), 0x9000_1000 / super::sv39::PAGE_SIZE);
         assert_eq!(stack_entry.flags() & PTE_W, PTE_W);
         assert_eq!(install.mapped_pages, 2);
+    }
+
+    #[test]
+    fn frame_backed_user_mapping_merges_flags_for_segments_on_same_page() {
+        let elf = build_test_init_elf();
+        let mut loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let first = loaded.segments[0].unwrap();
+        loaded.segment_count = 2;
+        loaded.segments[1] = Some(super::elf_loader::LoadSegment {
+            vaddr: first.vaddr + 0x20,
+            mem_size: 4,
+            file_size: 4,
+            flags: 4,
+            data: &first.data[..4],
+        });
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+        let install = install_frame_backed_user_mapping_in_tables(
+            &mut root,
+            &mut l1,
+            0x9000_2000,
+            &mut l0,
+            0x9000_3000,
+            &plan,
+        )
+        .unwrap();
+        let code_entry = l0.entries[vpn0(first.vaddr)];
+
+        assert_eq!(install.mapped_pages, 2);
+        assert_eq!(code_entry.ppn(), 0x9000_0000 / super::sv39::PAGE_SIZE);
+        assert_eq!(code_entry.flags() & PTE_X, PTE_X);
+        assert_eq!(code_entry.flags() & PTE_R, PTE_R);
     }
 
     #[test]

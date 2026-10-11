@@ -136,11 +136,15 @@ pub fn materialize_frame_backed_user_image(
         let seg = loaded.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
         let region_idx = find_frame_region(regions, frame_plan.frame_pa)
             .ok_or(FrameBackedMaterializeError::MissingSegmentFrame(frame_plan.frame_pa))?;
-        if regions[region_idx].bytes.len() < frame_plan.mem_size {
+        let page_offset = frame_plan.vaddr & (crate::sv39::PAGE_SIZE - 1);
+        if regions[region_idx].bytes.len() < page_offset + frame_plan.mem_size {
             return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(frame_plan.frame_pa));
         }
 
-        let dst = &mut regions[region_idx].bytes[..frame_plan.mem_size];
+        if !frame_seen_before(plan, idx, frame_plan.frame_pa) {
+            regions[region_idx].bytes.fill(0);
+        }
+        let dst = &mut regions[region_idx].bytes[page_offset..page_offset + frame_plan.mem_size];
         dst[..seg.file_size].copy_from_slice(seg.data);
         dst[seg.file_size..].fill(0);
         idx += 1;
@@ -167,10 +171,14 @@ pub unsafe fn materialize_frame_backed_user_image_to_frames(
         let dst = unsafe {
             core::slice::from_raw_parts_mut(frame_plan.frame_pa as *mut u8, crate::sv39::PAGE_SIZE)
         };
-        if dst.len() < frame_plan.mem_size {
+        let page_offset = frame_plan.vaddr & (crate::sv39::PAGE_SIZE - 1);
+        if dst.len() < page_offset + frame_plan.mem_size {
             return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(frame_plan.frame_pa));
         }
-        dst[..frame_plan.mem_size].fill(0);
+        if !frame_seen_before(plan, idx, frame_plan.frame_pa) {
+            dst.fill(0);
+        }
+        let dst = &mut dst[page_offset..page_offset + frame_plan.mem_size];
         dst[..seg.file_size].copy_from_slice(seg.data);
         idx += 1;
     }
@@ -187,6 +195,23 @@ pub unsafe fn materialize_frame_backed_user_image_to_frames(
     stack.fill(0);
     stack[..stack_bytes.len()].copy_from_slice(stack_bytes);
     Ok(())
+}
+
+fn frame_seen_before(
+    plan: &crate::user_vm::UserFrameBackedImagePlan,
+    current_idx: usize,
+    frame_pa: usize,
+) -> bool {
+    let mut idx = 0usize;
+    while idx < current_idx {
+        if let Some(seg) = plan.segments[idx] {
+            if seg.frame_pa == frame_pa {
+                return true;
+            }
+        }
+        idx += 1;
+    }
+    false
 }
 
 fn find_frame_region(regions: &[FrameRegionMut<'_>], frame_pa: usize) -> Option<usize> {
