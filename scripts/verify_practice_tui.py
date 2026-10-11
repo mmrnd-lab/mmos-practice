@@ -935,7 +935,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch56_trap_runtime_scheduler_state",
         label="Ch56 Trap Runtime Scheduler State",
-        commit_candidates=["HEAD"],
+        commit_candidates=["adcd155"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

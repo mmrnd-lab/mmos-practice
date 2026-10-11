@@ -162,7 +162,7 @@
     - `TrapOutcome::Schedule`을 scheduler handoff, next task frame 복원, idle action으로 이어 주는 dispatch helper를 추가
     - trap dispatch가 user로 즉시 복귀하지 않고 scheduler decision을 적용하는 흐름을 검증
 
-49. `TBD` `feat(ch56): add trap runtime scheduler state`
+49. `adcd155` `feat(ch56): add trap runtime scheduler state`
     - trap dispatch helper가 사용할 scheduler state를 소유하는 `TrapRuntime` 경계를 추가
     - 지역 scheduler probe가 아니라 runtime object를 통해 schedule dispatch와 frame 복원이 이어짐을 검증
 
