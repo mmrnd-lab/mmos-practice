@@ -2,6 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::syscall;
+#[cfg(not(target_arch = "riscv64"))]
+use crate::{
+    page_fault::{self, PageFaultResult},
+    pmm::PageFrameManager,
+    vm::VmSpace,
+};
 
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]
@@ -117,5 +123,19 @@ pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapO
         },
         SCAUSE_SUPERVISOR_TIMER_INTERRUPT => TrapOutcome::Resume,
         cause => TrapOutcome::Fatal(cause),
+    }
+}
+
+#[cfg(not(target_arch = "riscv64"))]
+pub fn handle_user_page_fault_outcome<const A: usize, const F: usize>(
+    scause: usize,
+    stval: usize,
+    vm: &VmSpace<A>,
+    pmm: &mut PageFrameManager<F>,
+) -> TrapOutcome {
+    match page_fault::handle_user_page_fault(scause, stval, vm, pmm) {
+        PageFaultResult::Mapped(_) => TrapOutcome::Resume,
+        PageFaultResult::InvalidAccess | PageFaultResult::OutOfMemory => TrapOutcome::Exit(-1),
+        PageFaultResult::Ignored => TrapOutcome::Fatal(scause),
     }
 }

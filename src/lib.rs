@@ -49,7 +49,10 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
-    use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
+    use super::trap::{
+        handle_trap, handle_user_page_fault_outcome, TrapFrame, TrapOutcome,
+        SCAUSE_USER_ECALL,
+    };
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage, UserRegionMut,
     };
@@ -263,6 +266,36 @@ mod tests {
             TrapOutcome::Resume
         );
         assert_eq!(frame.sepc, 0x8020_1004);
+    }
+
+    #[test]
+    fn trap_page_fault_outcome_resumes_on_valid_mapping() {
+        let mut vm = VmSpace::<4>::new();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_W).unwrap();
+        let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
+
+        let outcome = handle_user_page_fault_outcome(
+            SCAUSE_STORE_PAGE_FAULT,
+            0x8040_0010,
+            &vm,
+            &mut pmm,
+        );
+        assert_eq!(outcome, TrapOutcome::Resume);
+    }
+
+    #[test]
+    fn trap_page_fault_outcome_exits_on_invalid_access() {
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R).unwrap();
+        let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
+
+        let outcome = handle_user_page_fault_outcome(
+            SCAUSE_STORE_PAGE_FAULT,
+            0x8040_0010,
+            &vm,
+            &mut pmm,
+        );
+        assert_eq!(outcome, TrapOutcome::Exit(-1));
     }
 
     #[test]
