@@ -14,12 +14,50 @@ use crate::{
     vm::VmSpace,
 };
 
+pub const TRAP_FRAME_SIZE: usize = 272;
+
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]
 pub struct TrapFrame {
     pub regs: [usize; 32],
     pub sepc: usize,
     pub sstatus: usize,
+}
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KernelTrapStackSwitch {
+    pub user_sp: usize,
+    pub kernel_frame_sp: usize,
+    pub frame_size: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KernelTrapStackError {
+    StackTooSmall,
+    MisalignedTop,
+}
+
+pub fn prepare_kernel_trap_stack_switch(
+    user_sp: usize,
+    kernel_stack_top: usize,
+    kernel_stack_bottom: usize,
+) -> Result<KernelTrapStackSwitch, KernelTrapStackError> {
+    if kernel_stack_top & 0xf != 0 {
+        return Err(KernelTrapStackError::MisalignedTop);
+    }
+    let Some(kernel_frame_sp) = kernel_stack_top.checked_sub(TRAP_FRAME_SIZE) else {
+        return Err(KernelTrapStackError::StackTooSmall);
+    };
+    if kernel_frame_sp < kernel_stack_bottom {
+        return Err(KernelTrapStackError::StackTooSmall);
+    }
+
+    Ok(KernelTrapStackSwitch {
+        user_sp,
+        kernel_frame_sp,
+        frame_size: TRAP_FRAME_SIZE,
+    })
 }
 
 impl TrapFrame {

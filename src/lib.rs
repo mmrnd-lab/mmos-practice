@@ -102,8 +102,9 @@ mod tests {
         apply_schedule_decision, dispatch_trap_outcome,
         dispatch_trap_outcome_with_global_runtime, handle_blocking_syscall_result,
         handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
-        handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapDispatchResult,
-        TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
+        handle_user_page_fault_outcome, prepare_kernel_trap_stack_switch,
+        schedule_after_blocked_syscall, KernelTrapStackError, KernelTrapStackSwitch,
+        TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL, TRAP_FRAME_SIZE,
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
@@ -1504,6 +1505,34 @@ mod tests {
     #[test]
     fn syscall_handler_returns_exit() {
         assert_eq!(handle_syscall(SYS_EXIT, 3, 0, 0), SyscallResult::Exit(3));
+    }
+
+    #[test]
+    fn kernel_trap_stack_switch_reserves_frame_space() {
+        let switch = prepare_kernel_trap_stack_switch(0x4010_0000, 0x8020_8000, 0x8020_7000)
+            .unwrap();
+
+        assert_eq!(
+            switch,
+            KernelTrapStackSwitch {
+                user_sp: 0x4010_0000,
+                kernel_frame_sp: 0x8020_8000 - TRAP_FRAME_SIZE,
+                frame_size: TRAP_FRAME_SIZE,
+            }
+        );
+        assert_eq!(switch.kernel_frame_sp & 0xf, 0);
+    }
+
+    #[test]
+    fn kernel_trap_stack_switch_rejects_bad_stack_bounds() {
+        assert_eq!(
+            prepare_kernel_trap_stack_switch(0x4010_0000, 0x8020_7100, 0x8020_7000),
+            Err(KernelTrapStackError::StackTooSmall)
+        );
+        assert_eq!(
+            prepare_kernel_trap_stack_switch(0x4010_0000, 0x8020_8008, 0x8020_7000),
+            Err(KernelTrapStackError::MisalignedTop)
+        );
     }
 
     #[test]

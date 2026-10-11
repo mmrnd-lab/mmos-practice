@@ -878,6 +878,17 @@ fn run_user_launch_demo() {
                                                         console::puts(
                                                             "[chapter] ch67 satp commit preflight\n",
                                                         );
+                                                        if trap::prepare_kernel_trap_stack_switch(
+                                                            loaded.stack_top,
+                                                            0x8020_8000,
+                                                            0x8020_7000,
+                                                        )
+                                                        .is_ok()
+                                                        {
+                                                            console::puts(
+                                                                "[chapter] ch68 kernel trap stack switch\n",
+                                                            );
+                                                        }
                                                     }
                                                 }
                                             }
