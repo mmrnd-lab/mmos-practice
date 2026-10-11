@@ -95,6 +95,10 @@
     - user address range를 검증하고 kernel scratch buffer로 복사하는 `UserSlice`/copyin helper 추가
     - `openat()` path와 `write()` buffer가 copyin 경계를 통과한 뒤 process fd context로 전달되는 흐름 검증
 
+32. `dc4ae0e` `feat(ch38): check copyin against user vm areas`
+    - `VmSpace::allows_range()`와 `CheckedUserSlice`를 추가해 copyin 전에 user VM area 권한을 확인
+    - read 권한이 없는 영역과 영역 밖으로 넘어가는 copyin을 거부하도록 syscall helper 테스트 보강
+
 
 ## Reproduce Example
 

@@ -610,6 +610,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=open path and write buffer pass through explicit user copyin helpers",
     ),
     ChapterSet(
+        key="ch38_vm_checked_copyin",
+        label="Ch38 VM Checked User Copyin",
+        commit_candidates=["dc4ae0e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch38 vm checked copyin",
+                    "[chapter] ch37 user copyin",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=copyin checks the current user VM area permissions before copying",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
