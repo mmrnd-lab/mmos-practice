@@ -954,7 +954,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch57_global_trap_runtime_state",
         label="Ch57 Global Trap Runtime State",
-        commit_candidates=["HEAD"],
+        commit_candidates=["93d4029"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

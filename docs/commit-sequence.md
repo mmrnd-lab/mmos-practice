@@ -166,7 +166,7 @@
     - trap dispatch helper가 사용할 scheduler state를 소유하는 `TrapRuntime` 경계를 추가
     - 지역 scheduler probe가 아니라 runtime object를 통해 schedule dispatch와 frame 복원이 이어짐을 검증
 
-50. `TBD` `feat(ch57): add global trap runtime state`
+50. `93d4029` `feat(ch57): add global trap runtime state`
     - interrupt guard로 보호되는 global trap runtime 접근 경계를 추가
     - 실제 trap dispatch가 참조할 수 있는 전역 runtime state를 통해 schedule dispatch가 동작함을 검증
 
