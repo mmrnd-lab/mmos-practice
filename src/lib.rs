@@ -57,7 +57,7 @@ mod tests {
         load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte, ElfError,
     };
     use super::ext4::{Ext4Fs, FsError};
-    use super::fd_table::{stdio_table, FileDescriptorTable, FileError, OpenFile, OpenMode};
+    use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
     use super::kheap::init_kheap;
     use super::page_fault::{
         handle_user_page_fault, PageFaultResult, SCAUSE_LOAD_PAGE_FAULT, SCAUSE_STORE_PAGE_FAULT,
@@ -72,7 +72,8 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE,
+        decode_syscall, handle_open_path, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
+        SYS_EXIT, SYS_OPENAT, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
@@ -222,6 +223,45 @@ mod tests {
 
         assert_eq!(file.write(b"via-dev-node"), Ok(12));
         assert_eq!(dev.written(), b"via-dev-node".to_vec());
+    }
+
+    #[test]
+    fn fd_table_open_path_allocates_console_fd() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut table = stdio_table_with_capacity::<8>(dev);
+
+        let fd = table.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        assert_eq!(fd, 3);
+        assert_eq!(table.write(fd, b"opened"), Ok(6));
+        assert_eq!(dev.written(), b"opened".to_vec());
+    }
+
+    #[test]
+    fn syscall_open_path_returns_allocated_fd() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut table = stdio_table_with_capacity::<8>(dev);
+
+        assert_eq!(
+            handle_open_path(&mut table, &ns, "/dev/console", 1),
+            SyscallResult::Continue(3)
+        );
+        assert_eq!(table.write(3, b"sys-open"), Ok(8));
+        assert_eq!(dev.written(), b"sys-open".to_vec());
+    }
+
+    #[test]
+    fn syscall_open_path_rejects_missing_or_unsupported_nodes() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut table = stdio_table(dev);
+
+        assert_eq!(
+            handle_open_path(&mut table, &ns, "/dev/missing", 1),
+            SyscallResult::Continue(-1)
+        );
+        assert_eq!(open_mode_from_flags(3), None);
     }
 
     #[test]
@@ -468,6 +508,15 @@ mod tests {
 
     #[test]
     fn syscall_decode_maps_write_and_exit() {
+        assert_eq!(
+            decode_syscall(SYS_OPENAT, usize::MAX, 0x2000, 1),
+            Some(Syscall::OpenAt {
+                dirfd: usize::MAX,
+                path_ptr: 0x2000,
+                flags: 1,
+                mode: 0,
+            })
+        );
         assert_eq!(
             decode_syscall(SYS_WRITE, 1, 0x1000, 5),
             Some(Syscall::Write {

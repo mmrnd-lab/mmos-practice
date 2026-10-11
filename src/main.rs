@@ -96,6 +96,14 @@ pub extern "C" fn rust_main() -> ! {
     if dev_ns.lookup_path("/dev/console").is_ok() {
         console::puts("[chapter] ch34 devfs device nodes\n");
     }
+    let mut fd_probe = fd_table::stdio_table_with_capacity::<8>(console::device());
+    if let syscall::SyscallResult::Continue(fd) =
+        syscall::handle_open_path(&mut fd_probe, &dev_ns, "/dev/console", 1)
+    {
+        if fd >= 3 {
+            console::puts("[chapter] ch35 open syscall path\n");
+        }
+    }
 
     let mut boot_tf = trap::TrapFrame::default();
     boot_tf.set_sp(0x8050_0000);

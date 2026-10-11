@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::char_device::{CharError, CharacterDevice};
-use crate::devfs::{VfsLookupError, VfsNode, VfsNodeKind, VfsNodeTarget};
+use crate::devfs::{DeviceNamespace, VfsLookupError, VfsNode, VfsNodeKind, VfsNodeTarget};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileError {
@@ -152,9 +152,26 @@ impl<const N: usize> FileDescriptorTable<N> {
     pub fn write(&self, fd: usize, bytes: &[u8]) -> Result<usize, FileError> {
         self.get(fd)?.write(bytes)
     }
+
+    pub fn open_path(
+        &mut self,
+        ns: &DeviceNamespace<'_>,
+        path: &str,
+        mode: OpenMode,
+    ) -> Result<usize, FileError> {
+        let node = ns.lookup_path(path)?;
+        let file = OpenFile::from_vfs_node(node, mode)?;
+        self.allocate(file)
+    }
 }
 
 pub fn stdio_table(console: &'static dyn CharacterDevice) -> FileDescriptorTable<3> {
+    stdio_table_with_capacity(console)
+}
+
+pub fn stdio_table_with_capacity<const N: usize>(
+    console: &'static dyn CharacterDevice,
+) -> FileDescriptorTable<N> {
     let mut table = FileDescriptorTable::new();
     let _ = table.preopen(0, OpenFile::read_only_character(console));
     let _ = table.preopen(1, OpenFile::write_only_character(console));
