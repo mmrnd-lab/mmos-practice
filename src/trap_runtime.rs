@@ -221,6 +221,19 @@ impl<
         }
     }
 
+    pub const fn entry_input<'u>(
+        &self,
+        user_bytes: &'u [u8],
+        user_base: usize,
+        new_vm: VmSpace<MAX_AREAS>,
+    ) -> crate::trap::ExecvPreparedEntryInput<'u, MAX_AREAS> {
+        crate::trap::ExecvPreparedEntryInput {
+            user_bytes,
+            user_base,
+            new_vm,
+        }
+    }
+
     pub fn install(
         &mut self,
         prepared: PreparedExecvTrapRuntime<

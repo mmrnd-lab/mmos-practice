@@ -1392,6 +1392,9 @@ mod tests {
             entry_store.with_prepared_runtime(|prepared| prepared.runtime().execv_stack_top_va()),
             Some(0x4010_0000)
         );
+        let input = entry_store.entry_input(&user_mem, BASE, VmSpace::<2>::new());
+        assert_eq!(input.user_base, BASE);
+        assert_eq!(input.user_bytes.len(), user_mem.len());
 
         let outcome = crate::trap::handle_execv_user_ecall_with_prepared_store::<
             4,
@@ -1405,11 +1408,7 @@ mod tests {
         >(
             &mut live_frame,
             &mut entry_store,
-            crate::trap::ExecvPreparedEntryInput {
-                user_bytes: &user_mem,
-                user_base: BASE,
-                new_vm: VmSpace::<2>::new(),
-            },
+            input,
         );
 
         assert_eq!(outcome, TrapOutcome::Resume);

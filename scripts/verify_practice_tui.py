@@ -2174,6 +2174,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve entry input bundles user memory and replacement VM",
     ),
     ChapterSet(
+        key="ch128_execv_entry_input_boundary",
+        label="Ch128 Execv Entry Input Boundary",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch128 execv entry input boundary",
+                    "[trap] execve entry input boundary routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared entry store constructs the execve input boundary",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
