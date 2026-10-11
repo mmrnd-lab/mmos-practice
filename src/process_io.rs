@@ -38,6 +38,10 @@ impl<const MAX_FDS: usize> ProcessIoContext<MAX_FDS> {
     pub fn write_fd(&self, fd: usize, bytes: &[u8]) -> Result<usize, FileError> {
         self.fd_table.write(fd, bytes)
     }
+
+    pub fn close_fd(&mut self, fd: usize) -> Result<(), FileError> {
+        self.fd_table.close(fd)
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -77,6 +81,10 @@ impl<const MAX_FDS: usize> CurrentProcessIoContext<MAX_FDS> {
 
     pub fn write_fd(&self, fd: usize, bytes: &[u8]) -> Result<usize, FileError> {
         self.io.write_fd(fd, bytes)
+    }
+
+    pub fn close_fd(&mut self, fd: usize) -> Result<(), FileError> {
+        self.io.close_fd(fd)
     }
 }
 

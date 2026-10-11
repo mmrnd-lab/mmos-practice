@@ -289,6 +289,49 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
 
+    let mut close_runtime = process_io::ProcessIoRuntime::<2, 2, 2, 8>::new();
+    let close_pid = close_runtime
+        .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
+        .unwrap_or(0);
+    let close_task =
+        process_model::TaskControlBlock::new(3, close_pid, trap::TrapFrame::default(), 0);
+    let mut close_vm = vm::VmSpace::<2>::new();
+    let _ = close_vm.map_anon(0x8000, 0x8020, sv39::PTE_R);
+    let close_user = user_copy::CheckedUserSlice::new(b"/dev/console\0closed", 0x8000, &close_vm);
+    let mut close_path = [0u8; 32];
+    let close_fd = {
+        match close_runtime.current_for_task_mut(&close_task) {
+            Ok(current) => syscall::handle_process_open_checked_user_path(
+                current.io_mut(),
+                &dev_ns,
+                &close_user,
+                0x8000,
+                1,
+                &mut close_path,
+            ),
+            Err(_) => syscall::SyscallResult::Continue(-1),
+        }
+    };
+    if let syscall::SyscallResult::Continue(fd) = close_fd {
+        if let Ok(current) = close_runtime.current_for_task_mut(&close_task) {
+            let closed = syscall::handle_current_process_close(current, fd as usize);
+            let mut close_write = [0u8; 16];
+            let after_close = syscall::handle_current_process_write_checked_user_syscall(
+                current,
+                &close_user,
+                fd as usize,
+                0x800d,
+                6,
+                &mut close_write,
+            );
+            if closed == syscall::SyscallResult::Continue(0)
+                && after_close == syscall::SyscallResult::Continue(-syscall::EBADF)
+            {
+                console::puts("[chapter] ch43 close fd lifecycle\n");
+            }
+        }
+    }
+
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
         console::puts("[mmos-practice] user init context prepared (SPP=U)\n");

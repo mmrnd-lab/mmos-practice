@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub const SYS_OPENAT: usize = 56;
+pub const SYS_CLOSE: usize = 57;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 
@@ -42,6 +43,7 @@ const O_RDWR: usize = 2;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Syscall {
     OpenAt { dirfd: usize, path_ptr: usize, flags: usize, mode: usize },
+    Close { fd: usize },
     Write { fd: usize, ptr: usize, len: usize },
     Exit { code: i32 },
 }
@@ -61,6 +63,7 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
             flags: a2,
             mode: 0,
         }),
+        SYS_CLOSE => Some(Syscall::Close { fd: a0 }),
         SYS_WRITE => Some(Syscall::Write {
             fd: a0,
             ptr: a1,
@@ -74,6 +77,7 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
 pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResult {
     match decode_syscall(id, a0, a1, a2) {
         Some(Syscall::OpenAt { .. }) => SyscallResult::Unsupported,
+        Some(Syscall::Close { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
         None => SyscallResult::Unsupported,
@@ -121,6 +125,16 @@ pub fn handle_process_write<const N: usize>(
     match io.write_fd(fd, bytes) {
         Ok(written) => SyscallResult::Continue(written as isize),
         Err(_) => SyscallResult::Continue(-1),
+    }
+}
+
+pub fn handle_process_close<const N: usize>(
+    io: &mut crate::process_io::ProcessIoContext<N>,
+    fd: usize,
+) -> SyscallResult {
+    match io.close_fd(fd) {
+        Ok(()) => SyscallResult::Continue(0),
+        Err(error) => errno_result(file_error_errno(error)),
     }
 }
 
@@ -233,4 +247,12 @@ pub fn handle_current_process_write_checked_user_syscall<const N: usize, const A
     scratch: &mut [u8],
 ) -> SyscallResult {
     handle_process_write_checked_user_syscall(current.io(), user, fd, ptr, len, scratch)
+}
+
+
+pub fn handle_current_process_close<const N: usize>(
+    current: &mut crate::process_io::CurrentProcessIoContext<N>,
+    fd: usize,
+) -> SyscallResult {
+    handle_process_close(current.io_mut(), fd)
 }

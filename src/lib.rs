@@ -77,12 +77,12 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_current_process_write_checked_user_syscall, handle_open_path,
-        handle_process_open_checked_user_path,
+        decode_syscall, handle_current_process_close, handle_current_process_write_checked_user_syscall,
+        handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
-        EACCES, EBADF, EFAULT, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
+        EACCES, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
@@ -595,6 +595,63 @@ mod tests {
             SyscallResult::Continue(8)
         );
         assert_eq!(dev.written(), b"owned-io".to_vec());
+    }
+
+
+    #[test]
+    fn fd_table_close_releases_slot_and_reuses_lowest_fd() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut table = stdio_table_with_capacity::<8>(dev);
+        let fd = table.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+
+        assert_eq!(fd, 3);
+        assert_eq!(table.close(fd), Ok(()));
+        assert_eq!(table.write(fd, b"closed"), Err(FileError::BadFd));
+        assert_eq!(table.open_path(&ns, "/dev/console", OpenMode::WriteOnly), Ok(fd));
+    }
+
+    #[test]
+    fn close_syscall_closes_current_process_fd() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let fd = runtime
+            .current_for_task_mut(&task)
+            .unwrap()
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0xf000, 0xf020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"after-close", 0xf000, &vm);
+        let mut scratch = [0u8; 16];
+        let current = runtime.current_for_task_mut(&task).unwrap();
+
+        assert_eq!(handle_current_process_close(current, fd), SyscallResult::Continue(0));
+        assert_eq!(handle_current_process_close(current, fd), SyscallResult::Continue(-EBADF));
+        assert_eq!(
+            handle_current_process_write_checked_user_syscall(
+                current,
+                &user,
+                fd,
+                0xf000,
+                11,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(-EBADF)
+        );
+        assert_eq!(dev.written(), std::vec::Vec::<u8>::new());
+    }
+
+    #[test]
+    fn syscall_decodes_close_number() {
+        assert_eq!(decode_syscall(SYS_CLOSE, 3, 0, 0), Some(Syscall::Close { fd: 3 }));
     }
 
     #[test]

@@ -154,6 +154,16 @@ impl<const N: usize> FileDescriptorTable<N> {
         self.get(fd)?.write(bytes)
     }
 
+    pub fn close(&mut self, fd: usize) -> Result<(), FileError> {
+        match self.slots.get_mut(fd) {
+            Some(slot) if slot.is_some() => {
+                *slot = None;
+                Ok(())
+            }
+            _ => Err(FileError::BadFd),
+        }
+    }
+
     pub fn open_path(
         &mut self,
         ns: &DeviceNamespace<'_>,
