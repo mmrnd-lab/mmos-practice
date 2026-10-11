@@ -2267,6 +2267,70 @@ mod tests {
         assert_ne!(first_launch.satp, second_launch.satp);
     }
 
+    #[test]
+    fn process_address_space_token_can_be_rebound_to_root_storage_satp() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut first_stack = [0u8; 512];
+        let mut second_stack = [0u8; 512];
+        let first_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345_000,
+            &mut first_stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let second_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12346_000,
+            &mut second_stack,
+            &["/sbin/worker"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        let root_install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let first = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            first_launch,
+        )
+        .unwrap();
+        let second = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            Some(first.pid),
+            VmSpace::<4>::new(),
+            second_launch,
+        )
+        .unwrap();
+
+        proc_table.update_satp(second.pid, root_install.satp).unwrap();
+        scheduler.on_tick();
+        scheduler.set_state(first.tid, TaskState::Blocked);
+        let decision =
+            schedule_after_blocked_syscall(&first_launch.trapframe, &mut scheduler).unwrap();
+        let switch = address_space_switch_for_decision(&proc_table, &task_table, decision)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(proc_table.get(second.pid).unwrap().satp, root_install.satp);
+        assert_eq!(switch.next_tid, second.tid);
+        assert_eq!(switch.next_satp, root_install.satp);
+        assert_ne!(switch.next_satp, second_launch.satp);
+    }
+
 
     #[test]
     fn address_space_switch_updates_active_satp_slot() {

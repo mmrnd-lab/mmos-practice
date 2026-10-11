@@ -136,6 +136,12 @@ impl<const MAX_PROCS: usize, const MAX_CHILDREN: usize, const MAX_AREAS: usize>
         Err(ProcError::TableFull)
     }
 
+    pub fn update_satp(&mut self, pid: usize, satp: usize) -> Result<(), ProcError> {
+        let process = self.get_mut(pid)?;
+        process.satp = satp;
+        Ok(())
+    }
+
     pub fn get(
         &self,
         pid: usize,

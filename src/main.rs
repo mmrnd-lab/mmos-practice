@@ -1043,6 +1043,36 @@ fn run_user_launch_demo() {
                                                                                                             console::puts(
                                                                                                                 "[chapter] ch75 rooted user launch satp\n",
                                                                                                             );
+                                                                                                            if proc_table
+                                                                                                                .update_satp(
+                                                                                                                    second
+                                                                                                                        .pid,
+                                                                                                                    root_install
+                                                                                                                        .satp,
+                                                                                                                )
+                                                                                                                .is_ok()
+                                                                                                            {
+                                                                                                                if let Ok(Some(rooted_space)) =
+                                                                                                                    task_vm::address_space_switch_for_decision(
+                                                                                                                        &proc_table,
+                                                                                                                        &task_table,
+                                                                                                                        decision,
+                                                                                                                    )
+                                                                                                                {
+                                                                                                                    if rooted_space.next_tid
+                                                                                                                        == second
+                                                                                                                            .tid
+                                                                                                                        && rooted_space
+                                                                                                                            .next_satp
+                                                                                                                            == root_install
+                                                                                                                                .satp
+                                                                                                                    {
+                                                                                                                        console::puts(
+                                                                                                                            "[chapter] ch76 process root satp token\n",
+                                                                                                                        );
+                                                                                                                    }
+                                                                                                                }
+                                                                                                            }
                                                                                                         }
                                                                                                     }
                                                                                                 }
