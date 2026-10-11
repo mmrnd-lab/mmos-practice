@@ -3127,6 +3127,69 @@ CHAPTERS: List[ChapterSet] = [
 ]
 
 
+CHAPTER_ALIASES: dict[str, tuple[str, str, str]] = {
+    'ch47_device_io_wrapup': ('ch46_nonblocking_read_wouldblock', 'Ch47 Device I/O Wrapup', 'ch47_device_io_wrapup'),
+    'ch60_task_switching_wrapup': ('ch59_launch_task_global_runtime', 'Ch60 Task Switching Wrapup', 'ch60_task_switching_wrapup'),
+    'ch88_user_execution_pipeline_wrapup': ('ch87_first_user_sret_syscall', 'Ch88 User Execution Pipeline Wrapup', 'ch88_user_execution_pipeline_wrapup'),
+    'ch89_process_exit_runtime_start': ('ch87_first_user_sret_syscall', 'Ch89 Process Exit Runtime Start', 'ch89_process_exit_runtime_start'),
+    'ch91_process_wide_exit_runtime_model': ('ch90_process_exit_runtime', 'Ch91 Process-wide Exit Runtime Model', 'ch91_process_wide_exit_runtime_model'),
+    'ch92_exit_schedule_handoff': ('ch91_exit_schedule_handoff', 'Ch92 Exit Schedule Handoff', 'ch92_exit_schedule_handoff'),
+    'ch93_trap_exit_process_dispatch': ('ch92_trap_exit_process_dispatch', 'Ch93 Trap Exit Process Dispatch', 'ch93_trap_exit_process_dispatch'),
+    'ch94_process_trap_runtime_exit': ('ch93_process_trap_runtime_exit', 'Ch94 Process Trap Runtime Exit', 'ch94_process_trap_runtime_exit'),
+    'ch95_process_trap_runtime_reap': ('ch94_process_trap_runtime_reap', 'Ch95 Process Trap Runtime Reap', 'ch95_process_trap_runtime_reap'),
+    'ch96_process_wait_child_reap': ('ch95_process_wait_child_reap', 'Ch96 Process Wait Child Reap', 'ch96_process_wait_child_reap'),
+    'ch97_wait_syscall_surface': ('ch96_wait_syscall_surface', 'Ch97 Wait Syscall Surface', 'ch97_wait_syscall_surface'),
+    'ch98_blocking_wait_wakeup': ('ch97_blocking_wait_wakeup', 'Ch98 Blocking Wait Wakeup', 'ch98_blocking_wait_wakeup'),
+    'ch99_wait_no_child_boundary': ('ch98_wait_no_child_boundary', 'Ch99 Wait No Child Boundary', 'ch99_wait_no_child_boundary'),
+    'ch101_clone_syscall_surface': ('ch102_clone_syscall_surface', 'Ch101 Clone Syscall Surface', 'ch101_clone_syscall_surface'),
+    'ch101_clone_trap_dispatch': ('ch135_clone_trap_dispatch', 'Ch101 Clone Trap Dispatch', 'ch101_clone_trap_dispatch'),
+    'ch101_wait4_trap_dispatch': ('ch136_wait4_trap_dispatch', 'Ch101 Wait4 Trap Dispatch', 'ch101_wait4_trap_dispatch'),
+    'ch102_minimal_execv_adapter': ('ch103_minimal_execv_adapter', 'Ch102 Minimal Execv Adapter', 'ch102_minimal_execv_adapter'),
+    'ch102_execv_user_arg_copyin': ('ch104_execv_user_arg_copyin', 'Ch102 Execv User Arg Copyin', 'ch102_execv_user_arg_copyin'),
+    'ch102_execv_path_vfs_image': ('ch105_execv_path_vfs_image', 'Ch102 Execv Path VFS Image', 'ch102_execv_path_vfs_image'),
+    'ch102_execv_apply_pipeline': ('ch106_execv_apply_pipeline', 'Ch102 Execv Apply Pipeline', 'ch102_execv_apply_pipeline'),
+    'ch102_execv_syscall_surface': ('ch107_execv_syscall_surface', 'Ch102 Execv Syscall Surface', 'ch102_execv_syscall_surface'),
+    'ch103_current_execv_syscall_runtime': ('ch108_current_execv_syscall_runtime', 'Ch103 Current Execv Syscall Runtime', 'ch103_current_execv_syscall_runtime'),
+    'ch103_execv_trap_dispatch': ('ch113_execv_trap_dispatch', 'Ch103 Execv Trap Dispatch', 'ch103_execv_trap_dispatch'),
+    'ch103_execv_prepared_runtime': ('ch122_execv_prepared_runtime', 'Ch103 Execv Prepared Runtime', 'ch103_execv_prepared_runtime'),
+    'ch103_execv_recipe_store_boundary': ('ch132_execv_recipe_store_boundary', 'Ch103 Execv Recipe Store Boundary', 'ch103_execv_recipe_store_boundary'),
+    'ch104_prepared_process_syscall_entry': ('ch138_prepared_process_syscall_entry', 'Ch104 Prepared Process Syscall Entry', 'ch104_prepared_process_syscall_entry'),
+    'ch104_process_syscall_write_entry': ('ch139_process_syscall_write_entry', 'Ch104 Process Syscall Write Entry', 'ch104_process_syscall_write_entry'),
+    'ch104_process_syscall_openat_entry': ('ch142_process_syscall_openat_entry', 'Ch104 Process Syscall OpenAt Entry', 'ch104_process_syscall_openat_entry'),
+    'ch104_process_syscall_io_resources': ('ch143_process_syscall_io_resources', 'Ch104 Process Syscall IO Resources', 'ch104_process_syscall_io_resources'),
+    'ch105_empty_fd_table_init_stdio': ('ch145_empty_fd_table_init_stdio', 'Ch105 Empty FD Table Init Stdio', 'ch105_empty_fd_table_init_stdio'),
+    'ch105_user_crt_library_boundary': ('ch147_user_crt_library_boundary', 'Ch105 User libc Library Boundary', 'ch105_user_crt_library_boundary'),
+    'ch105_user_link_model_classification': ('ch149_user_link_model_classification', 'Ch105 User Link Model Classification', 'ch105_user_link_model_classification'),
+    'ch106_shared_object_load_plan': ('ch150_shared_object_load_plan', 'Ch106 Shared Object Load Plan', 'ch106_shared_object_load_plan'),
+    'ch106_relative_relocation_apply_value': ('ch154_relative_relocation_apply_value', 'Ch106 Relative Relocation Apply Value', 'ch106_relative_relocation_apply_value'),
+    'ch106_shared_object_load_pipeline': ('ch160_shared_object_load_pipeline', 'Ch106 Shared Object Load Pipeline', 'ch106_shared_object_load_pipeline'),
+    'ch106_exec_dispatch_shared_object_runtime': ('ch166_exec_dispatch_shared_object_runtime', 'Ch106 Exec Dispatch Shared Object Runtime', 'ch106_exec_dispatch_shared_object_runtime'),
+    'ch107_user_crt_entry_main': ('ch168_user_crt_entry_main', 'Ch107 User CRT Entry Calls Main', 'ch107_user_crt_entry_main'),
+    'ch107_execve_envp_copyin': ('ch170_execve_envp_copyin', 'Ch107 Execve Envp Copyin', 'ch107_execve_envp_copyin'),
+    'ch107_user_crt_env_lookup': ('ch171_user_crt_env_lookup', 'Ch107 User libc Env Lookup', 'ch107_user_crt_env_lookup'),
+}
+
+
+def alias_chapter(key: str) -> Optional[ChapterSet]:
+    alias = CHAPTER_ALIASES.get(key)
+    if alias is None:
+        return None
+    source_key, label, commit_candidate = alias
+    source = next((ch for ch in CHAPTERS if ch.key == source_key), None)
+    if source is None:
+        raise SystemExit(f"alias source missing for {key}: {source_key}")
+    note = f"book chapter alias for {source.key}"
+    if source.note:
+        note = f"{note}; {source.note}"
+    return ChapterSet(
+        key=key,
+        label=label,
+        commit_candidates=[commit_candidate],
+        steps=source.steps,
+        note=note,
+    )
+
+
 def check_patterns(output: str, patterns: Sequence[str]) -> Tuple[List[str], List[str]]:
     if not patterns:
         return [], []
@@ -4677,9 +4740,15 @@ def select_cli_chapters(targets: Sequence[str], all_chapters: bool) -> List[Chap
         return [ch for ch in CHAPTERS if not ch.key.startswith("live_")]
     selected: List[ChapterSet] = []
     for target in targets:
+        t = target.lower()
         matches = [ch for ch in CHAPTERS if chapter_matches(ch, target)]
         if not matches:
-            raise SystemExit(f"unknown chapter target: {target}")
+            alias = alias_chapter(t)
+            if alias is None:
+                raise SystemExit(f"unknown chapter target: {target}")
+            if alias not in selected:
+                selected.append(alias)
+            continue
         if len(matches) > 1:
             labels = ", ".join(ch.key for ch in matches)
             raise SystemExit(f"ambiguous chapter target '{target}': {labels}")
@@ -4714,6 +4783,10 @@ def run_cli(args: argparse.Namespace) -> int:
     if args.list:
         for ch in CHAPTERS:
             print(f"{ch.key}\t{ch.label}\t{','.join(ch.commit_candidates)}")
+        for key in sorted(CHAPTER_ALIASES):
+            ch = alias_chapter(key)
+            if ch is not None:
+                print(f"{ch.key}\t{ch.label}\t{','.join(ch.commit_candidates)}")
         return 0
 
     host = args.host
