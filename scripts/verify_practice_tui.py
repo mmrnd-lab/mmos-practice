@@ -266,18 +266,18 @@ CHAPTERS: List[ChapterSet] = [
         ],
     ),
     ChapterSet(
-        key="ch19_user_vm_plan",
-        label="Ch19 User VM Plan",
-        commit_candidates=["7fdd138"],
+        key="ch19_user_vm_fault",
+        label="Ch19 User VM + Page Fault",
+        commit_candidates=["e8efdbe", "6775657"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
         ],
     ),
     ChapterSet(
-        key="ch20_page_fault_pmm",
-        label="Ch20 Page Fault + PMM",
-        commit_candidates=["6775657"],
+        key="ch20_scheduler_switch",
+        label="Ch20 Scheduler + Context Switch",
+        commit_candidates=["f0c13f2"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),

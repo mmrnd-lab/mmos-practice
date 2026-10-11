@@ -34,6 +34,12 @@
 14. `6775657` `feat(mm): add vm areas, page fault path, and frame manager`
     - 사용자 VM area(`VmSpace`)와 접근권한 기반 fault 해석 추가
     - page fault 경로에서 frame alloc/reuse(`PageFrameManager`) 계획 생성
+15. `e8efdbe` `feat(ch19): connect page fault results to trap outcomes`
+    - page fault 결과(`Mapped/InvalidAccess/OutOfMemory`)를 trap outcome(`Resume/Exit`)으로 연결
+    - user fault 처리 정책을 trap 계층에서 일관되게 소비할 수 있는 경로 고정
+16. `f0c13f2` `feat(ch20): add timer-driven scheduler and context switch scaffolds`
+    - timer tick 기반 최소 scheduler(`Scheduler`)와 run queue 순환 규칙 추가
+    - context switch 저장/복원 스캐폴드(`context_switch.rs`)와 단위 테스트 추가
 
 ## Reproduce Example
 
