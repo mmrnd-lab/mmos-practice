@@ -2490,6 +2490,33 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=init links the reusable user runtime API from the user/crt crate",
     ),
     ChapterSet(
+        key="ch148_user_crt_static_link_artifact",
+        label="Ch148 User CRT Static Link Artifact",
+        commit_candidates=["228c31d"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-crt-build",
+                "make user-crt PROFILE=release && test -f user/crt/target/riscv64gc-unknown-none-elf/release/libmmos_user_crt.rlib",
+            ),
+            Step(
+                "user-init-build",
+                "make user-init PROFILE=release && riscv64-linux-gnu-readelf -s build/user-init.elf | grep '_start'",
+                must_contain=("_start",),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch148 user crt static link artifact",
+                    "[user-crt] build produces libmmos_user_crt.rlib before shared object support",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=CRT is currently a static rlib artifact, not a runtime-mapped shared object",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

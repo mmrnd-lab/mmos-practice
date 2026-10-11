@@ -639,3 +639,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `user/init/Cargo.toml`은 `mmos-user-crt` path dependency를 선언하고, `main.rs`는 app logic만 남긴 채 CRT API를 호출
     - 아직 동적 shared library는 아니며, 여러 user program이 공유할 수 있는 user runtime library 경계만 먼저 고정
     - QEMU runtime marker에서 `[chapter] ch147 user crt library boundary`, `[user-crt] init links shared runtime API from user/crt crate` 확인
+
+132. `228c31d` `feat(ch148): expose user crt static link artifact`
+    - `make user-crt` 타깃을 추가해 `user/crt` crate를 RISC-V용 `libmmos_user_crt.rlib` 산출물로 직접 빌드
+    - verifier가 CRT rlib 산출물과 user init ELF의 `_start` symbol을 함께 확인하도록 확장
+    - 아직 runtime에 mapping되는 `.so`가 아니라 정적 link artifact임을 QEMU marker와 문서에서 명시
+    - QEMU runtime marker에서 `[chapter] ch148 user crt static link artifact`, `[user-crt] build produces libmmos_user_crt.rlib before shared object support` 확인
