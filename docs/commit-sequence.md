@@ -289,6 +289,11 @@
     - 지속적인 `satp` 전환 전에 user code와 stack의 물리 backing을 분리해야 함을 테스트와 런타임 시그니처로 검증
 
 
+75. `697dde5` `feat(ch83): map user pages to pmm frames`
+    - frame-backed user image plan을 Sv39의 root -> L1 -> L0 table mapping으로 설치하는 helper를 추가
+    - user code와 stack virtual page가 1GiB identity leaf가 아니라 PMM frame을 가리키는 4KiB leaf가 되었음을 테스트와 런타임 시그니처로 검증
+
+
 ## Reproduce Example
 
 ```bash
