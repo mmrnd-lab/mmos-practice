@@ -31,18 +31,32 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
 
 pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResult {
     match decode_syscall(id, a0, a1, a2) {
-        Some(Syscall::Write {
-            fd,
-            ptr: _,
-            len,
-        }) => {
-            if fd == 1 {
-                SyscallResult::Continue(len as isize)
-            } else {
-                SyscallResult::Continue(-1)
-            }
-        }
+        Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
         None => SyscallResult::Unsupported,
+    }
+}
+
+#[cfg(target_arch = "riscv64")]
+fn handle_write(fd: usize, ptr: usize, len: usize) -> SyscallResult {
+    if fd != 1 {
+        return SyscallResult::Continue(-1);
+    }
+    if len == 0 {
+        return SyscallResult::Continue(0);
+    }
+
+    let capped = core::cmp::min(len, 1024);
+    let bytes = unsafe { core::slice::from_raw_parts(ptr as *const u8, capped) };
+    crate::uart::put_bytes(bytes);
+    SyscallResult::Continue(capped as isize)
+}
+
+#[cfg(not(target_arch = "riscv64"))]
+fn handle_write(fd: usize, _ptr: usize, len: usize) -> SyscallResult {
+    if fd == 1 {
+        SyscallResult::Continue(len as isize)
+    } else {
+        SyscallResult::Continue(-1)
     }
 }

@@ -72,6 +72,13 @@ pub fn puts(s: &str) {
     }
 }
 
+#[cfg(feature = "console-sbi")]
+pub fn put_bytes(bytes: &[u8]) {
+    for &b in bytes {
+        sbi::console_putchar(b);
+    }
+}
+
 #[cfg(feature = "console-mmio")]
 pub fn puts(s: &str) {
     let mut uart = unsafe { Uart::from_base(UART0_BASE) };
@@ -81,4 +88,17 @@ pub fn puts(s: &str) {
     }
 
     let _ = uart.write_str(s);
+}
+
+#[cfg(feature = "console-mmio")]
+pub fn put_bytes(bytes: &[u8]) {
+    let mut uart = unsafe { Uart::from_base(UART0_BASE) };
+
+    if !UART_READY.swap(true, Ordering::AcqRel) {
+        unsafe { uart.init() };
+    }
+
+    for &b in bytes {
+        unsafe { uart.write_byte(b) };
+    }
 }

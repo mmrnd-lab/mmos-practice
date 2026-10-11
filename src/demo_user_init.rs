@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub const DEMO_EXT4_IMAGE_SIZE: usize = 16 * 1024;
-pub const DEMO_INIT_ELF_SIZE: usize = 0x104;
+pub const DEMO_INIT_ELF_SIZE: usize = 0x180;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DemoBuildError {
@@ -11,6 +11,11 @@ pub enum DemoBuildError {
 }
 
 pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
+    const BASE_VADDR: usize = 0x8040_0000;
+    const SEG_OFF: usize = 0x100;
+    const MSG_OFF: usize = 0x140;
+    const MSG: &[u8] = b"[user-init] hello from user app\n";
+
     if out.len() < DEMO_INIT_ELF_SIZE {
         return Err(DemoBuildError::ElfTooSmall);
     }
@@ -22,7 +27,7 @@ pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
     write_le16(out, 16, 2);
     write_le16(out, 18, 243);
     write_le32(out, 20, 1);
-    write_le64(out, 24, 0x8040_0000);
+    write_le64(out, 24, BASE_VADDR as u64);
     write_le64(out, 32, 64);
     write_le16(out, 52, 64);
     write_le16(out, 54, 56);
@@ -31,12 +36,32 @@ pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
     let ph = 64usize;
     write_le32(out, ph, 1);
     write_le32(out, ph + 4, 5);
-    write_le64(out, ph + 8, 0x100);
-    write_le64(out, ph + 16, 0x8040_0000);
-    write_le64(out, ph + 32, 4);
-    write_le64(out, ph + 40, 8);
+    write_le64(out, ph + 8, SEG_OFF as u64);
+    write_le64(out, ph + 16, BASE_VADDR as u64);
+    let file_size = (MSG_OFF + MSG.len()) - SEG_OFF;
+    write_le64(out, ph + 32, file_size as u64);
+    write_le64(out, ph + 40, file_size as u64);
     write_le64(out, ph + 48, 0x1000);
-    out[0x100..0x104].copy_from_slice(&[0x13, 0x00, 0x00, 0x00]);
+
+    let code = &mut out[SEG_OFF..MSG_OFF];
+    code.fill(0);
+    // a1 = &MSG (PC-relative, avoids RV64 sign-extension pitfalls)
+    write_le32(code, 0x00, encode_auipc(11, 0));
+    write_le32(code, 0x04, encode_addi(11, 11, (MSG_OFF - SEG_OFF) as i32));
+    // write(1, msg, msg_len)
+    write_le32(code, 0x08, encode_addi(10, 0, 1));
+    write_le32(code, 0x0c, encode_addi(12, 0, MSG.len() as i32));
+    write_le32(code, 0x10, encode_addi(17, 0, 64));
+    write_le32(code, 0x14, 0x0000_0073); // ecall
+                                         // exit(0)
+    write_le32(code, 0x18, encode_addi(10, 0, 0));
+    write_le32(code, 0x1c, encode_addi(17, 0, 93));
+    write_le32(code, 0x20, 0x0000_0073); // ecall
+                                         // safety loop if exit path is not wired
+    write_le32(code, 0x24, 0x1050_0073); // wfi
+    write_le32(code, 0x28, 0x0000_006f); // j .
+
+    out[MSG_OFF..MSG_OFF + MSG.len()].copy_from_slice(MSG);
     Ok(DEMO_INIT_ELF_SIZE)
 }
 
@@ -98,7 +123,14 @@ fn write_sbin_dir(image: &mut [u8]) {
     write_dir_entry(block, 24, 13, (1024 - 24) as u16, b"init", 1);
 }
 
-fn write_dir_entry(block: &mut [u8], offset: usize, inode: u32, rec_len: u16, name: &[u8], file_type: u8) {
+fn write_dir_entry(
+    block: &mut [u8],
+    offset: usize,
+    inode: u32,
+    rec_len: u16,
+    name: &[u8],
+    file_type: u8,
+) {
     write_le32(block, offset, inode);
     write_le16(block, offset + 4, rec_len);
     block[offset + 6] = name.len() as u8;
@@ -116,4 +148,13 @@ fn write_le32(buf: &mut [u8], offset: usize, value: u32) {
 
 fn write_le64(buf: &mut [u8], offset: usize, value: u64) {
     buf[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+}
+
+fn encode_addi(rd: u32, rs1: u32, imm: i32) -> u32 {
+    let imm12 = (imm as u32) & 0x0fff;
+    (imm12 << 20) | (rs1 << 15) | (rd << 7) | 0x13
+}
+
+fn encode_auipc(rd: u32, imm20: u32) -> u32 {
+    (imm20 << 12) | (rd << 7) | 0x17
 }

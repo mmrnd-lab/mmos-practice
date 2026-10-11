@@ -4,11 +4,6 @@
 
 #![no_main]
 
-mod sbi;
-mod syscall;
-mod trap;
-mod uart;
-mod user_init;
 #[allow(dead_code)]
 mod block;
 #[allow(dead_code)]
@@ -16,9 +11,9 @@ mod block_io;
 #[allow(dead_code)]
 mod ramdisk;
 #[allow(dead_code)]
-mod device;
-#[allow(dead_code)]
 mod demo_user_init;
+#[allow(dead_code)]
+mod device;
 #[allow(dead_code)]
 mod elf_loader;
 #[allow(dead_code)]
@@ -31,12 +26,17 @@ mod pmm;
 mod process_model;
 #[allow(dead_code)]
 mod process_runtime;
+mod sbi;
 #[allow(dead_code)]
 mod scheduler;
 #[allow(dead_code)]
 mod sv39;
+mod syscall;
+mod trap;
+mod uart;
 #[allow(dead_code)]
 mod user_exec;
+mod user_init;
 mod user_launch;
 mod user_stack;
 #[allow(dead_code)]
@@ -90,7 +90,7 @@ pub extern "C" fn rust_main() -> ! {
     boot_tf.set_a7(syscall::SYS_WRITE);
     boot_tf.set_a0(1);
     boot_tf.set_a1(0x9000_0000);
-    boot_tf.set_a2(8);
+    boot_tf.set_a2(0);
     let _ = trap::handle_trap(&mut boot_tf, trap::SCAUSE_USER_ECALL, 0);
 
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
@@ -106,9 +106,8 @@ pub extern "C" fn rust_main() -> ! {
 
     run_scheduler_runtime_demo();
     run_process_runtime_demo();
-    run_user_launch_demo();
-
     uart::puts("[mmos-practice] trap/irq scaffold ready\n");
+    run_user_launch_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -173,13 +172,22 @@ fn run_user_launch_demo() {
             return;
         }
     };
-    let loaded = match user_exec::load_init_exec_image(&vfs, "/sbin/init", scratch, 0x8050_0000) {
+    let loaded = match user_exec::load_init_exec_image(&vfs, "/sbin/init", scratch, stack_top) {
         Ok(v) => v,
         Err(_) => {
             uart::puts("[runtime] /sbin/init ELF load failed\n");
             return;
         }
     };
+    if materialize_loaded_segments(&loaded).is_err() {
+        return;
+    }
+
+    #[cfg(target_arch = "riscv64")]
+    unsafe {
+        core::arch::asm!("fence.i");
+    }
+
     let plan = user_launch::prepare_user_init_launch::<4, 4>(
         &loaded,
         0x12345,
@@ -189,12 +197,31 @@ fn run_user_launch_demo() {
     );
     if let Ok(p) = plan {
         if p.argc == 1 && p.trapframe.sepc == loaded.entry {
+            let _ = (p.satp, p.mapped_regions, p.sp, p.argv_ptr, p.envp_ptr);
             uart::puts("[chapter] ch18 exec prep\n");
             uart::puts("[runtime] loaded /sbin/init from virtio ext4 into exec image\n");
             uart::puts("[chapter] ch26 user init launch handoff\n");
             uart::puts("[launch] vm+stack+trapframe ready for first sret\n");
+            uart::puts("[chapter] ch28 first user sret\n");
+
+            #[cfg(target_arch = "riscv64")]
+            unsafe {
+                trap::enter_user(&p.trapframe);
+            }
         }
     }
+}
+
+fn materialize_loaded_segments(loaded: &elf_loader::LoadedUserImage<'_>) -> Result<(), ()> {
+    let mut idx = 0usize;
+    while idx < loaded.segment_count {
+        let seg = loaded.segments[idx].ok_or(())?;
+        let dst = unsafe { core::slice::from_raw_parts_mut(seg.vaddr as *mut u8, seg.mem_size) };
+        dst[..seg.file_size].copy_from_slice(seg.data);
+        dst[seg.file_size..].fill(0);
+        idx += 1;
+    }
+    Ok(())
 }
 
 #[panic_handler]

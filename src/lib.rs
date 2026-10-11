@@ -7,8 +7,8 @@ pub mod block;
 pub mod ramdisk;
 pub mod block_io;
 pub mod context_switch;
-pub mod device;
 pub mod demo_user_init;
+pub mod device;
 pub mod elf_loader;
 pub mod ext4;
 pub mod irq_guard;
@@ -23,14 +23,15 @@ pub mod scheduler;
 pub mod sv39;
 pub mod syscall;
 pub mod trap;
+pub mod uart;
 pub mod user_exec;
-pub mod user_launch;
 pub mod user_init;
+pub mod user_launch;
 pub mod user_stack;
 pub mod user_vm;
 pub mod virtio_blk;
-pub mod vm;
 pub mod vfs;
+pub mod vm;
 
 pub fn align_up(value: usize, align: usize) -> usize {
     debug_assert!(align.is_power_of_two());
@@ -46,7 +47,7 @@ mod tests {
     use super::context_switch::switch_context;
     use super::device::{Device, DeviceKind};
     use super::elf_loader::{
-        load_init_from_vfs, load_user_elf, pflags_to_pte, parse_elf_header, ElfError,
+        load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte, ElfError,
     };
     use super::ext4::{Ext4Fs, FsError};
     use super::kheap::init_kheap;
@@ -61,20 +62,23 @@ mod tests {
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
-    use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
+    use super::syscall::{
+        decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE,
+    };
     use super::trap::{
-        handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame, TrapOutcome,
-        SCAUSE_USER_ECALL,
+        handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
+        TrapOutcome, SCAUSE_USER_ECALL,
     };
     use super::user_exec::{
-        install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage, UserRegionMut,
+        install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
+        UserRegionMut,
     };
-    use super::user_launch::prepare_user_init_launch;
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
+    use super::user_launch::prepare_user_init_launch;
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
-    use super::vm::{FaultAccess, VmError, VmSpace};
     use super::vfs::Vfs;
+    use super::vm::{FaultAccess, VmError, VmSpace};
 
     #[test]
     fn align_up_keeps_aligned_values() {
@@ -103,10 +107,7 @@ mod tests {
 
     #[test]
     fn block_read_single_lba() {
-        let storage: [u8; 16] = [
-            0, 1, 2, 3, 4, 5, 6, 7,
-            8, 9, 10, 11, 12, 13, 14, 15,
-        ];
+        let storage: [u8; 16] = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
         let dev = RamDisk::new("ramblk0", &storage, 8);
         let mut out = [0u8; 8];
         dev.read_block(1, &mut out).unwrap();
@@ -124,8 +125,8 @@ mod tests {
     #[test]
     fn block_read_across_boundary() {
         let storage: [u8; 16] = [
-            b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H',
-            b'I', b'J', b'K', b'L', b'M', b'N', b'O', b'P',
+            b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H', b'I', b'J', b'K', b'L', b'M', b'N',
+            b'O', b'P',
         ];
         let dev = RamDisk::new("ramblk0", &storage, 8);
         let mut out = [0u8; 6];
@@ -233,9 +234,13 @@ mod tests {
         assert_eq!(image.segment_count, 1);
         let seg = image.segments[0].unwrap();
         assert_eq!(seg.vaddr, 0x8040_0000);
-        assert_eq!(seg.file_size, 4);
-        assert_eq!(seg.mem_size, 8);
-        assert_eq!(seg.data, &[0x13, 0x00, 0x00, 0x00]);
+        assert!(seg.file_size >= 64);
+        assert_eq!(seg.mem_size, seg.file_size);
+        assert_eq!(&seg.data[..4], &[0x97, 0x05, 0x00, 0x00]);
+        assert!(seg
+            .data
+            .windows(b"[user-init]".len())
+            .any(|w| w == b"[user-init]"));
     }
 
     #[test]
@@ -275,7 +280,10 @@ mod tests {
                 len: 5
             })
         );
-        assert_eq!(decode_syscall(SYS_EXIT, 7, 0, 0), Some(Syscall::Exit { code: 7 }));
+        assert_eq!(
+            decode_syscall(SYS_EXIT, 7, 0, 0),
+            Some(Syscall::Exit { code: 7 })
+        );
     }
 
     #[test]
@@ -302,15 +310,12 @@ mod tests {
     #[test]
     fn trap_page_fault_outcome_resumes_on_valid_mapping() {
         let mut vm = VmSpace::<4>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_W).unwrap();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_W)
+            .unwrap();
         let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
 
-        let outcome = handle_user_page_fault_outcome(
-            SCAUSE_STORE_PAGE_FAULT,
-            0x8040_0010,
-            &vm,
-            &mut pmm,
-        );
+        let outcome =
+            handle_user_page_fault_outcome(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
         assert_eq!(outcome, TrapOutcome::Resume);
     }
 
@@ -320,12 +325,8 @@ mod tests {
         vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R).unwrap();
         let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
 
-        let outcome = handle_user_page_fault_outcome(
-            SCAUSE_STORE_PAGE_FAULT,
-            0x8040_0010,
-            &vm,
-            &mut pmm,
-        );
+        let outcome =
+            handle_user_page_fault_outcome(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
         assert_eq!(outcome, TrapOutcome::Exit(-1));
     }
 
@@ -477,16 +478,18 @@ mod tests {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
         let seg = loaded.segments[0].unwrap();
-        let mut region = [0xaa_u8; 8];
+        let mut region = vec![0xaa_u8; seg.mem_size];
         let mut regions = [UserRegionMut {
             vaddr: seg.vaddr,
-            bytes: &mut region,
+            bytes: region.as_mut_slice(),
         }];
 
         materialize_segments(&loaded, &mut regions).unwrap();
 
-        assert_eq!(&region[..4], &[0x13, 0x00, 0x00, 0x00]);
-        assert_eq!(&region[4..8], &[0x00, 0x00, 0x00, 0x00]);
+        assert_eq!(&region[..4], &[0x97, 0x05, 0x00, 0x00]);
+        assert!(region
+            .windows(b"[user-init]".len())
+            .any(|w| w == b"[user-init]"));
     }
 
     #[test]
@@ -536,8 +539,8 @@ mod tests {
         assert_eq!(exec.segment_count, 1);
         let seg = exec.segments[0].unwrap();
         assert_eq!(seg.vaddr, 0x8040_0000);
-        assert_eq!(seg.file_size, 4);
-        assert_eq!(seg.mem_size, 8);
+        assert!(seg.file_size >= 64);
+        assert_eq!(seg.mem_size, seg.file_size);
     }
 
     #[test]
@@ -690,22 +693,29 @@ mod tests {
     #[test]
     fn vm_space_resolves_fault_by_access_mode() {
         let mut vm = VmSpace::<4>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X).unwrap();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X)
+            .unwrap();
         assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Read).is_some());
-        assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Execute).is_some());
+        assert!(vm
+            .resolve_fault(0x8040_0004, FaultAccess::Execute)
+            .is_some());
         assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Write).is_none());
     }
 
     #[test]
     fn vm_space_rejects_invalid_range() {
         let mut vm = VmSpace::<2>::new();
-        assert_eq!(vm.map_anon(0x1000, 0x1000, PTE_R), Err(VmError::InvalidRange));
+        assert_eq!(
+            vm.map_anon(0x1000, 0x1000, PTE_R),
+            Err(VmError::InvalidRange)
+        );
     }
 
     #[test]
     fn page_fault_handler_allocates_mapping_for_valid_area() {
         let mut vm = VmSpace::<4>::new();
-        vm.map_anon(0x8050_0000, 0x8050_2000, PTE_R | PTE_W).unwrap();
+        vm.map_anon(0x8050_0000, 0x8050_2000, PTE_R | PTE_W)
+            .unwrap();
         let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, 0x1000);
 
         let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x8050_1234, &vm, &mut pmm);
@@ -722,7 +732,8 @@ mod tests {
     #[test]
     fn page_fault_handler_rejects_illegal_access() {
         let mut vm = VmSpace::<2>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X).unwrap();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X)
+            .unwrap();
         let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
 
         let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
