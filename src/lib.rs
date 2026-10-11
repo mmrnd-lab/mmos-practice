@@ -107,10 +107,11 @@ mod tests {
         SatpHardwareCommitError,
     };
     use super::syscall::{
+        dispatch_current_execv_syscall,
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall,
-        handle_current_process_clone_syscall, handle_current_process_execv_checked_user_syscall, handle_process_execv_checked_user_syscall, BlockingReadResult,
+        handle_current_process_clone_syscall, handle_current_process_execv_checked_user_syscall, handle_process_execv_checked_user_syscall, BlockingReadResult, CurrentExecvDispatchContext,
         handle_process_execv_syscall, handle_process_fork_syscall,
         handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
@@ -1052,6 +1053,59 @@ mod tests {
             &mut stack,
             0x4010_0000,
             VmSpace::<2>::new(),
+        );
+
+        assert_eq!(result, SyscallResult::Continue(0));
+        assert_eq!(runtime.current_process_id(), Ok(pid));
+        let frame = runtime.task_frame(1).unwrap();
+        assert_eq!(frame.sepc, 0x4000_0000);
+        assert!(frame.sp() < 0x4010_0000);
+    }
+
+    #[test]
+    fn execv_dispatch_helper_routes_decoded_execve_to_current_runtime() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let syscall = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
+        let mut user_vm = VmSpace::<1>::new();
+        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
+
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+        let mut stack = [0u8; 256];
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4000_1000;
+        frame.set_sp(0x4010_1000);
+        runtime.add_runnable_task(1, pid, frame).unwrap();
+        runtime.start_first_task();
+
+        let result = dispatch_current_execv_syscall::<1, 4, 64, 4, 2, 2, 5>(
+            syscall,
+            CurrentExecvDispatchContext {
+                runtime: &mut runtime,
+                user: &user,
+                vfs: &vfs,
+                scratch: &mut scratch,
+                stack_bytes: &mut stack,
+                stack_top_va: 0x4010_0000,
+                new_vm: VmSpace::<2>::new(),
+            },
         );
 
         assert_eq!(result, SyscallResult::Continue(0));

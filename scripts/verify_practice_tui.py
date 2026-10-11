@@ -1832,6 +1832,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve syscall helper uses the current runtime task instead of an explicit target tid",
     ),
     ChapterSet(
+        key="ch109_execv_dispatch_context",
+        label="Ch109 Execv Dispatch Context",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch109 execv dispatch context",
+                    "[syscall] execve dispatch current=1 ret=0 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=decoded execve is routed through a dispatch context into the current execv helper",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
