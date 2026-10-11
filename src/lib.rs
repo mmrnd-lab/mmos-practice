@@ -872,11 +872,16 @@ mod tests {
         const PATH: usize = BASE;
         const ARG0: usize = BASE + 0x40;
         const ARG1: usize = BASE + 0x60;
+        const ENV0: usize = BASE + 0x80;
+        const ENV1: usize = BASE + 0xa0;
         const ARGV: usize = BASE + 0x100;
+        const ENVP: usize = BASE + 0x140;
         let mut user_mem = [0u8; 512];
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG1 - BASE, b"--verbose");
+        write_cstr_at(&mut user_mem, ENV0 - BASE, b"PATH=/bin");
+        write_cstr_at(&mut user_mem, ENV1 - BASE, b"TERM=vt100");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
         write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), ARG1);
         write_usize_at(
@@ -884,19 +889,30 @@ mod tests {
             ARGV - BASE + 2 * core::mem::size_of::<usize>(),
             0,
         );
+        write_usize_at(&mut user_mem, ENVP - BASE, ENV0);
+        write_usize_at(&mut user_mem, ENVP - BASE + core::mem::size_of::<usize>(), ENV1);
+        write_usize_at(
+            &mut user_mem,
+            ENVP - BASE + 2 * core::mem::size_of::<usize>(),
+            0,
+        );
 
         let mut vm = VmSpace::<1>::new();
         vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
         let mut block = ExecvArgBlock::<4, 64>::new();
-        let report = copyin_execv_args(&user, PATH, ARGV, &mut block).unwrap();
+        let report = copyin_execv_args(&user, PATH, ARGV, ENVP, &mut block).unwrap();
 
         assert_eq!(report.path_len, 10);
         assert_eq!(report.argc, 2);
+        assert_eq!(report.envc, 2);
         assert_eq!(report.first_arg_len, 10);
+        assert_eq!(report.first_env_len, 9);
         assert_eq!(block.path_str().unwrap(), "/sbin/init");
         assert_eq!(block.arg_str(0).unwrap(), "/sbin/init");
         assert_eq!(block.arg_str(1).unwrap(), "--verbose");
+        assert_eq!(block.env_str(0).unwrap(), "PATH=/bin");
+        assert_eq!(block.env_str(1).unwrap(), "TERM=vt100");
 
         let stack_top = 0x4010_0000usize;
         let mut stack = [0u8; 512];
@@ -907,11 +923,15 @@ mod tests {
         let argv0 = read_usize_at(&stack, sp_off + core::mem::size_of::<usize>());
         let argv1 = read_usize_at(&stack, sp_off + 2 * core::mem::size_of::<usize>());
         let argv_null = read_usize_at(&stack, sp_off + 3 * core::mem::size_of::<usize>());
-        let envp_null = read_usize_at(&stack, sp_off + 4 * core::mem::size_of::<usize>());
+        let envp0 = read_usize_at(&stack, sp_off + 4 * core::mem::size_of::<usize>());
+        let envp1 = read_usize_at(&stack, sp_off + 5 * core::mem::size_of::<usize>());
+        let envp_null = read_usize_at(&stack, sp_off + 6 * core::mem::size_of::<usize>());
         assert_eq!(argv_null, 0);
         assert_eq!(envp_null, 0);
         assert_eq!(read_cstr_at(&stack, base, argv0), b"/sbin/init");
         assert_eq!(read_cstr_at(&stack, base, argv1), b"--verbose");
+        assert_eq!(read_cstr_at(&stack, base, envp0), b"PATH=/bin");
+        assert_eq!(read_cstr_at(&stack, base, envp1), b"TERM=vt100");
     }
 
     #[test]
@@ -929,7 +949,7 @@ mod tests {
         let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
         let mut block = ExecvArgBlock::<2, 64>::new();
         assert_eq!(
-            copyin_execv_args(&user, BASE, BASE + 0x100, &mut block),
+            copyin_execv_args(&user, BASE, BASE + 0x100, 0, &mut block),
             Err(ExecvArgError::TooManyArgs)
         );
     }
@@ -950,7 +970,7 @@ mod tests {
         vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
         let mut block = ExecvArgBlock::<4, 64>::new();
-        copyin_execv_args(&user, PATH, ARGV, &mut block).unwrap();
+        copyin_execv_args(&user, PATH, ARGV, 0, &mut block).unwrap();
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -985,7 +1005,7 @@ mod tests {
         vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
         let mut block = ExecvArgBlock::<4, 64>::new();
-        copyin_execv_args(&user, PATH, ARGV, &mut block).unwrap();
+        copyin_execv_args(&user, PATH, ARGV, 0, &mut block).unwrap();
 
         let init = build_test_init_elf();
         let mut shared_object = build_test_dynamic_metadata_elf();
@@ -1079,6 +1099,7 @@ mod tests {
             &user,
             PATH,
             ARGV,
+            0,
             &vfs,
             &mut scratch,
             &mut stack,
@@ -1164,6 +1185,7 @@ mod tests {
             &user,
             PATH,
             ARGV,
+            0,
             &vfs,
             &mut exec_scratch,
             &mut shared_scratch,
@@ -1239,7 +1261,12 @@ mod tests {
             .fork_current_process(2, child_frame, VmSpace::<2>::new())
             .unwrap();
 
-        let Syscall::Execv { path_ptr, argv_ptr, .. } = decoded else {
+        let Syscall::Execv {
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+        } = decoded
+        else {
             panic!("expected execv syscall");
         };
         let result = handle_process_execv_checked_user_syscall::<1, 4, 64, 4, 2, 2, 5>(
@@ -1248,6 +1275,7 @@ mod tests {
             &user,
             path_ptr,
             argv_ptr,
+            envp_ptr,
             &vfs,
             &mut scratch,
             &mut stack,
@@ -1274,7 +1302,12 @@ mod tests {
         write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
 
         let decoded = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
-        let Syscall::Execv { path_ptr, argv_ptr, .. } = decoded else {
+        let Syscall::Execv {
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+        } = decoded
+        else {
             panic!("expected execv syscall");
         };
 
@@ -1304,6 +1337,7 @@ mod tests {
             &user,
             path_ptr,
             argv_ptr,
+            envp_ptr,
             &vfs,
             &mut scratch,
             &mut stack,

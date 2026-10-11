@@ -1472,11 +1472,14 @@ fn run_execv_user_arg_copyin_demo() {
     const PATH: usize = BASE;
     const ARG0: usize = BASE + 0x40;
     const ARG1: usize = BASE + 0x60;
+    const ENV0: usize = BASE + 0x80;
     const ARGV: usize = BASE + 0x100;
+    const ENVP: usize = BASE + 0x140;
     let mut user_mem = [0u8; 512];
     put_cstr(&mut user_mem, PATH - BASE, b"/sbin/init");
     put_cstr(&mut user_mem, ARG0 - BASE, b"/sbin/init");
     put_cstr(&mut user_mem, ARG1 - BASE, b"--verbose");
+    put_cstr(&mut user_mem, ENV0 - BASE, b"PATH=/bin");
     put_usize(&mut user_mem, ARGV - BASE, ARG0);
     put_usize(
         &mut user_mem,
@@ -1488,6 +1491,12 @@ fn run_execv_user_arg_copyin_demo() {
         ARGV - BASE + 2 * core::mem::size_of::<usize>(),
         0,
     );
+    put_usize(&mut user_mem, ENVP - BASE, ENV0);
+    put_usize(
+        &mut user_mem,
+        ENVP - BASE + core::mem::size_of::<usize>(),
+        0,
+    );
 
     let mut vm = vm::VmSpace::<1>::new();
     if vm.map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R).is_err() {
@@ -1495,7 +1504,7 @@ fn run_execv_user_arg_copyin_demo() {
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &vm);
     let mut block = exec_args::ExecvArgBlock::<4, 64>::new();
-    let Ok(report) = exec_args::copyin_execv_args(&user, PATH, ARGV, &mut block) else {
+    let Ok(report) = exec_args::copyin_execv_args(&user, PATH, ARGV, ENVP, &mut block) else {
         return;
     };
     let mut stack = [0u8; 512];
@@ -1512,6 +1521,10 @@ fn run_execv_user_arg_copyin_demo() {
     {
         console::puts("[chapter] ch104 execv user arg copyin\n");
         console::puts("[syscall] execv path=/sbin/init argc=2 argv0=/sbin/init stack_argc=2\n");
+    }
+    if report.envc == 1 && report.first_env_len == 9 && layout.envp_ptr != 0 {
+        console::puts("[chapter] ch170 execve envp copyin\n");
+        console::puts("[syscall] execve envp0=PATH=/bin stack_envc=1\n");
     }
 }
 
@@ -1546,7 +1559,7 @@ fn run_execv_path_vfs_image_demo() {
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &vm);
     let mut block = exec_args::ExecvArgBlock::<4, 64>::new();
-    if exec_args::copyin_execv_args(&user, PATH, ARGV, &mut block).is_err() {
+    if exec_args::copyin_execv_args(&user, PATH, ARGV, 0, &mut block).is_err() {
         return;
     }
 
@@ -1649,6 +1662,7 @@ fn run_execv_apply_pipeline_demo() {
         &user,
         PATH,
         ARGV,
+        0,
         &vfs,
         &mut scratch,
         &mut stack,
@@ -1685,7 +1699,11 @@ fn run_execv_syscall_surface_demo() {
         0,
     );
 
-    let Some(syscall::Syscall::Execv { path_ptr, argv_ptr, .. }) =
+    let Some(syscall::Syscall::Execv {
+        path_ptr,
+        argv_ptr,
+        envp_ptr,
+    }) =
         syscall::decode_syscall(syscall::SYS_EXECVE, PATH, ARGV, 0)
     else {
         return;
@@ -1742,6 +1760,7 @@ fn run_execv_syscall_surface_demo() {
         &user,
         path_ptr,
         argv_ptr,
+        envp_ptr,
         &vfs,
         &mut scratch,
         &mut stack,
@@ -1775,7 +1794,11 @@ fn run_current_execv_syscall_runtime_demo() {
         0,
     );
 
-    let Some(syscall::Syscall::Execv { path_ptr, argv_ptr, .. }) =
+    let Some(syscall::Syscall::Execv {
+        path_ptr,
+        argv_ptr,
+        envp_ptr,
+    }) =
         syscall::decode_syscall(syscall::SYS_EXECVE, PATH, ARGV, 0)
     else {
         return;
@@ -1829,6 +1852,7 @@ fn run_current_execv_syscall_runtime_demo() {
         &user,
         path_ptr,
         argv_ptr,
+        envp_ptr,
         &vfs,
         &mut scratch,
         &mut stack,

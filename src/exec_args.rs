@@ -9,16 +9,21 @@ pub enum ExecvArgError {
     Copy(UserCopyError),
     Stack(UserStackError),
     TooManyArgs,
+    TooManyEnvs,
     MissingArgvNull,
+    MissingEnvpNull,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecvArgReport {
     pub path_ptr: usize,
     pub argv_ptr: usize,
+    pub envp_ptr: usize,
     pub path_len: usize,
     pub argc: usize,
+    pub envc: usize,
     pub first_arg_len: usize,
+    pub first_env_len: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +33,9 @@ pub struct ExecvArgBlock<const MAX_ARGS: usize, const ARG_BYTES: usize> {
     pub args: [[u8; ARG_BYTES]; MAX_ARGS],
     pub arg_lens: [usize; MAX_ARGS],
     pub argc: usize,
+    pub envs: [[u8; ARG_BYTES]; MAX_ARGS],
+    pub env_lens: [usize; MAX_ARGS],
+    pub envc: usize,
 }
 
 impl<const MAX_ARGS: usize, const ARG_BYTES: usize> ExecvArgBlock<MAX_ARGS, ARG_BYTES> {
@@ -38,6 +46,9 @@ impl<const MAX_ARGS: usize, const ARG_BYTES: usize> ExecvArgBlock<MAX_ARGS, ARG_
             args: [[0; ARG_BYTES]; MAX_ARGS],
             arg_lens: [0; MAX_ARGS],
             argc: 0,
+            envs: [[0; ARG_BYTES]; MAX_ARGS],
+            env_lens: [0; MAX_ARGS],
+            envc: 0,
         }
     }
 
@@ -53,6 +64,14 @@ impl<const MAX_ARGS: usize, const ARG_BYTES: usize> ExecvArgBlock<MAX_ARGS, ARG_
         core::str::from_utf8(&self.args[idx][..self.arg_lens[idx]])
             .map_err(|_| ExecvArgError::Copy(UserCopyError::BadAddress))
     }
+
+    pub fn env_str(&self, idx: usize) -> Result<&str, ExecvArgError> {
+        if idx >= self.envc {
+            return Err(ExecvArgError::Copy(UserCopyError::BadAddress));
+        }
+        core::str::from_utf8(&self.envs[idx][..self.env_lens[idx]])
+            .map_err(|_| ExecvArgError::Copy(UserCopyError::BadAddress))
+    }
 }
 
 pub fn copyin_execv_args<
@@ -63,6 +82,7 @@ pub fn copyin_execv_args<
     user: &CheckedUserSlice<'_, A>,
     path_ptr: usize,
     argv_ptr: usize,
+    envp_ptr: usize,
     block: &mut ExecvArgBlock<MAX_ARGS, ARG_BYTES>,
 ) -> Result<ExecvArgReport, ExecvArgError> {
     let path_len = {
@@ -78,13 +98,7 @@ pub fn copyin_execv_args<
         let arg_ptr = read_user_usize(user, argv_ptr + argc * core::mem::size_of::<usize>())?;
         if arg_ptr == 0 {
             block.argc = argc;
-            return Ok(ExecvArgReport {
-                path_ptr,
-                argv_ptr,
-                path_len,
-                argc,
-                first_arg_len: if argc == 0 { 0 } else { block.arg_lens[0] },
-            });
+            break;
         }
         if argc == MAX_ARGS {
             return Err(ExecvArgError::TooManyArgs);
@@ -100,7 +114,46 @@ pub fn copyin_execv_args<
         argc += 1;
     }
 
-    Err(ExecvArgError::MissingArgvNull)
+    if argc > MAX_ARGS {
+        return Err(ExecvArgError::MissingArgvNull);
+    }
+
+    let mut envc = 0usize;
+    if envp_ptr != 0 {
+        while envc <= MAX_ARGS {
+            let env_ptr = read_user_usize(user, envp_ptr + envc * core::mem::size_of::<usize>())?;
+            if env_ptr == 0 {
+                block.envc = envc;
+                break;
+            }
+            if envc == MAX_ARGS {
+                return Err(ExecvArgError::TooManyEnvs);
+            }
+
+            let env_len = {
+                let env = user
+                    .copyin_cstr(env_ptr, &mut block.envs[envc])
+                    .map_err(ExecvArgError::Copy)?;
+                env.len()
+            };
+            block.env_lens[envc] = env_len;
+            envc += 1;
+        }
+        if envc > MAX_ARGS {
+            return Err(ExecvArgError::MissingEnvpNull);
+        }
+    }
+
+    Ok(ExecvArgReport {
+        path_ptr,
+        argv_ptr,
+        envp_ptr,
+        path_len,
+        argc: block.argc,
+        envc: block.envc,
+        first_arg_len: if block.argc == 0 { 0 } else { block.arg_lens[0] },
+        first_env_len: if block.envc == 0 { 0 } else { block.env_lens[0] },
+    })
 }
 
 pub fn materialize_execv_stack<const MAX_ARGS: usize, const ARG_BYTES: usize>(
@@ -110,6 +163,7 @@ pub fn materialize_execv_stack<const MAX_ARGS: usize, const ARG_BYTES: usize>(
 ) -> Result<InitialUserStack, ExecvArgError> {
     let mut cursor = stack_bytes.len();
     let mut argv_addrs = [0usize; MAX_ARGS];
+    let mut envp_addrs = [0usize; MAX_ARGS];
 
     let mut idx = block.argc;
     while idx > 0 {
@@ -122,8 +176,19 @@ pub fn materialize_execv_stack<const MAX_ARGS: usize, const ARG_BYTES: usize>(
         )?;
     }
 
+    let mut env_idx = block.envc;
+    while env_idx > 0 {
+        env_idx -= 1;
+        envp_addrs[env_idx] = push_cstr_bytes(
+            stack_bytes,
+            stack_top_va,
+            &mut cursor,
+            &block.envs[env_idx][..block.env_lens[env_idx]],
+        )?;
+    }
+
     let word = core::mem::size_of::<usize>();
-    let total_words = 1 + block.argc + 1 + 1;
+    let total_words = 1 + block.argc + 1 + block.envc + 1;
     let table_bytes = total_words * word;
     let aligned = cursor & !(word - 1);
     if aligned < table_bytes {
@@ -141,6 +206,11 @@ pub fn materialize_execv_stack<const MAX_ARGS: usize, const ARG_BYTES: usize>(
     }
     write_word(stack_bytes, &mut off, 0)?;
     let envp_ptr = stack_top_va - (stack_bytes.len() - off);
+    let mut env_write_idx = 0usize;
+    while env_write_idx < block.envc {
+        write_word(stack_bytes, &mut off, envp_addrs[env_write_idx])?;
+        env_write_idx += 1;
+    }
     write_word(stack_bytes, &mut off, 0)?;
 
     Ok(InitialUserStack {

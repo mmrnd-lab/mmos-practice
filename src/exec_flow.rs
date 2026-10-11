@@ -26,6 +26,7 @@ pub enum ExecvApplyError {
 pub struct ExecvApplyReport {
     pub path_len: usize,
     pub argc: usize,
+    pub envc: usize,
     pub entry: usize,
     pub image_stack_top: usize,
     pub initial_sp: usize,
@@ -48,6 +49,7 @@ pub fn apply_execv_from_user_args<
     user: &CheckedUserSlice<'_, USER_AREAS>,
     path_ptr: usize,
     argv_ptr: usize,
+    envp_ptr: usize,
     vfs: &Vfs<'_>,
     scratch: &mut [u8],
     stack_bytes: &mut [u8],
@@ -55,7 +57,7 @@ pub fn apply_execv_from_user_args<
     new_vm: VmSpace<MAX_AREAS>,
 ) -> Result<(ProcessExecRuntime, ExecvApplyReport), ExecvApplyError> {
     let mut block = ExecvArgBlock::<MAX_ARGS, ARG_BYTES>::new();
-    let args = copyin_execv_args(user, path_ptr, argv_ptr, &mut block)
+    let args = copyin_execv_args(user, path_ptr, argv_ptr, envp_ptr, &mut block)
         .map_err(ExecvApplyError::Args)?;
 
     let layout = materialize_execv_stack(&block, stack_bytes, stack_top_va)
@@ -72,6 +74,7 @@ pub fn apply_execv_from_user_args<
     let report = ExecvApplyReport {
         path_len: args.path_len,
         argc: layout.argc,
+        envc: args.envc,
         entry: exec.entry,
         image_stack_top: loaded.stack_top,
         initial_sp: layout.sp,
@@ -97,6 +100,7 @@ pub fn apply_execv_with_shared_object_dependency_from_user_args<
     user: &CheckedUserSlice<'_, USER_AREAS>,
     path_ptr: usize,
     argv_ptr: usize,
+    envp_ptr: usize,
     vfs: &Vfs<'_>,
     exec_scratch: &mut [u8],
     shared_scratch: &mut [u8],
@@ -112,7 +116,7 @@ pub fn apply_execv_with_shared_object_dependency_from_user_args<
     l0_frame_pa: usize,
 ) -> Result<(ProcessExecRuntime, ExecvApplyReport), ExecvApplyError> {
     let mut block = ExecvArgBlock::<MAX_ARGS, ARG_BYTES>::new();
-    let args = copyin_execv_args(user, path_ptr, argv_ptr, &mut block)
+    let args = copyin_execv_args(user, path_ptr, argv_ptr, envp_ptr, &mut block)
         .map_err(ExecvApplyError::Args)?;
 
     let layout = materialize_execv_stack(&block, stack_bytes, stack_top_va)
@@ -148,6 +152,7 @@ pub fn apply_execv_with_shared_object_dependency_from_user_args<
     let report = ExecvApplyReport {
         path_len: args.path_len,
         argc: layout.argc,
+        envc: args.envc,
         entry: exec.entry,
         image_stack_top: loaded.exec.stack_top,
         initial_sp: layout.sp,

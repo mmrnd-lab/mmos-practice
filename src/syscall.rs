@@ -542,7 +542,9 @@ pub fn execv_arg_errno(error: crate::exec_args::ExecvArgError) -> isize {
         crate::exec_args::ExecvArgError::Copy(error) => user_copy_errno(error),
         crate::exec_args::ExecvArgError::Stack(_)
         | crate::exec_args::ExecvArgError::TooManyArgs
-        | crate::exec_args::ExecvArgError::MissingArgvNull => EINVAL,
+        | crate::exec_args::ExecvArgError::TooManyEnvs
+        | crate::exec_args::ExecvArgError::MissingArgvNull
+        | crate::exec_args::ExecvArgError::MissingEnvpNull => EINVAL,
     }
 }
 
@@ -581,6 +583,7 @@ pub fn handle_process_execv_checked_user_syscall<
     user: &crate::user_copy::CheckedUserSlice<'_, USER_AREAS>,
     path_ptr: usize,
     argv_ptr: usize,
+    envp_ptr: usize,
     vfs: &crate::vfs::Vfs<'_>,
     scratch: &mut [u8],
     stack_bytes: &mut [u8],
@@ -601,6 +604,7 @@ pub fn handle_process_execv_checked_user_syscall<
         user,
         path_ptr,
         argv_ptr,
+        envp_ptr,
         vfs,
         scratch,
         stack_bytes,
@@ -630,6 +634,7 @@ pub fn handle_current_process_execv_checked_user_syscall<
     user: &crate::user_copy::CheckedUserSlice<'_, USER_AREAS>,
     path_ptr: usize,
     argv_ptr: usize,
+    envp_ptr: usize,
     vfs: &crate::vfs::Vfs<'_>,
     scratch: &mut [u8],
     stack_bytes: &mut [u8],
@@ -648,7 +653,7 @@ pub fn handle_current_process_execv_checked_user_syscall<
         MAX_AREAS,
         MAX_TASKS,
     >(
-        runtime, tid, user, path_ptr, argv_ptr, vfs, scratch, stack_bytes, stack_top_va, new_vm,
+        runtime, tid, user, path_ptr, argv_ptr, envp_ptr, vfs, scratch, stack_bytes, stack_top_va, new_vm,
     )
 }
 
@@ -696,7 +701,7 @@ pub fn dispatch_current_execv_syscall<
     >,
 ) -> SyscallResult {
     match syscall {
-        Syscall::Execv { path_ptr, argv_ptr, .. } => {
+        Syscall::Execv { path_ptr, argv_ptr, envp_ptr } => {
             handle_current_process_execv_checked_user_syscall::<
                 USER_AREAS,
                 MAX_ARGS,
@@ -710,6 +715,7 @@ pub fn dispatch_current_execv_syscall<
                 ctx.user,
                 path_ptr,
                 argv_ptr,
+                envp_ptr,
                 ctx.vfs,
                 ctx.scratch,
                 ctx.stack_bytes,
@@ -773,7 +779,7 @@ pub fn dispatch_current_execv_syscall_from_runtime<
     );
 
     match syscall {
-        Syscall::Execv { path_ptr, argv_ptr, .. } => {
+        Syscall::Execv { path_ptr, argv_ptr, envp_ptr } => {
             handle_current_process_execv_checked_user_syscall::<
                 MAX_AREAS,
                 MAX_ARGS,
@@ -787,6 +793,7 @@ pub fn dispatch_current_execv_syscall_from_runtime<
                 &user,
                 path_ptr,
                 argv_ptr,
+                envp_ptr,
                 ctx.vfs,
                 ctx.scratch,
                 ctx.stack_bytes,
@@ -895,7 +902,7 @@ pub fn dispatch_current_execv_shared_object_syscall_from_runtime<
     };
 
     match syscall {
-        Syscall::Execv { path_ptr, argv_ptr, .. } => {
+        Syscall::Execv { path_ptr, argv_ptr, envp_ptr } => {
             match crate::exec_flow::apply_execv_with_shared_object_dependency_from_user_args::<
                 MAX_AREAS,
                 MAX_ARGS,
@@ -911,6 +918,7 @@ pub fn dispatch_current_execv_shared_object_syscall_from_runtime<
                 &user,
                 path_ptr,
                 argv_ptr,
+                envp_ptr,
                 ctx.vfs,
                 ctx.exec_scratch,
                 ctx.shared_scratch,
