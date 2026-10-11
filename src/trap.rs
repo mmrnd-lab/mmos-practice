@@ -95,13 +95,9 @@ fn write_stvec(_handler: usize) {}
 
 #[cfg(target_arch = "riscv64")]
 fn set_interrupt_enable_bits() {
-    // SEIE(9) | STIE(5) | SSIE(1)
-    let sie_mask: usize = (1 << 9) | (1 << 5) | (1 << 1);
-
-    unsafe {
-        core::arch::asm!("csrsi sstatus, 0x2");
-        core::arch::asm!("csrs sie, {}", in(reg) sie_mask);
-    }
+    // NOTE:
+    // This practice stage still uses a placeholder trap entry (not full asm save/restore + sret).
+    // Keep interrupts masked on real target to avoid undefined return flow from asynchronous traps.
 }
 
 #[cfg(not(target_arch = "riscv64"))]

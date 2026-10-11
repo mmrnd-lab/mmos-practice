@@ -16,6 +16,7 @@ pub mod page_fault;
 pub mod page_frame_allocator;
 pub mod pmm;
 pub mod process_model;
+pub mod process_runtime;
 pub mod scheduler;
 pub mod syscall;
 pub mod sv39;
@@ -50,6 +51,7 @@ mod tests {
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
+    use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
@@ -402,6 +404,17 @@ mod tests {
         assert_eq!(slot.trapframe.sepc, 0x8040_0000);
         slot.runtime_ticks += 1;
         assert_eq!(slot.runtime_ticks, 1);
+    }
+
+    #[test]
+    fn process_runtime_demo_runs_fork_exec_wait_lifecycle() {
+        let report = run_fork_exec_wait_demo().unwrap();
+        assert_eq!(report.parent_pid, 1);
+        assert_eq!(report.child_pid, 2);
+        assert_eq!(report.child_tid, 1);
+        assert_eq!(report.exec_entry, 0x8040_1000);
+        assert_eq!(report.exec_stack_top, 0x8050_1000);
+        assert_eq!(report.reap_code, 0);
     }
 
     #[test]
