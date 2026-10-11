@@ -2228,6 +2228,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry input receives a named replacement VM",
     ),
     ChapterSet(
+        key="ch131_execv_entry_recipe",
+        label="Ch131 Execv Entry Recipe",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch131 execv entry recipe",
+                    "[trap] execve entry recipe routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared entry input is built from a recipe",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

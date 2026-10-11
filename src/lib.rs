@@ -1396,7 +1396,8 @@ mod tests {
         assert_eq!(user_source.base, BASE);
         assert_eq!(user_source.bytes.len(), user_mem.len());
         let replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
-        let input = entry_store.entry_input(user_source, replacement_vm);
+        let recipe = crate::trap::ExecvPreparedEntryRecipe::new(user_source, replacement_vm);
+        let input = entry_store.entry_input(recipe);
         assert_eq!(input.user_base, BASE);
         assert_eq!(input.user_bytes.len(), user_mem.len());
 

@@ -621,6 +621,31 @@ impl<const MAX_AREAS: usize> ExecvPreparedReplacementVm<MAX_AREAS> {
     }
 }
 
+pub struct ExecvPreparedEntryRecipe<'a, const MAX_AREAS: usize> {
+    pub user_source: ExecvPreparedUserSource<'a>,
+    pub replacement_vm: ExecvPreparedReplacementVm<MAX_AREAS>,
+}
+
+impl<'a, const MAX_AREAS: usize> ExecvPreparedEntryRecipe<'a, MAX_AREAS> {
+    pub const fn new(
+        user_source: ExecvPreparedUserSource<'a>,
+        replacement_vm: ExecvPreparedReplacementVm<MAX_AREAS>,
+    ) -> Self {
+        Self {
+            user_source,
+            replacement_vm,
+        }
+    }
+
+    pub const fn into_input(self) -> ExecvPreparedEntryInput<'a, MAX_AREAS> {
+        ExecvPreparedEntryInput {
+            user_bytes: self.user_source.bytes,
+            user_base: self.user_source.base,
+            new_vm: self.replacement_vm.vm,
+        }
+    }
+}
+
 pub struct ExecvPreparedEntryInput<'a, const MAX_AREAS: usize> {
     pub user_bytes: &'a [u8],
     pub user_base: usize,

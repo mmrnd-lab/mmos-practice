@@ -223,14 +223,9 @@ impl<
 
     pub const fn entry_input<'u>(
         &self,
-        user_source: crate::trap::ExecvPreparedUserSource<'u>,
-        replacement_vm: crate::trap::ExecvPreparedReplacementVm<MAX_AREAS>,
+        recipe: crate::trap::ExecvPreparedEntryRecipe<'u, MAX_AREAS>,
     ) -> crate::trap::ExecvPreparedEntryInput<'u, MAX_AREAS> {
-        crate::trap::ExecvPreparedEntryInput {
-            user_bytes: user_source.bytes,
-            user_base: user_source.base,
-            new_vm: replacement_vm.vm,
-        }
+        recipe.into_input()
     }
 
     pub fn install(
