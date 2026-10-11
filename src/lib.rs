@@ -31,6 +31,7 @@ pub mod scheduler;
 pub mod sv39;
 pub mod syscall;
 pub mod trap;
+pub mod trap_runtime;
 pub mod user_copy;
 pub mod uart;
 pub mod user_exec;
@@ -98,6 +99,7 @@ mod tests {
         handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapDispatchResult,
         TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
     };
+    use super::trap_runtime::{switched_tids, TrapRuntime};
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
@@ -1119,6 +1121,32 @@ mod tests {
         );
         assert_eq!(scheduler.current_tid(), None);
         assert_eq!(scheduler.task_frame(7).unwrap().sepc, 0xe000);
+    }
+
+
+    #[test]
+    fn trap_runtime_owns_scheduler_state_for_schedule_dispatch() {
+        let mut next_frame = TrapFrame::default();
+        next_frame.sepc = 0xf000;
+        next_frame.set_a0(0x55);
+        next_frame.set_sp(0x10000);
+
+        let mut runtime = TrapRuntime::<2>::new();
+        runtime.add_runnable(1, TrapFrame::default()).unwrap();
+        runtime.add_runnable(2, next_frame).unwrap();
+        runtime.start_first_task();
+        runtime.mark_blocked(1);
+
+        let mut dispatch_frame = TrapFrame::default();
+        dispatch_frame.sepc = 0xe000;
+        let result = runtime.dispatch_schedule(&mut dispatch_frame);
+
+        assert_eq!(switched_tids(result), Some((1, 2)));
+        assert_eq!(runtime.current_tid(), Some(2));
+        assert_eq!(runtime.task_frame(1).unwrap().sepc, 0xe000);
+        assert_eq!(dispatch_frame.sepc, 0xf000);
+        assert_eq!(dispatch_frame.a0(), 0x55);
+        assert_eq!(dispatch_frame.sp(), 0x10000);
     }
 
     #[test]

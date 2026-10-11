@@ -933,6 +933,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=TrapOutcome::Schedule is dispatched into scheduler handoff and next task frame restore",
     ),
     ChapterSet(
+        key="ch56_trap_runtime_scheduler_state",
+        label="Ch56 Trap Runtime Scheduler State",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch56 trap runtime scheduler state",
+                    "[chapter] ch55 trap schedule dispatch",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=trap runtime owns scheduler state used by schedule dispatch",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

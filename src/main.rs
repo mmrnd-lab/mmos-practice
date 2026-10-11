@@ -48,6 +48,8 @@ mod scheduler;
 mod sv39;
 mod syscall;
 mod trap;
+#[allow(dead_code)]
+mod trap_runtime;
 mod uart;
 #[allow(dead_code)]
 mod user_copy;
@@ -563,6 +565,26 @@ pub extern "C" fn rust_main() -> ! {
                 && scheduled_frame.a0() == 0x54
             {
                 console::puts("[chapter] ch55 trap schedule dispatch\n");
+            }
+            let mut runtime_next_frame = trap::TrapFrame::default();
+            runtime_next_frame.sepc = 0x8050_0000;
+            runtime_next_frame.set_a0(0x55);
+            let mut trap_runtime = trap_runtime::TrapRuntime::<3>::new();
+            let _ = trap_runtime.add_runnable(input_tid, trap::TrapFrame::default());
+            let _ = trap_runtime.add_runnable(next_tid, runtime_next_frame);
+            trap_runtime.start_first_task();
+            let _ = trap_runtime.mark_blocked(input_tid);
+            let mut runtime_frame = blocked_frame;
+            if trap_runtime.dispatch_schedule(&mut runtime_frame)
+                == trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+                    prev_tid: input_tid,
+                    next_tid,
+                })
+                && trap_runtime.current_tid() == Some(next_tid)
+                && runtime_frame.sepc == 0x8050_0000
+                && runtime_frame.a0() == 0x55
+            {
+                console::puts("[chapter] ch56 trap runtime scheduler state\n");
             }
         }
     }
