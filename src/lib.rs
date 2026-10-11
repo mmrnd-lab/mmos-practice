@@ -77,7 +77,8 @@ mod tests {
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{
         exit_process_from_task, exit_process_from_task_with_scheduler, ProcError, ProcState,
-        reap_exited_process, wait_reap_zombie_child, ProcessTable, TaskControlBlock, TaskTable,
+        reap_exited_process, wait_reap_zombie_child, ProcessTable, ProcessWaitReapRuntime,
+        TaskControlBlock, TaskTable,
     };
     use super::process_io::{
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
@@ -101,11 +102,13 @@ mod tests {
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall, BlockingReadResult,
+        handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
-        EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
+        EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WAIT4,
+        SYS_WRITE,
     };
     use super::trap::{
         apply_schedule_decision, dispatch_trap_outcome,
@@ -746,6 +749,39 @@ mod tests {
         ro_vm.map_anon(0x3000, 0x3008, PTE_R).unwrap();
         let mut ro_user = CheckedUserSliceMut::new(&mut bytes, 0x3000, &ro_vm);
         assert_eq!(ro_user.copyout_bytes(0x3000, b"x"), Err(UserCopyError::Permission));
+    }
+
+    #[test]
+    fn wait4_syscall_decodes_status_pointer_and_options() {
+        assert_eq!(
+            decode_syscall(SYS_WAIT4, usize::MAX, 0x4000, 0),
+            Some(Syscall::Wait4 {
+                pid: -1,
+                status_ptr: 0x4000,
+                options: 0,
+            })
+        );
+    }
+
+    #[test]
+    fn wait4_syscall_copies_exit_status_to_user_memory() {
+        let report = ProcessWaitReapRuntime {
+            parent_pid: 1,
+            child_pid: 2,
+            exit_code: 7,
+            tasks_reaped: 2,
+            scheduler_tasks_reaped: 2,
+        };
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x6000, 0x6008, PTE_W).unwrap();
+        let mut bytes = [0u8; 8];
+        let mut user = CheckedUserSliceMut::new(&mut bytes, 0x6000, &vm);
+
+        assert_eq!(
+            handle_process_wait4_checked_user_syscall(&mut user, 0x6000, report),
+            SyscallResult::Continue(2)
+        );
+        assert_eq!(&bytes[..4], &7i32.to_ne_bytes());
     }
 
     #[test]
@@ -2104,6 +2140,34 @@ mod tests {
         assert_eq!(runtime.task_state(2), None);
         assert_eq!(runtime.task_state(3), Some(TaskState::Running));
         assert_eq!(runtime.current_tid(), Some(3));
+    }
+
+    #[test]
+    fn process_trap_runtime_wait_uses_current_process_as_parent() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let child_pid = runtime
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(2, child_pid), (3, child_pid), (1, parent_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            runtime.add_runnable_task(tid, pid, frame).unwrap();
+        }
+        runtime.start_first_task();
+
+        let mut live = TrapFrame::default();
+        let _ = runtime.dispatch_exit(&mut live, 2, 21);
+        assert_eq!(runtime.current_process_id(), Ok(parent_pid));
+        let report = runtime.wait_reap_current_child().unwrap();
+
+        assert_eq!(report.parent_pid, parent_pid);
+        assert_eq!(report.child_pid, child_pid);
+        assert_eq!(report.exit_code, 21);
+        assert_eq!(runtime.process_state(child_pid), Ok(ProcState::Reaped));
     }
 
     #[test]

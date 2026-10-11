@@ -682,6 +682,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_trap_runtime_demo();
     run_process_trap_runtime_reap_demo();
     run_process_trap_runtime_wait_demo();
+    run_wait_syscall_surface_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -972,6 +973,55 @@ fn run_process_trap_runtime_wait_demo() {
         {
             console::puts("[chapter] ch95 process wait child reap\n");
             console::puts("[proc] wait parent=1 child=2 code=7 tasks=2 sched=2 next=3\n");
+        }
+    }
+}
+
+fn run_wait_syscall_surface_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(child_pid) = runtime.create_process(Some(parent_pid), vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    for (tid, pid) in [(2usize, child_pid), (3, child_pid), (1, parent_pid)] {
+        let mut frame = trap::TrapFrame::default();
+        frame.sepc = 0x4000_0000 + tid * 0x1000;
+        frame.set_a0(tid);
+        frame.set_sp(0x4010_0000 + tid * 0x1000);
+        if runtime.add_runnable_task(tid, pid, frame).is_err() {
+            return;
+        }
+    }
+    runtime.start_first_task();
+
+    let mut live = trap::TrapFrame::default();
+    let _ = runtime.dispatch_exit(&mut live, 2, 9);
+
+    if runtime.current_process_id() != Ok(parent_pid) {
+        return;
+    }
+    match runtime.wait_reap_current_child() {
+        Ok(report) => {
+            let mut vm = vm::VmSpace::<2>::new();
+            if vm.map_anon(0x5000_0000, 0x5000_0004, sv39::PTE_W).is_err() {
+                return;
+            }
+            let mut status_bytes = [0u8; 4];
+            let mut user =
+                user_copy::CheckedUserSliceMut::new(&mut status_bytes, 0x5000_0000, &vm);
+            if syscall::handle_process_wait4_checked_user_syscall(&mut user, 0x5000_0000, report)
+                == syscall::SyscallResult::Continue(child_pid as isize)
+                && i32::from_ne_bytes(status_bytes) == 9
+            {
+                console::puts("[chapter] ch96 wait syscall surface\n");
+                console::puts("[syscall] wait parent=1 child=2 status=9\n");
+            }
+        }
+        Err(error) => {
+            let _ = syscall::process_wait_errno(error);
         }
     }
 }

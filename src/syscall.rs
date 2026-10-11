@@ -6,8 +6,10 @@ pub const SYS_CLOSE: usize = 57;
 pub const SYS_READ: usize = 63;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
+pub const SYS_WAIT4: usize = 260;
 
 pub const EBADF: isize = 9;
+pub const ECHILD: isize = 10;
 pub const EAGAIN: isize = 11;
 pub const EACCES: isize = 13;
 pub const EFAULT: isize = 14;
@@ -38,6 +40,17 @@ pub fn user_copy_errno(error: crate::user_copy::UserCopyError) -> isize {
     }
 }
 
+pub fn process_wait_errno(error: crate::process_model::ProcError) -> isize {
+    match error {
+        crate::process_model::ProcError::NotZombie
+        | crate::process_model::ProcError::MissingProcess => ECHILD,
+        crate::process_model::ProcError::MissingTask => EINVAL,
+        crate::process_model::ProcError::ChildListFull
+        | crate::process_model::ProcError::TableFull
+        | crate::process_model::ProcError::MissingAddressSpace => EIO,
+    }
+}
+
 const O_ACCMODE: usize = 0o3;
 const O_RDONLY: usize = 0;
 const O_WRONLY: usize = 1;
@@ -50,6 +63,7 @@ pub enum Syscall {
     Read { fd: usize, ptr: usize, len: usize },
     Write { fd: usize, ptr: usize, len: usize },
     Exit { code: i32 },
+    Wait4 { pid: isize, status_ptr: usize, options: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -85,6 +99,11 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
             len: a2,
         }),
         SYS_EXIT => Some(Syscall::Exit { code: a0 as i32 }),
+        SYS_WAIT4 => Some(Syscall::Wait4 {
+            pid: a0 as isize,
+            status_ptr: a1,
+            options: a2,
+        }),
         _ => None,
     }
 }
@@ -96,6 +115,7 @@ pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResu
         Some(Syscall::Read { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
+        Some(Syscall::Wait4 { .. }) => SyscallResult::Unsupported,
         None => SyscallResult::Unsupported,
     }
 }
@@ -354,4 +374,19 @@ pub fn handle_current_process_blocking_read_checked_user_syscall<
         Ok(n) => BlockingReadResult::Ready(SyscallResult::Continue(n as isize)),
         Err(error) => BlockingReadResult::Ready(errno_result(user_copy_errno(error))),
     }
+}
+
+pub fn handle_process_wait4_checked_user_syscall<const A: usize>(
+    user: &mut crate::user_copy::CheckedUserSliceMut<'_, A>,
+    status_ptr: usize,
+    report: crate::process_model::ProcessWaitReapRuntime,
+) -> SyscallResult {
+    if status_ptr != 0 {
+        let status = report.exit_code.to_ne_bytes();
+        if let Err(error) = user.copyout_bytes(status_ptr, &status) {
+            return errno_result(user_copy_errno(error));
+        }
+    }
+
+    SyscallResult::Continue(report.child_pid as isize)
 }

@@ -170,6 +170,16 @@ impl<
         )
     }
 
+    pub fn current_process_id(&self) -> Result<usize, ProcError> {
+        let tid = self.current_tid().ok_or(ProcError::MissingTask)?;
+        Ok(self.tasks.get(tid)?.owner_pid)
+    }
+
+    pub fn wait_reap_current_child(&mut self) -> Result<ProcessWaitReapRuntime, ProcError> {
+        let parent_pid = self.current_process_id()?;
+        self.wait_reap_child(parent_pid)
+    }
+
     pub fn process_state(&self, pid: usize) -> Result<crate::process_model::ProcState, ProcError> {
         Ok(self.processes.get(pid)?.state)
     }
