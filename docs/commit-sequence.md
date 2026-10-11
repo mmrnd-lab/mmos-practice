@@ -452,6 +452,12 @@
     - store가 VFS/scratch/stack buffer를 보관하고, runtime이 current process/task 경계의 주인이라는 역할을 코드 호출 순서에 드러냄
     - QEMU runtime marker에서 `[chapter] ch116 execv runtime resources`, `[trap] execve runtime resources routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+104. `9d1463a` `feat(ch117): dispatch execve trap from process runtime`
+    - `ProcessTrapRuntime::dispatch_execv_trap()`을 추가해 resource bundle 생성과 trap helper 호출을 runtime method 안으로 모음
+    - caller는 `runtime.execv_resources(...)` 결과를 trap helper에 직접 넘기지 않고, runtime dispatch method에 frame/scause/stval/store/user/new VM을 넘김
+    - process runtime이 current process/task 경계의 주어가 되고, store는 dispatch 중 필요한 VFS/scratch/stack buffer를 빌려주는 역할로 남음
+    - QEMU runtime marker에서 `[chapter] ch117 execv runtime dispatch`, `[trap] execve runtime dispatch routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
