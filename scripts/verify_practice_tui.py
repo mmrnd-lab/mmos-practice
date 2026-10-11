@@ -572,6 +572,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=open path helper allocates a new fd for /dev/console",
     ),
     ChapterSet(
+        key="ch36_process_fd_context",
+        label="Ch36 Process FD Context",
+        commit_candidates=["8102cf2"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch36 process fd context",
+                    "[chapter] ch35 open syscall path",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=open result remains in a process IO fd table and is reused by write",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

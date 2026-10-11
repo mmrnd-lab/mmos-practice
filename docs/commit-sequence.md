@@ -87,6 +87,10 @@
     - `/dev/console` path lookup 결과를 `OpenFile`로 만들고 fd table의 빈 슬롯에 등록
     - `SYS_OPENAT` decode와 `handle_open_path()` helper를 추가해 다음 syscall 통합 단계의 발판 고정
 
+30. `8102cf2` `feat(ch36): keep fd table in process io context`
+    - 현재 프로세스의 입출력 상태를 나타내는 `ProcessIoContext`를 추가
+    - `open("/dev/console")`으로 얻은 fd가 같은 process fd table 안에 남아 이후 `write(fd, ...)`에서 재사용됨을 검증
+
 
 ## Reproduce Example
 
