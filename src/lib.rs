@@ -83,7 +83,9 @@ mod tests {
     use super::exec_path::{
         load_exec_image_from_args, load_exec_image_with_shared_object_dependency_from_args,
     };
-    use super::exec_flow::apply_execv_from_user_args;
+    use super::exec_flow::{
+        apply_execv_from_user_args, apply_execv_with_shared_object_dependency_from_user_args,
+    };
     use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
     use super::idle::{idle_action_for_schedule_decision, IdleAction};
     use super::kheap::init_kheap;
@@ -1094,6 +1096,94 @@ mod tests {
         let frame = runtime.task_frame(fork.child_tid).unwrap();
         assert_eq!(frame.sepc, 0x4000_0000);
         assert_eq!(frame.sp(), report.initial_sp);
+    }
+
+    #[test]
+    fn execv_apply_pipeline_preserves_shared_object_runtime_metadata() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let mut user_vm = VmSpace::<1>::new();
+        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
+
+        let init = build_test_init_elf();
+        let mut shared_object = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut shared_object, 0x1d8, 0);
+        let mut disk = vec![0u8; super::demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+        super::demo_user_init::build_demo_ext4_image_with_shared_object(
+            &mut disk,
+            &init,
+            &shared_object,
+        )
+        .unwrap();
+        let dev = RamDisk::new("ramblk0", &disk, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut exec_scratch = [0u8; 512];
+        let mut shared_scratch = [0u8; 1024];
+        let mut stack = [0u8; 256];
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let mut parent_frame = TrapFrame::default();
+        parent_frame.sepc = 0x4000_0000;
+        parent_frame.set_sp(0x4010_0000);
+        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut child_frame = TrapFrame::default();
+        child_frame.sepc = 0x4000_1000;
+        child_frame.set_sp(0x4010_1000);
+        let fork = runtime
+            .fork_current_process(2, child_frame, VmSpace::<2>::new())
+            .unwrap();
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let (exec, report) = apply_execv_with_shared_object_dependency_from_user_args::<
+            1, 4, 64, 4, 2, 2, 5, 2,
+        >(
+            &mut runtime,
+            fork.child_tid,
+            &user,
+            PATH,
+            ARGV,
+            &vfs,
+            &mut exec_scratch,
+            &mut shared_scratch,
+            &mut stack,
+            0x4010_0000,
+            VmSpace::<2>::new(),
+            USER_CRT_SHARED_OBJECT_DEPENDENCY,
+            &mut pmm,
+            &mut root,
+            &mut l1,
+            0x9100_2000,
+            &mut l0,
+            0x9100_3000,
+        )
+        .unwrap();
+
+        let shared_object = exec.shared_object.unwrap();
+        assert_eq!(report.entry, 0x4000_0000);
+        assert_eq!(report.pid, fork.child_pid);
+        assert_eq!(report.tid, fork.child_tid);
+        assert_eq!(shared_object.path, "/lib/libmmos_user_crt.so");
+        assert_eq!(shared_object.base, 0x5000_0000);
+        assert_eq!(shared_object.entry, 0x9000_0000);
+        assert_eq!(shared_object.mapped_pages, 1);
     }
 
     #[test]

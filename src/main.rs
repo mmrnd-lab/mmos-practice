@@ -3087,6 +3087,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] exec image preparation carries the CRT shared object dependency\n");
     console::puts("[chapter] ch164 process exec shared object runtime\n");
     console::puts("[user-link] process exec result preserves loaded shared object metadata\n");
+    console::puts("[chapter] ch165 exec apply shared object runtime\n");
+    console::puts("[user-link] exec apply path passes loaded shared object metadata into process runtime\n");
 }
 
 fn run_kernel_satp_guard_demo() {
