@@ -1389,8 +1389,18 @@ mod tests {
             PreparedExecvTrapRuntime::<4, 2, 2, 5, 512, 256>::new(runtime, &vfs);
         assert_eq!(prepared_runtime.runtime().execv_stack_top_va(), 0x4010_0000);
 
-        let outcome = prepared_runtime.dispatch_execv_user_ecall::<4, 64>(
+        let outcome = crate::trap::handle_execv_user_ecall_with_prepared_runtime::<
+            4,
+            64,
+            4,
+            2,
+            2,
+            5,
+            512,
+            256,
+        >(
             &mut live_frame,
+            &mut prepared_runtime,
             &user_mem,
             BASE,
             VmSpace::<2>::new(),
