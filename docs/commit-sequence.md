@@ -621,3 +621,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `handle_prepared_process_syscall_entry_with_current_io()`가 긴 I/O 인자 목록 대신 resource bundle 하나를 받도록 정리
     - 기존 `openat`, `read`, `write`, `close` 라우팅 동작은 유지하고 호출부의 entry resource 전달 형태만 단순화
     - QEMU runtime marker에서 `[chapter] ch143 process syscall io resources`, `[trap] process syscall io resources routed openat a0=3 sepc=0x4000a004 wrote=10` 확인
+
+129. `3c43d25` `feat(ch145): start init with an empty fd table`
+    - `ProcessIoContext::empty()`, `CurrentProcessIoContext::empty()`, `create_process_empty_fd_table()`을 추가해 process I/O를 stdio preopen 없이 시작할 수 있게 함
+    - demo/user init 코드가 먼저 `/dev/console`을 `openat`으로 세 번 열어 fd 0, 1, 2를 만든 뒤 `write(1, ...)`을 호출하도록 변경
+    - unit test는 빈 fd table에서 fd 0/1/2가 `BadFd`로 시작하고 init-style open 순서가 0, 1, 2를 만드는지 검증
+    - QEMU runtime marker에서 `[chapter] ch145 empty fd table init stdio`, `[init] opened stdio fds 0,1,2 from empty table wrote=10` 확인

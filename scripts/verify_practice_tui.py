@@ -2428,7 +2428,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch145_empty_fd_table_init_stdio",
         label="Ch145 Empty FD Table Init Stdio",
-        commit_candidates=["HEAD"],
+        commit_candidates=["3c43d25"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
