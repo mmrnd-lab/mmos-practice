@@ -633,3 +633,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `user/init/src/main.rs`는 `_start()`에서 runtime helper를 호출한 뒤 app 메시지를 쓰는 구조로 단순화
     - 아직 shared library는 아니지만, 반복될 user entry runtime을 CRT 후보 모듈로 볼 수 있게 경계를 만든다
     - QEMU runtime marker에서 `[chapter] ch146 user init runtime split`, `[user-rt] init owns stdio open/write/exit wrappers before CRT extraction` 확인
+
+131. `a1445af` `feat(ch147): extract user crt library crate`
+    - `user/crt` crate를 추가해 syscall wrapper, console stdio bootstrap, `exit()` helper를 init crate 밖으로 이동
+    - `user/init/Cargo.toml`은 `mmos-user-crt` path dependency를 선언하고, `main.rs`는 app logic만 남긴 채 CRT API를 호출
+    - 아직 동적 shared library는 아니며, 여러 user program이 공유할 수 있는 user runtime library 경계만 먼저 고정
+    - QEMU runtime marker에서 `[chapter] ch147 user crt library boundary`, `[user-crt] init links shared runtime API from user/crt crate` 확인

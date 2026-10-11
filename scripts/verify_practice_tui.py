@@ -2467,6 +2467,29 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user/init factors syscall wrappers and stdio bootstrap into a small runtime module before CRT extraction",
     ),
     ChapterSet(
+        key="ch147_user_crt_library_boundary",
+        label="Ch147 User CRT Library Boundary",
+        commit_candidates=["a1445af"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-init-build",
+                "make user-init PROFILE=release && riscv64-linux-gnu-readelf -s build/user-init.elf | grep '_start'",
+                must_contain=("_start",),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch147 user crt library boundary",
+                    "[user-crt] init links shared runtime API from user/crt crate",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=init links the reusable user runtime API from the user/crt crate",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
