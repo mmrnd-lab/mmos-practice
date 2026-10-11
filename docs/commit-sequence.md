@@ -259,6 +259,11 @@
     - scheduler가 고른 next task의 owner process를 따라 조회한 `satp`가 root storage 기반 값으로 바뀌는지 테스트와 런타임 probe로 검증
 
 
+69. `28a43b3` `feat(ch77): thread rooted satp through commit sequence`
+    - scheduler decision에서 얻은 PCB token을 active `satp` 갱신, commit plan, rooted launch sequence까지 같은 값으로 전달하는 helper를 추가
+    - root storage 기반 `satp`가 commit 직전 sequence 전체에서 일관되게 유지되는지 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
