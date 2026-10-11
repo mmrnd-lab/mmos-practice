@@ -1450,6 +1450,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user VA is mapped through lower-level Sv39 tables to PMM frames",
     ),
     ChapterSet(
+        key="ch84_user_frame_materialize",
+        label="Ch84 User Frame Materialize",
+        commit_candidates=["fcf86c2"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch84 user frame materialize",
+                    "[chapter] ch83 user frame backed page mapping",
+                    "[chapter] ch82 user frame backed image",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=ELF segment and initial stack bytes are copied into PMM-backed user frames",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

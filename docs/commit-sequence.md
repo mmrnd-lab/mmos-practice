@@ -294,6 +294,11 @@
     - user code와 stack virtual page가 1GiB identity leaf가 아니라 PMM frame을 가리키는 4KiB leaf가 되었음을 테스트와 런타임 시그니처로 검증
 
 
+76. `fcf86c2` `feat(ch84): materialize user image into pmm frames`
+    - frame-backed user image plan에 따라 ELF segment bytes와 초기 user stack bytes를 PMM-backed physical frame에 복사하는 helper를 추가
+    - page table leaf가 가리키는 frame 안에 실제 실행 코드와 stack 내용이 채워졌음을 테스트와 런타임 시그니처로 검증
+
+
 ## Reproduce Example
 
 ```bash
