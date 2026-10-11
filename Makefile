@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 PROFILE ?= release
+ENGINE ?= podman
 QEMU ?= qemu-system-riscv64
 QEMU_VIRTIO_MODERN ?= -global virtio-mmio.force-legacy=false
 RUN_SECONDS ?= 5
@@ -62,7 +63,7 @@ require-container:
 	fi
 
 image:
-	podman build -t mmos-practice:latest .
+	$(ENGINE) build -t mmos-practice:latest .
 
 shell:
 	./docker.run

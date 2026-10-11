@@ -8,6 +8,32 @@
 - 각 커밋은 책의 특정 subsection과 1:1로 대응되도록 유지한다.
 - 빌드/실행은 컨테이너 내부 기준으로 맞춘다.
 
+## WSL2에서 Podman 환경 준비
+
+Ubuntu 기반 WSL2에서는 저장소의 설정 스크립트로 rootless Podman과 이미지까지 준비할 수 있다.
+저장소는 Windows 드라이브(`/mnt/c` 등)가 아니라 WSL의 Linux 파일시스템 아래에 두는 것을 권장한다.
+
+```bash
+cd /home/nicesj/mmrnd/mmos/mmos-practice
+./scripts/setup-wsl2-podman.sh
+```
+
+스크립트의 패키지 설치 단계에서는 `sudo` 비밀번호를 WSL 터미널에 직접 입력해야 한다. 준비가 끝나면 다음과 같이 검증한다.
+
+```bash
+./docker.run
+# container inside
+make test
+make mmos.bin PROFILE=release
+make run-nographic PROFILE=release RUN_SECONDS=8
+```
+
+Podman이 이미 설치되어 있다면 패키지 설치를 생략할 수 있다.
+
+```bash
+./scripts/setup-wsl2-podman.sh --skip-install
+```
+
 ## 진행 방법
 
 1. `docs/practice-roadmap.md`에서 현재 장의 목표를 확인한다.
