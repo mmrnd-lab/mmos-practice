@@ -381,6 +381,40 @@ pub fn handle_current_clone_frame_from_runtime<
     handle_syscall_result(frame, result)
 }
 
+pub fn handle_current_wait4_frame_from_runtime<
+    const A: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &mut TrapFrame,
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    user: &mut crate::user_copy::CheckedUserSliceMut<'_, A>,
+) -> TrapDispatchResult {
+    match syscall::dispatch_current_wait4_frame_from_runtime::<
+        A,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(frame, runtime, user)
+    {
+        syscall::Wait4DispatchResult::Ready(result) => match handle_syscall_result(frame, result) {
+            TrapOutcome::Resume => TrapDispatchResult::Resumed,
+            TrapOutcome::Exit(code) => TrapDispatchResult::Exit(code),
+            TrapOutcome::Fatal(cause) => TrapDispatchResult::Fatal(cause),
+            TrapOutcome::Schedule => TrapDispatchResult::MissingScheduleState,
+        },
+        syscall::Wait4DispatchResult::Blocked(dispatch) => dispatch,
+    }
+}
+
 pub fn handle_current_execv_frame_from_runtime<
     const MAX_ARGS: usize,
     const ARG_BYTES: usize,

@@ -734,6 +734,7 @@ pub extern "C" fn rust_main() -> ! {
     run_minimal_fork_adapter_demo();
     run_clone_syscall_surface_demo();
     run_clone_trap_dispatch_demo();
+    run_wait4_trap_dispatch_demo();
     run_minimal_execv_adapter_demo();
     run_execv_user_arg_copyin_demo();
     run_execv_path_vfs_image_demo();
@@ -1317,6 +1318,57 @@ fn run_clone_trap_dispatch_demo() {
         console::puts(
             "[trap] clone dispatched parent_a0=2 parent_sepc=0x40000004 child_a0=0 child_sp=0x40102000\n",
         );
+    }
+}
+
+fn run_wait4_trap_dispatch_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(child_pid) = runtime.create_process(Some(parent_pid), vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    for (tid, pid) in [(2usize, child_pid), (1, parent_pid)] {
+        let mut task_frame = trap::TrapFrame::default();
+        task_frame.sepc = 0x4000_0000 + tid * 0x1000;
+        if runtime.add_runnable_task(tid, pid, task_frame).is_err() {
+            return;
+        }
+    }
+    runtime.start_first_task();
+
+    let mut child_exit_frame = trap::TrapFrame::default();
+    let _ = runtime.dispatch_exit(&mut child_exit_frame, 2, 19);
+
+    let mut wait_frame = trap::TrapFrame::default();
+    wait_frame.sepc = 0x4000_1000;
+    wait_frame.set_a7(syscall::SYS_WAIT4);
+    wait_frame.set_a0(usize::MAX);
+    wait_frame.set_a1(0x5000_0000);
+
+    let mut vm = vm::VmSpace::<2>::new();
+    if vm.map_anon(0x5000_0000, 0x5000_0004, sv39::PTE_W).is_err() {
+        return;
+    }
+    let mut status_bytes = [0u8; 4];
+    let mut user =
+        user_copy::CheckedUserSliceMut::new(&mut status_bytes, 0x5000_0000, &vm);
+
+    let outcome = trap::handle_current_wait4_frame_from_runtime(
+        &mut wait_frame,
+        &mut runtime,
+        &mut user,
+    );
+
+    if outcome == trap::TrapDispatchResult::Resumed
+        && wait_frame.a0() == child_pid
+        && wait_frame.sepc == 0x4000_1004
+        && i32::from_ne_bytes(status_bytes) == 19
+    {
+        console::puts("[chapter] ch136 wait4 trap dispatch\n");
+        console::puts("[trap] wait4 dispatched child=2 status=19 a0=2 sepc=0x40001004\n");
     }
 }
 

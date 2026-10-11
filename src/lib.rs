@@ -108,7 +108,7 @@ mod tests {
     };
     use super::syscall::{
         dispatch_current_execv_frame_from_runtime, dispatch_current_execv_syscall, dispatch_current_execv_syscall_from_runtime,
-        dispatch_current_clone_frame_from_runtime, decode_syscall,
+        dispatch_current_clone_frame_from_runtime, dispatch_current_wait4_frame_from_runtime, decode_syscall,
         handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall,
@@ -119,14 +119,14 @@ mod tests {
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
-        Syscall, SyscallResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_CLONE, SYS_EXECVE,
+        Syscall, SyscallResult, Wait4DispatchResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_CLONE, SYS_EXECVE,
         SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
     };
     use super::trap::{
         apply_schedule_decision, dispatch_trap_outcome,
         dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome_with_global_runtime,
         handle_blocking_syscall_result, handle_current_execv_frame_from_runtime,
-        handle_current_clone_frame_from_runtime, handle_syscall_result,
+        handle_current_clone_frame_from_runtime, handle_current_wait4_frame_from_runtime, handle_syscall_result,
         handle_timer_tick_with_scheduler, handle_trap,
         handle_trap_with_current_execv_runtime, handle_trap_with_execv_resources,
         handle_user_page_fault_outcome, prepare_enter_user_scratch,
@@ -1457,6 +1457,71 @@ mod tests {
             SyscallResult::Continue(2)
         );
         assert_eq!(&bytes[..4], &7i32.to_ne_bytes());
+    }
+
+    #[test]
+    fn wait4_frame_dispatch_reaps_child_and_writes_back_status() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+        let child_pid = runtime
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(2, child_pid), (1, parent_pid)] {
+            let mut task_frame = TrapFrame::default();
+            task_frame.sepc = 0x4000_0000 + tid * 0x1000;
+            runtime.add_runnable_task(tid, pid, task_frame).unwrap();
+        }
+        runtime.start_first_task();
+
+        let mut child_exit_frame = TrapFrame::default();
+        let _ = runtime.dispatch_exit(&mut child_exit_frame, 2, 17);
+
+        let mut wait_frame = TrapFrame::default();
+        wait_frame.sepc = 0x4000_1000;
+        wait_frame.set_a7(SYS_WAIT4);
+        wait_frame.set_a0(usize::MAX);
+        wait_frame.set_a1(0x6000);
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x6000, 0x6004, PTE_W).unwrap();
+        let mut bytes = [0u8; 4];
+        let mut user = CheckedUserSliceMut::new(&mut bytes, 0x6000, &vm);
+
+        assert_eq!(
+            dispatch_current_wait4_frame_from_runtime(&mut wait_frame, &mut runtime, &mut user),
+            Wait4DispatchResult::Ready(SyscallResult::Continue(child_pid as isize))
+        );
+        assert_eq!(&bytes[..4], &17i32.to_ne_bytes());
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+        let child_pid = runtime
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+        for (tid, pid) in [(2, child_pid), (1, parent_pid)] {
+            let mut task_frame = TrapFrame::default();
+            task_frame.sepc = 0x4000_0000 + tid * 0x1000;
+            runtime.add_runnable_task(tid, pid, task_frame).unwrap();
+        }
+        runtime.start_first_task();
+        let mut child_exit_frame = TrapFrame::default();
+        let _ = runtime.dispatch_exit(&mut child_exit_frame, 2, 19);
+
+        let mut wait_frame = TrapFrame::default();
+        wait_frame.sepc = 0x4000_1000;
+        wait_frame.set_a7(SYS_WAIT4);
+        wait_frame.set_a0(usize::MAX);
+        wait_frame.set_a1(0x6000);
+        let mut bytes = [0u8; 4];
+        let mut user = CheckedUserSliceMut::new(&mut bytes, 0x6000, &vm);
+
+        assert_eq!(
+            handle_current_wait4_frame_from_runtime(&mut wait_frame, &mut runtime, &mut user),
+            TrapDispatchResult::Resumed
+        );
+        assert_eq!(wait_frame.a0(), child_pid);
+        assert_eq!(wait_frame.sepc, 0x4000_1004);
+        assert_eq!(&bytes[..4], &19i32.to_ne_bytes());
     }
 
     #[test]

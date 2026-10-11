@@ -84,6 +84,12 @@ pub enum BlockingReadResult {
     Blocked,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Wait4DispatchResult {
+    Ready(SyscallResult),
+    Blocked(crate::trap::TrapDispatchResult),
+}
+
 pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Syscall> {
     match id {
         SYS_OPENAT => Some(Syscall::OpenAt {
@@ -407,6 +413,36 @@ pub fn handle_process_wait4_checked_user_syscall<const A: usize>(
     SyscallResult::Continue(report.child_pid as isize)
 }
 
+pub fn handle_current_process_wait4_checked_user_syscall<
+    const A: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    frame: &mut crate::trap::TrapFrame,
+    user: &mut crate::user_copy::CheckedUserSliceMut<'_, A>,
+    status_ptr: usize,
+) -> Wait4DispatchResult {
+    match runtime.wait_reap_current_child_or_block(frame) {
+        Ok(crate::trap_runtime::ProcessWaitSyscallRuntime::Reaped(report)) => {
+            Wait4DispatchResult::Ready(handle_process_wait4_checked_user_syscall(
+                user, status_ptr, report,
+            ))
+        }
+        Ok(crate::trap_runtime::ProcessWaitSyscallRuntime::Blocked(dispatch)) => {
+            Wait4DispatchResult::Blocked(dispatch)
+        }
+        Err(error) => Wait4DispatchResult::Ready(errno_result(process_wait_errno(error))),
+    }
+}
+
 pub fn handle_process_fork_syscall(
     report: crate::trap_runtime::ProcessForkRuntime,
 ) -> SyscallResult {
@@ -470,6 +506,34 @@ pub fn dispatch_current_clone_frame_from_runtime<
             handle_current_process_clone_syscall(runtime, syscall, frame, child_tid, child_vm)
         }
         _ => SyscallResult::Unsupported,
+    }
+}
+
+pub fn dispatch_current_wait4_frame_from_runtime<
+    const A: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &mut crate::trap::TrapFrame,
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    user: &mut crate::user_copy::CheckedUserSliceMut<'_, A>,
+) -> Wait4DispatchResult {
+    let Some(syscall) = decode_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()) else {
+        return Wait4DispatchResult::Ready(SyscallResult::Unsupported);
+    };
+
+    match syscall {
+        Syscall::Wait4 { status_ptr, .. } => {
+            handle_current_process_wait4_checked_user_syscall(runtime, frame, user, status_ptr)
+        }
+        _ => Wait4DispatchResult::Ready(SyscallResult::Unsupported),
     }
 }
 
