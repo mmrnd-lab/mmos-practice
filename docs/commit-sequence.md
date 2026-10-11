@@ -25,6 +25,9 @@
     - Sv39 페이지 테이블 기본 자료구조
 11. `47bfc68` `feat(ch12): add user-init context and demo exit path`
     - user init 컨텍스트 준비와 exit 경로 확인
+12. `be06b86` `feat(exec): materialize init elf into user image and trap context`
+    - ELF load plan을 실제 user image(복사 + BSS zero-fill)로 연결
+    - TrapFrame entry/sp/sstatus를 exec 컨텍스트로 구성
 
 ## Reproduce Example
 
@@ -43,5 +46,5 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
 ## Recommended Next Commit Topics
 
 - 실제 `sret` 진입 루틴 추가
-- 사용자 주소공간 코드/스택 매핑 강화
+- 사용자 주소공간 코드/스택 매핑을 page table과 결합
 - 사용자 버퍼 검증을 포함한 `write` syscall 확장

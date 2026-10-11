@@ -254,6 +254,15 @@ CHAPTERS: List[ChapterSet] = [
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
         ],
     ),
+    ChapterSet(
+        key="ch18_exec_prep",
+        label="Ch18 Exec Init Prep",
+        commit_candidates=["be06b86"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+        ],
+    ),
 ]
 
 
