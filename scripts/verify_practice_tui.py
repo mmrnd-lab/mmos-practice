@@ -161,7 +161,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch04_kernel",
         label="Ch04 Kernel Bringup Foundation",
-        commit_candidates=["d19e9e7"],
+        commit_candidates=["ch04_kernel"],
         steps=[
             Step("build", "make mmos.bin PROFILE=release"),
             Step(
@@ -175,7 +175,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch05_test_core",
         label="Ch05 UART Bringup (Practice Anchor: Test Core)",
-        commit_candidates=["ede1e09"],
+        commit_candidates=["ch05_test_core"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -188,7 +188,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch06_memory",
         label="Ch06 Memory Management",
-        commit_candidates=["11981bb"],
+        commit_candidates=["ch06_memory"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -201,7 +201,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch07_uboot",
         label="Ch07 U-Boot and Storage Boot Flow",
-        commit_candidates=["a2ef2c8"],
+        commit_candidates=["ch07_uboot"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -215,7 +215,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch08_trap_scaffold",
         label="Ch08 Testing and Debugging (Practice Anchor: Trap)",
-        commit_candidates=["ae85946"],
+        commit_candidates=["ch08_trap_scaffold"],
         steps=[
             Step(
                 "test+build",
@@ -234,7 +234,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch10_trap_syscall",
         label="Ch10 Trap Dispatch and Syscall",
-        commit_candidates=["840b365"],
+        commit_candidates=["ch10_trap_syscall"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -248,7 +248,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch11_sv39",
         label="Ch11 Sv39 Kernel Paging",
-        commit_candidates=["ca0f226"],
+        commit_candidates=["ch11_sv39"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -262,7 +262,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch12_user_init",
         label="Ch12 User Init Bringup",
-        commit_candidates=["89ca87f"],
+        commit_candidates=["ch12_user_init"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -280,7 +280,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch14_device",
         label="Ch14 Block Device Foundation",
-        commit_candidates=["b63f713"],
+        commit_candidates=["ch14_device"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -294,7 +294,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch15_fs",
         label="Ch15 Kernel FS Foundation",
-        commit_candidates=["5a9772d"],
+        commit_candidates=["ch15_fs"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -308,7 +308,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch17_elf",
         label="Ch17 ELF Loader and Exec Prep",
-        commit_candidates=["17491b1"],
+        commit_candidates=["ch17_elf"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -322,7 +322,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch18_exec_prep",
         label="Ch18 User ELF Init Exec Prep",
-        commit_candidates=["84e0986"],
+        commit_candidates=["ch18_exec_prep"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -336,7 +336,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch19_user_vm_fault",
         label="Ch19 User VM + Page Fault",
-        commit_candidates=["3dc7ec5", "6ad1b57"],
+        commit_candidates=["ch19_user_vm_fault"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -350,7 +350,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch20_scheduler_switch",
         label="Ch20 Context Switch and Scheduling",
-        commit_candidates=["2e04fd6"],
+        commit_candidates=["ch20_scheduler_switch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -364,7 +364,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch21_process_model",
         label="Ch21 Process Model Foundation (PCB/TCB)",
-        commit_candidates=["697fbd7"],
+        commit_candidates=["ch21_process_model"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -378,7 +378,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch22_fork_exec_wait",
         label="Ch22 Fork/Exec/Wait (Runtime Demo)",
-        commit_candidates=["30b90b2"],
+        commit_candidates=["ch22_fork_exec_wait"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -399,7 +399,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch24_user_app_build",
         label="Ch24 User App Build Foundation",
-        commit_candidates=["03ae40b"],
+        commit_candidates=["ch24_user_app_build"],
         steps=[
             Step(
                 "user-init-build",
@@ -421,7 +421,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch25_user_stack_abi",
         label="Ch25 User ABI Stack Layout (argc/argv/envp)",
-        commit_candidates=["7656007"],
+        commit_candidates=["ch25_user_stack_abi"],
         steps=[
             Step(
                 "user-stack-tests",
@@ -436,7 +436,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch26_user_init_launch_handoff",
         label="Ch26 User Init Launch Handoff",
-        commit_candidates=["f1d6e68"],
+        commit_candidates=["ch26_user_init_launch_handoff"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -453,7 +453,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch27_runtime_user_init_load",
         label="Ch27 Runtime User Init Load + Handoff",
-        commit_candidates=["bcff4c9"],
+        commit_candidates=["ch27_runtime_user_init_load"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -471,7 +471,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch28_first_user_sret",
         label="Ch28 First User SRET Execution",
-        commit_candidates=["877a62e"],
+        commit_candidates=["ch28_first_user_sret"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -489,7 +489,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch31_character_device",
         label="Ch31 Character Device Foundation",
-        commit_candidates=["ba8bb0b"],
+        commit_candidates=["ch31_character_device"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
         ],
@@ -498,7 +498,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch32_serial_character_device",
         label="Ch32 Serial Character Device",
-        commit_candidates=["34ef23b"],
+        commit_candidates=["ch32_serial_character_device"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -517,7 +517,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch33_fd_table_stdio",
         label="Ch33 File Descriptor Table and Stdio",
-        commit_candidates=["712bc4c"],
+        commit_candidates=["ch33_fd_table_stdio"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -536,7 +536,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch34_devfs_device_nodes",
         label="Ch34 DevFS Namespace and Device Nodes",
-        commit_candidates=["efe9ae5"],
+        commit_candidates=["ch34_devfs_device_nodes"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -555,7 +555,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch35_open_path_fd_allocation",
         label="Ch35 Open Path and FD Allocation",
-        commit_candidates=["62891af"],
+        commit_candidates=["ch35_open_path_fd_allocation"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -574,7 +574,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch36_process_fd_context",
         label="Ch36 Process FD Context",
-        commit_candidates=["480edc8"],
+        commit_candidates=["ch36_process_fd_context"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -593,7 +593,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch37_user_copyin",
         label="Ch37 User Pointer Copyin",
-        commit_candidates=["6efaccc"],
+        commit_candidates=["ch37_user_copyin"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -612,7 +612,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch38_vm_checked_copyin",
         label="Ch38 VM Checked User Copyin",
-        commit_candidates=["edc3a09"],
+        commit_candidates=["ch38_vm_checked_copyin"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -631,7 +631,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch39_fd_write_syscall",
         label="Ch39 FD Write Syscall",
-        commit_candidates=["f46b61c"],
+        commit_candidates=["ch39_fd_write_syscall"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -650,7 +650,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch40_current_process_io_context",
         label="Ch40 Current Process IO Context",
-        commit_candidates=["715ac89"],
+        commit_candidates=["ch40_current_process_io_context"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -669,7 +669,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch41_task_owner_io_lookup",
         label="Ch41 Task Owner IO Lookup",
-        commit_candidates=["e2d853e"],
+        commit_candidates=["ch41_task_owner_io_lookup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -688,7 +688,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch42_process_owned_io_runtime",
         label="Ch42 Process Owned IO Runtime",
-        commit_candidates=["e05b920"],
+        commit_candidates=["ch42_process_owned_io_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -707,7 +707,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch43_close_fd_lifecycle",
         label="Ch43 Close FD Lifecycle",
-        commit_candidates=["c54dc2e"],
+        commit_candidates=["ch43_close_fd_lifecycle"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -726,7 +726,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch44_read_fd_copyout",
         label="Ch44 Read FD Copyout",
-        commit_candidates=["4864788"],
+        commit_candidates=["ch44_read_fd_copyout"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -745,7 +745,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch45_console_read_bytes",
         label="Ch45 Console Read Bytes",
-        commit_candidates=["fcdd437"],
+        commit_candidates=["ch45_console_read_bytes"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -764,7 +764,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch46_nonblocking_read_wouldblock",
         label="Ch46 Nonblocking Read WouldBlock",
-        commit_candidates=["0e6ae7f"],
+        commit_candidates=["ch46_nonblocking_read_wouldblock"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -783,7 +783,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch48_blocking_read_wait_queue",
         label="Ch48 Blocking Read Wait Queue",
-        commit_candidates=["28fba0c"],
+        commit_candidates=["ch48_blocking_read_wait_queue"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -802,7 +802,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch49_serial_rx_wake_reader",
         label="Ch49 Serial RX Wake Reader",
-        commit_candidates=["d8ab2ed"],
+        commit_candidates=["ch49_serial_rx_wake_reader"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -821,7 +821,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch50_blocked_syscall_scheduler_handoff",
         label="Ch50 Blocked Syscall Scheduler Handoff",
-        commit_candidates=["9e969cb"],
+        commit_candidates=["ch50_blocked_syscall_scheduler_handoff"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -840,7 +840,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch51_schedule_next_runnable_task",
         label="Ch51 Schedule Next Runnable Task",
-        commit_candidates=["366a719"],
+        commit_candidates=["ch51_schedule_next_runnable_task"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -859,7 +859,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch52_idle_when_no_runnable_task",
         label="Ch52 Idle When No Runnable Task",
-        commit_candidates=["18156fc"],
+        commit_candidates=["ch52_idle_when_no_runnable_task"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -878,7 +878,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch53_idle_wait_for_interrupt",
         label="Ch53 Idle Wait For Interrupt",
-        commit_candidates=["20ecd9a"],
+        commit_candidates=["ch53_idle_wait_for_interrupt"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -897,7 +897,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch54_restore_next_task_frame",
         label="Ch54 Restore Next Task Frame",
-        commit_candidates=["4b02833"],
+        commit_candidates=["ch54_restore_next_task_frame"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -916,7 +916,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch55_trap_schedule_dispatch",
         label="Ch55 Trap Schedule Dispatch",
-        commit_candidates=["f2ea044"],
+        commit_candidates=["ch55_trap_schedule_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -935,7 +935,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch56_trap_runtime_scheduler_state",
         label="Ch56 Trap Runtime Scheduler State",
-        commit_candidates=["d298fd0"],
+        commit_candidates=["ch56_trap_runtime_scheduler_state"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -954,7 +954,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch57_global_trap_runtime_state",
         label="Ch57 Global Trap Runtime State",
-        commit_candidates=["bf3eec2"],
+        commit_candidates=["ch57_global_trap_runtime_state"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -973,7 +973,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch58_trap_dispatch_global_runtime",
         label="Ch58 Trap Dispatch Global Runtime",
-        commit_candidates=["7ffd712"],
+        commit_candidates=["ch58_trap_dispatch_global_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -992,7 +992,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch59_launch_task_global_runtime",
         label="Ch59 Launch Task Global Runtime",
-        commit_candidates=["0b29714"],
+        commit_candidates=["ch59_launch_task_global_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1011,7 +1011,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch61_user_process_creation_path",
         label="Ch61 User Process Creation Path",
-        commit_candidates=["bd084fe"],
+        commit_candidates=["ch61_user_process_creation_path"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1030,7 +1030,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch62_second_user_task_switch",
         label="Ch62 Second User Task Switch",
-        commit_candidates=["17bd102"],
+        commit_candidates=["ch62_second_user_task_switch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1050,7 +1050,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch63_task_address_space_token",
         label="Ch63 Task Address Space Token",
-        commit_candidates=["b6b4016"],
+        commit_candidates=["ch63_task_address_space_token"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1070,7 +1070,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch64_address_space_switch_apply",
         label="Ch64 Address Space Switch Apply",
-        commit_candidates=["5d7eb11"],
+        commit_candidates=["ch64_address_space_switch_apply"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1090,7 +1090,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch65_satp_commit_boundary",
         label="Ch65 SATP Commit Boundary",
-        commit_candidates=["f5008a8"],
+        commit_candidates=["ch65_satp_commit_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1110,7 +1110,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch66_user_address_relocation",
         label="Ch66 User Address Relocation",
-        commit_candidates=["44729b3"],
+        commit_candidates=["ch66_user_address_relocation"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1129,7 +1129,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch67_satp_commit_preflight",
         label="Ch67 SATP Commit Preflight",
-        commit_candidates=["e74e921"],
+        commit_candidates=["ch67_satp_commit_preflight"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1148,7 +1148,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch68_kernel_trap_stack_switch",
         label="Ch68 Kernel Trap Stack Switch",
-        commit_candidates=["6885ba8"],
+        commit_candidates=["ch68_kernel_trap_stack_switch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1167,7 +1167,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch69_trap_entry_scratch_swap",
         label="Ch69 Trap Entry Scratch Swap",
-        commit_candidates=["bbaeca1"],
+        commit_candidates=["ch69_trap_entry_scratch_swap"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1186,7 +1186,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch70_trap_entry_asm_stack_switch",
         label="Ch70 Trap Entry Assembly Stack Switch",
-        commit_candidates=["0426b15"],
+        commit_candidates=["ch70_trap_entry_asm_stack_switch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1205,7 +1205,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch71_enter_user_sscratch_prepare",
         label="Ch71 Enter User SScratch Prepare",
-        commit_candidates=["2dba431"],
+        commit_candidates=["ch71_enter_user_sscratch_prepare"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1224,7 +1224,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch72_satp_hardware_commit_gate",
         label="Ch72 SATP Hardware Commit Gate",
-        commit_candidates=["d346ae5"],
+        commit_candidates=["ch72_satp_hardware_commit_gate"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1243,7 +1243,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch73_user_launch_csr_sequence",
         label="Ch73 User Launch CSR Sequence",
-        commit_candidates=["580124f"],
+        commit_candidates=["ch73_user_launch_csr_sequence"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1262,7 +1262,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch74_root_page_table_storage",
         label="Ch74 PMM-backed Root Frame",
-        commit_candidates=["1a6395e"],
+        commit_candidates=["ch74_root_page_table_storage"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1281,7 +1281,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch75_rooted_user_launch_satp",
         label="Ch75 Rooted User Launch SATP",
-        commit_candidates=["fcab164"],
+        commit_candidates=["ch75_rooted_user_launch_satp"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1300,7 +1300,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch76_process_root_satp_token",
         label="Ch76 Process Root SATP Token",
-        commit_candidates=["f98b6ee"],
+        commit_candidates=["ch76_process_root_satp_token"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1319,7 +1319,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch77_rooted_satp_commit_sequence",
         label="Ch77 Rooted SATP Commit Sequence",
-        commit_candidates=["24fcd33"],
+        commit_candidates=["ch77_rooted_satp_commit_sequence"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1338,7 +1338,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch78_kernel_satp_runtime_guard",
         label="Ch78 Kernel SATP Runtime Guard",
-        commit_candidates=["75bff0e"],
+        commit_candidates=["ch78_kernel_satp_runtime_guard"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1357,7 +1357,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch79_process_address_space_root",
         label="Ch79 Process Address Space Root Frame",
-        commit_candidates=["8ad5df6"],
+        commit_candidates=["ch79_process_address_space_root"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1376,7 +1376,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch80_pcb_address_space_handle",
         label="Ch80 PCB Address Space Handle",
-        commit_candidates=["3110a1f"],
+        commit_candidates=["ch80_pcb_address_space_handle"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1395,7 +1395,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch81_satp_hardware_commit_probe",
         label="Ch81 SATP Hardware Commit Probe",
-        commit_candidates=["5784d1e"],
+        commit_candidates=["ch81_satp_hardware_commit_probe"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1414,7 +1414,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch82_user_frame_backed_image",
         label="Ch82 User Frame Backed Image",
-        commit_candidates=["74b9ec8"],
+        commit_candidates=["ch82_user_frame_backed_image"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1433,7 +1433,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch83_user_frame_backed_page_mapping",
         label="Ch83 User Frame Backed Page Mapping",
-        commit_candidates=["e7ce69e"],
+        commit_candidates=["ch83_user_frame_backed_page_mapping"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1452,7 +1452,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch84_user_frame_materialize",
         label="Ch84 User Frame Materialize",
-        commit_candidates=["64fcc6a"],
+        commit_candidates=["ch84_user_frame_materialize"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1471,7 +1471,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch85_persistent_satp_commit",
         label="Ch85 Persistent SATP Commit",
-        commit_candidates=["3ad6605"],
+        commit_candidates=["ch85_persistent_satp_commit"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1490,7 +1490,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch86_user_memory_access_gate",
         label="Ch86 User Memory Access Gate",
-        commit_candidates=["bc125fe"],
+        commit_candidates=["ch86_user_memory_access_gate"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1509,7 +1509,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch87_first_user_sret_syscall",
         label="Ch87 First User SRET Syscall",
-        commit_candidates=["88a60ea"],
+        commit_candidates=["ch87_first_user_sret_syscall"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1528,7 +1528,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch90_process_exit_runtime",
         label="Ch90 Process Exit Runtime",
-        commit_candidates=["49e7539"],
+        commit_candidates=["ch90_process_exit_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1546,7 +1546,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch91_exit_schedule_handoff",
         label="Ch91 Exit Schedule Handoff",
-        commit_candidates=["1fd8a1b"],
+        commit_candidates=["ch91_exit_schedule_handoff"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1564,7 +1564,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch92_trap_exit_process_dispatch",
         label="Ch92 Trap Exit Process Dispatch",
-        commit_candidates=["75633dc"],
+        commit_candidates=["ch92_trap_exit_process_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1582,7 +1582,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch93_process_trap_runtime_exit",
         label="Ch93 Process Trap Runtime Exit",
-        commit_candidates=["e6f1eca"],
+        commit_candidates=["ch93_process_trap_runtime_exit"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1600,7 +1600,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch94_process_trap_runtime_reap",
         label="Ch94 Process Trap Runtime Reap",
-        commit_candidates=["44d1aa1"],
+        commit_candidates=["ch94_process_trap_runtime_reap"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1618,7 +1618,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch95_process_wait_child_reap",
         label="Ch95 Process Wait Child Reap",
-        commit_candidates=["cbef4a7"],
+        commit_candidates=["ch95_process_wait_child_reap"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1636,7 +1636,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch96_wait_syscall_surface",
         label="Ch96 Wait Syscall Surface",
-        commit_candidates=["605f148"],
+        commit_candidates=["ch96_wait_syscall_surface"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1654,7 +1654,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch97_blocking_wait_wakeup",
         label="Ch97 Blocking Wait Wakeup",
-        commit_candidates=["d31c79c"],
+        commit_candidates=["ch97_blocking_wait_wakeup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1672,7 +1672,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch98_wait_no_child_boundary",
         label="Ch98 Wait No Child Boundary",
-        commit_candidates=["0758647"],
+        commit_candidates=["ch98_wait_no_child_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1690,7 +1690,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch101_minimal_fork_adapter",
         label="Ch101 Minimal Fork Adapter",
-        commit_candidates=["beb9d19"],
+        commit_candidates=["ch101_minimal_fork_adapter"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1708,7 +1708,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch102_clone_syscall_surface",
         label="Ch102 Clone Syscall Surface",
-        commit_candidates=["1c58724"],
+        commit_candidates=["ch102_clone_syscall_surface"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1726,7 +1726,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch103_minimal_execv_adapter",
         label="Ch103 Minimal Execv Adapter",
-        commit_candidates=["a90d63a"],
+        commit_candidates=["ch103_minimal_execv_adapter"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1744,7 +1744,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch104_execv_user_arg_copyin",
         label="Ch104 Execv User Arg Copyin",
-        commit_candidates=["4a9f2ce"],
+        commit_candidates=["ch104_execv_user_arg_copyin"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1762,7 +1762,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch105_execv_path_vfs_image",
         label="Ch105 Execv Path VFS Image",
-        commit_candidates=["637a889"],
+        commit_candidates=["ch105_execv_path_vfs_image"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1780,7 +1780,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch106_execv_apply_pipeline",
         label="Ch106 Execv Apply Pipeline",
-        commit_candidates=["fb00c49"],
+        commit_candidates=["ch106_execv_apply_pipeline"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1798,7 +1798,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch107_execv_syscall_surface",
         label="Ch107 Execv Syscall Surface",
-        commit_candidates=["7427cc5"],
+        commit_candidates=["ch107_execv_syscall_surface"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1816,7 +1816,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch108_current_execv_syscall_runtime",
         label="Ch108 Current Execv Syscall Runtime",
-        commit_candidates=["a41f0b1"],
+        commit_candidates=["ch108_current_execv_syscall_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1834,7 +1834,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch109_execv_dispatch_context",
         label="Ch109 Execv Dispatch Context",
-        commit_candidates=["f2f2420"],
+        commit_candidates=["ch109_execv_dispatch_context"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1852,7 +1852,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch110_execv_runtime_context_lookup",
         label="Ch110 Execv Runtime Context Lookup",
-        commit_candidates=["5644364"],
+        commit_candidates=["ch110_execv_runtime_context_lookup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1870,7 +1870,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch111_execv_frame_dispatch",
         label="Ch111 Execv Frame Dispatch",
-        commit_candidates=["b04c05c"],
+        commit_candidates=["ch111_execv_frame_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1888,7 +1888,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch112_execv_frame_writeback",
         label="Ch112 Execv Frame Writeback",
-        commit_candidates=["00d709c"],
+        commit_candidates=["ch112_execv_frame_writeback"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1906,7 +1906,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch113_execv_trap_dispatch",
         label="Ch113 Execv Trap Dispatch",
-        commit_candidates=["f2c67c7"],
+        commit_candidates=["ch113_execv_trap_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1924,7 +1924,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch114_execv_trap_resources",
         label="Ch114 Execv Trap Resources",
-        commit_candidates=["ed94ef5"],
+        commit_candidates=["ch114_execv_trap_resources"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1942,7 +1942,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch115_execv_resource_store",
         label="Ch115 Execv Resource Store",
-        commit_candidates=["47920d7"],
+        commit_candidates=["ch115_execv_resource_store"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1960,7 +1960,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch116_execv_runtime_resources",
         label="Ch116 Execv Runtime Resources",
-        commit_candidates=["c626906"],
+        commit_candidates=["ch116_execv_runtime_resources"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1978,7 +1978,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch117_execv_runtime_dispatch",
         label="Ch117 Execv Runtime Dispatch",
-        commit_candidates=["3a0444b"],
+        commit_candidates=["ch117_execv_runtime_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1996,7 +1996,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch118_execv_dispatch_state",
         label="Ch118 Execv Dispatch State",
-        commit_candidates=["ba1bdb9"],
+        commit_candidates=["ch118_execv_dispatch_state"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2014,7 +2014,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch119_execv_dispatch_plan",
         label="Ch119 Execv Dispatch Plan",
-        commit_candidates=["f817f04"],
+        commit_candidates=["ch119_execv_dispatch_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2032,7 +2032,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch120_execv_runtime_plan",
         label="Ch120 Execv Runtime Plan",
-        commit_candidates=["7e32668"],
+        commit_candidates=["ch120_execv_runtime_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2050,7 +2050,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch121_execv_prepared_dispatch",
         label="Ch121 Execv Prepared Dispatch",
-        commit_candidates=["80d85c0"],
+        commit_candidates=["ch121_execv_prepared_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2068,7 +2068,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch122_execv_prepared_runtime",
         label="Ch122 Execv Prepared Runtime",
-        commit_candidates=["ab4bb48"],
+        commit_candidates=["ch122_execv_prepared_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2086,7 +2086,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch123_execv_prepared_ecall",
         label="Ch123 Execv Prepared Ecall",
-        commit_candidates=["64c66b0"],
+        commit_candidates=["ch123_execv_prepared_ecall"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2104,7 +2104,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch124_execv_prepared_entry",
         label="Ch124 Execv Prepared Entry",
-        commit_candidates=["3392684"],
+        commit_candidates=["ch124_execv_prepared_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2122,7 +2122,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch125_execv_prepared_store",
         label="Ch125 Execv Prepared Store",
-        commit_candidates=["a1da9d3"],
+        commit_candidates=["ch125_execv_prepared_store"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2140,7 +2140,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch126_execv_prepared_init",
         label="Ch126 Execv Prepared Init",
-        commit_candidates=["7cf0310"],
+        commit_candidates=["ch126_execv_prepared_init"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2158,7 +2158,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch127_execv_prepared_input",
         label="Ch127 Execv Prepared Input",
-        commit_candidates=["b54a9fa"],
+        commit_candidates=["ch127_execv_prepared_input"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2176,7 +2176,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch128_execv_entry_input_boundary",
         label="Ch128 Execv Entry Input Boundary",
-        commit_candidates=["ed7ae40"],
+        commit_candidates=["ch128_execv_entry_input_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2194,7 +2194,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch129_execv_user_source_boundary",
         label="Ch129 Execv User Source Boundary",
-        commit_candidates=["eed9425"],
+        commit_candidates=["ch129_execv_user_source_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2212,7 +2212,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch130_execv_replacement_vm_boundary",
         label="Ch130 Execv Replacement VM Boundary",
-        commit_candidates=["71deabf"],
+        commit_candidates=["ch130_execv_replacement_vm_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2230,7 +2230,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch131_execv_entry_recipe",
         label="Ch131 Execv Entry Recipe",
-        commit_candidates=["ea2d76a"],
+        commit_candidates=["ch131_execv_entry_recipe"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2248,7 +2248,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch132_execv_recipe_store_boundary",
         label="Ch132 Execv Recipe Store Boundary",
-        commit_candidates=["45d1358"],
+        commit_candidates=["ch132_execv_recipe_store_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2266,7 +2266,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch135_clone_trap_dispatch",
         label="Ch135 Clone Trap Dispatch",
-        commit_candidates=["2944efc"],
+        commit_candidates=["ch135_clone_trap_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2284,7 +2284,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch136_wait4_trap_dispatch",
         label="Ch136 Wait4 Trap Dispatch",
-        commit_candidates=["75696b5"],
+        commit_candidates=["ch136_wait4_trap_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2302,7 +2302,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch137_execve_prepared_entry_dispatch",
         label="Ch137 Execve Prepared Entry Dispatch",
-        commit_candidates=["6889ec1"],
+        commit_candidates=["ch137_execve_prepared_entry_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2320,7 +2320,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch138_prepared_process_syscall_entry",
         label="Ch138 Prepared Process Syscall Entry",
-        commit_candidates=["e7b24f3"],
+        commit_candidates=["ch138_prepared_process_syscall_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2338,7 +2338,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch139_process_syscall_write_entry",
         label="Ch139 Process Syscall Write Entry",
-        commit_candidates=["b0c839b"],
+        commit_candidates=["ch139_process_syscall_write_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2356,7 +2356,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch140_process_syscall_read_entry",
         label="Ch140 Process Syscall Read Entry",
-        commit_candidates=["fc073f2"],
+        commit_candidates=["ch140_process_syscall_read_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2374,7 +2374,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch141_process_syscall_close_entry",
         label="Ch141 Process Syscall Close Entry",
-        commit_candidates=["935dd02"],
+        commit_candidates=["ch141_process_syscall_close_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2392,7 +2392,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch142_process_syscall_openat_entry",
         label="Ch142 Process Syscall OpenAt Entry",
-        commit_candidates=["eddb191"],
+        commit_candidates=["ch142_process_syscall_openat_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2410,7 +2410,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch143_process_syscall_io_resources",
         label="Ch143 Process Syscall IO Resources",
-        commit_candidates=["a280b2a"],
+        commit_candidates=["ch143_process_syscall_io_resources"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2428,7 +2428,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch145_empty_fd_table_init_stdio",
         label="Ch145 Empty FD Table Init Stdio",
-        commit_candidates=["3c43d25"],
+        commit_candidates=["ch145_empty_fd_table_init_stdio"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2446,7 +2446,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch146_user_init_runtime_split",
         label="Ch146 User Init Runtime Split",
-        commit_candidates=["42be3f4"],
+        commit_candidates=["ch146_user_init_runtime_split"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2469,7 +2469,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch147_user_crt_library_boundary",
         label="Ch147 User libc Library Boundary",
-        commit_candidates=["a1445af"],
+        commit_candidates=["ch147_user_crt_library_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2492,7 +2492,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch148_user_crt_static_link_artifact",
         label="Ch148 User libc Static Link Artifact",
-        commit_candidates=["228c31d"],
+        commit_candidates=["ch148_user_crt_static_link_artifact"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2519,7 +2519,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch149_user_link_model_classification",
         label="Ch149 User Link Model Classification",
-        commit_candidates=["026bfe7"],
+        commit_candidates=["ch149_user_link_model_classification"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2542,7 +2542,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch150_shared_object_load_plan",
         label="Ch150 Shared Object Load Plan",
-        commit_candidates=["953647d"],
+        commit_candidates=["ch150_shared_object_load_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2567,7 +2567,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch151_user_image_shared_object_artifact",
         label="Ch151 User Image Shared Object Artifact",
-        commit_candidates=["8268840"],
+        commit_candidates=["ch151_user_image_shared_object_artifact"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2599,7 +2599,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch152_shared_object_dynamic_metadata",
         label="Ch152 Shared Object Dynamic Metadata",
-        commit_candidates=["916d267"],
+        commit_candidates=["ch152_shared_object_dynamic_metadata"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2624,7 +2624,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch153_shared_object_relocation_candidates",
         label="Ch153 Shared Object Relocation Candidates",
-        commit_candidates=["9ab71e5"],
+        commit_candidates=["ch153_shared_object_relocation_candidates"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2649,7 +2649,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch154_relative_relocation_apply_value",
         label="Ch154 Relative Relocation Apply Value",
-        commit_candidates=["bcfc871"],
+        commit_candidates=["ch154_relative_relocation_apply_value"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2674,7 +2674,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch155_relocation_writeback_boundary",
         label="Ch155 Relocation Writeback Boundary",
-        commit_candidates=["0cd939b"],
+        commit_candidates=["ch155_relocation_writeback_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2699,7 +2699,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch156_shared_object_relocation_materialize",
         label="Ch156 Shared Object Relocation Materialize",
-        commit_candidates=["4ea1b45"],
+        commit_candidates=["ch156_shared_object_relocation_materialize"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2724,7 +2724,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch157_shared_object_mapping_plan",
         label="Ch157 Shared Object Mapping Plan",
-        commit_candidates=["20a1102"],
+        commit_candidates=["ch157_shared_object_mapping_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2749,7 +2749,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch158_shared_object_frame_plan",
         label="Ch158 Shared Object Frame Plan",
-        commit_candidates=["f2c6ef6"],
+        commit_candidates=["ch158_shared_object_frame_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2774,7 +2774,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch159_shared_object_page_table_install",
         label="Ch159 Shared Object Page Table Install",
-        commit_candidates=["8d7e4ac"],
+        commit_candidates=["ch159_shared_object_page_table_install"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2799,7 +2799,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch160_shared_object_load_pipeline",
         label="Ch160 Shared Object Load Pipeline",
-        commit_candidates=["c29922d"],
+        commit_candidates=["ch160_shared_object_load_pipeline"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2824,7 +2824,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch161_shared_object_path_load",
         label="Ch161 Shared Object Path Load",
-        commit_candidates=["11ce5c6"],
+        commit_candidates=["ch161_shared_object_path_load"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2849,7 +2849,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch162_shared_object_dependency_load",
         label="Ch162 Shared Object Dependency Load",
-        commit_candidates=["ba705b2"],
+        commit_candidates=["ch162_shared_object_dependency_load"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2874,7 +2874,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch163_exec_shared_object_dependency",
         label="Ch163 Exec Shared Object Dependency",
-        commit_candidates=["fba26cf"],
+        commit_candidates=["ch163_exec_shared_object_dependency"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2899,7 +2899,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch164_process_exec_shared_object_runtime",
         label="Ch164 Process Exec Shared Object Runtime",
-        commit_candidates=["6f5addd"],
+        commit_candidates=["ch164_process_exec_shared_object_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2924,7 +2924,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch165_exec_apply_shared_object_runtime",
         label="Ch165 Exec Apply Shared Object Runtime",
-        commit_candidates=["97bba97"],
+        commit_candidates=["ch165_exec_apply_shared_object_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2949,7 +2949,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch166_exec_dispatch_shared_object_runtime",
         label="Ch166 Exec Dispatch Shared Object Runtime",
-        commit_candidates=["9c88059"],
+        commit_candidates=["ch166_exec_dispatch_shared_object_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2974,7 +2974,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch168_user_crt_entry_main",
         label="Ch168 User CRT Entry Calls Main",
-        commit_candidates=["16d65bd"],
+        commit_candidates=["ch168_user_crt_entry_main"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -3001,7 +3001,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch169_user_main_startup_args",
         label="Ch169 User Main Startup Args",
-        commit_candidates=["c80683e"],
+        commit_candidates=["ch169_user_main_startup_args"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -3028,7 +3028,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch170_execve_envp_copyin",
         label="Ch170 Execve Envp Copyin",
-        commit_candidates=["9f618e5"],
+        commit_candidates=["ch170_execve_envp_copyin"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -3054,7 +3054,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch171_user_crt_env_lookup",
         label="Ch171 User libc Env Lookup",
-            commit_candidates=["28e01ce"],
+            commit_candidates=["ch171_user_crt_env_lookup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
