@@ -585,3 +585,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - caller는 `ExecvPreparedEntryInput`을 직접 만들지 않고 prepared store helper에 frame, user source, replacement VM만 전달
     - execve 성공 시 live frame은 `a0=0`, `sepc+4`로 writeback되고 current task frame은 `/sbin/init` entry로 교체됨
     - QEMU runtime marker에서 `[chapter] ch137 execve prepared entry dispatch`, `[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000` 확인
+
+123. `e7b24f3` `feat(ch138): route prepared process syscalls`
+    - `handle_prepared_process_syscall_entry()`를 추가해 trap frame의 syscall number를 기준으로 `clone`, `wait4`, `execve`를 공통 process syscall entry에서 분기
+    - `clone`과 `execve`의 `TrapOutcome`을 `TrapDispatchResult`로 정규화하는 helper를 추가하고, `wait4`의 blocking/ready dispatch 결과는 그대로 보존
+    - unit test는 하나의 entry가 clone parent/child writeback, wait4 status copyout, execve prepared entry 교체를 각각 라우팅하는지 검증
+    - QEMU runtime marker에서 `[chapter] ch138 prepared process syscall entry`, `[trap] process syscall entry routed execve a0=0 sepc=0x40006004 entry=0x40000000` 확인

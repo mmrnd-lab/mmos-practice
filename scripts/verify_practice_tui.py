@@ -2318,6 +2318,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve entry builds recipe/input at the store boundary and dispatches the ecall",
     ),
     ChapterSet(
+        key="ch138_prepared_process_syscall_entry",
+        label="Ch138 Prepared Process Syscall Entry",
+        commit_candidates=["e7b24f3"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch138 prepared process syscall entry",
+                    "[trap] process syscall entry routed execve a0=0 sepc=0x40006004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=one prepared process syscall entry routes clone, wait4, and execve from trap-frame syscall numbers",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
