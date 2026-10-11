@@ -1688,6 +1688,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=wait returns ECHILD instead of blocking when current parent has no child links",
     ),
     ChapterSet(
+        key="ch101_minimal_fork_adapter",
+        label="Ch101 Minimal Fork Adapter",
+        commit_candidates=["beb9d19"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch101 minimal fork adapter",
+                    "[syscall] fork parent=1 child=2 child_a0=0 wait_status=23",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=current process creates a runnable child through the minimal fork adapter and the existing wait path reaps it",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

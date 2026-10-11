@@ -362,6 +362,12 @@
     - child가 없는 parent는 wait queue에 들어가지 않고 running 상태를 유지하도록 경계를 분리
     - QEMU runtime marker에서 `[chapter] ch98 wait no child boundary`, `[syscall] wait no-child parent=1 errno=10 blocked=0` 확인
 
+89. `beb9d19` `feat(ch101): add minimal fork adapter`
+    - current task의 owner process를 parent로 삼아 child PCB와 runnable child TCB를 한 번에 생성하는 `fork_current_process()` 경로 추가
+    - parent syscall return 값은 child PID, child trap frame의 `a0`는 0으로 고정해 Unix fork의 가장 작은 관찰 규칙을 먼저 고정
+    - 아직 주소공간 복제, COW, FD table 복사, `execv`는 구현하지 않고 기존 wait/block/wakeup/reap 경로와 연결되는 최소 surface만 검증
+    - QEMU runtime marker에서 `[chapter] ch101 minimal fork adapter`, `[syscall] fork parent=1 child=2 child_a0=0 wait_status=23` 확인
+
 
 ## Reproduce Example
 
