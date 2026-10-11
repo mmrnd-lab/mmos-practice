@@ -762,6 +762,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=console read path returns real bytes that are copied out to user memory",
     ),
     ChapterSet(
+        key="ch46_nonblocking_read_wouldblock",
+        label="Ch47 Nonblocking Read WouldBlock",
+        commit_candidates=["9e2da10"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch46 nonblocking read wouldblock",
+                    "[chapter] ch45 console read bytes",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=empty buffered console read maps WouldBlock to -EAGAIN",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

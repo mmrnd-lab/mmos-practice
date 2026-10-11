@@ -126,6 +126,10 @@
     - runtime 검증용 buffered console character device를 추가해 실제 byte read가 가능하도록 구성
     - `read(fd, user_buf, len)`이 console input bytes를 copyout해 user memory에 저장하는 경로를 검증
 
+40. `9e2da10` `feat(ch46): map nonblocking read wouldblock`
+    - `CharError::WouldBlock`을 syscall errno `-EAGAIN`으로 매핑해 non-blocking read 실패 정책을 고정
+    - buffered console input을 모두 소비한 뒤 추가 `read()`가 `-EAGAIN`으로 실패하는 경로를 검증
+
 
 ## Reproduce Example
 
