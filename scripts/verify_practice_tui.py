@@ -378,7 +378,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch22_fork_exec_wait",
         label="Ch22 Fork/Exec/Wait (Runtime Demo)",
-        commit_candidates=["686599f"],
+        commit_candidates=["1618b83"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
