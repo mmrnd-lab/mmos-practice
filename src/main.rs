@@ -3067,6 +3067,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] RELA records are scanned into relocation apply candidates\n");
     console::puts("[chapter] ch154 relative relocation apply value\n");
     console::puts("[user-link] R_RISCV_RELATIVE computes relocation value as base plus addend\n");
+    console::puts("[chapter] ch155 relocation writeback boundary\n");
+    console::puts("[user-link] relocation apply values write checked little-endian u64 slots\n");
 }
 
 fn run_kernel_satp_guard_demo() {

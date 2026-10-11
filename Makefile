@@ -43,7 +43,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -108,6 +108,10 @@ shared-object-relocations: require-container $(USER_CRT_SO)
 shared-object-relative-apply: require-container $(USER_CRT_SO)
 	@riscv64-linux-gnu-readelf -r $(USER_CRT_SO) | grep -q "There are no relocations"
 	@echo "[user-link] relative-relocation=R_RISCV_RELATIVE formula=base+addend"
+
+shared-object-relocation-writeback: require-container $(USER_CRT_SO)
+	@riscv64-linux-gnu-readelf -r $(USER_CRT_SO) | grep -q "There are no relocations"
+	@echo "[user-link] relocation-writeback=checked-range little-endian-u64"
 
 user-image-shared-object: require-container $(BOOT_DISK) $(USER_CRT_SO)
 	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null

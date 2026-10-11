@@ -48,6 +48,7 @@ pub enum ElfError {
     TooManyRelocations,
     UnsupportedRelocationType,
     RelocationRequiresSymbol,
+    RelocationTargetOutOfRange,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -328,6 +329,28 @@ pub fn inspect_shared_object_dynamic(bytes: &[u8]) -> Result<SharedObjectDynamic
     }
 
     Err(ElfError::NoDynamicSegment)
+}
+
+pub fn write_relocation_apply(
+    image: &mut [u8],
+    apply: SharedObjectRelocationApply,
+) -> Result<(), ElfError> {
+    let end = apply.target_offset.checked_add(8).ok_or(ElfError::RelocationTargetOutOfRange)?;
+    let target = image
+        .get_mut(apply.target_offset..end)
+        .ok_or(ElfError::RelocationTargetOutOfRange)?;
+    target.copy_from_slice(&(apply.value as u64).to_le_bytes());
+    Ok(())
+}
+
+pub fn write_relocation_apply_plan(
+    image: &mut [u8],
+    applies: &[Option<SharedObjectRelocationApply>],
+) -> Result<(), ElfError> {
+    for apply in applies.iter().flatten() {
+        write_relocation_apply(image, *apply)?;
+    }
+    Ok(())
 }
 
 pub fn calculate_relative_relocation(

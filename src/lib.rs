@@ -69,8 +69,10 @@ mod tests {
     use super::elf_loader::{
         calculate_relative_relocation, calculate_relative_relocation_plan,
         collect_shared_object_relocations, inspect_shared_object_dynamic, load_init_from_vfs,
-        load_user_elf, parse_elf_header, SharedObjectRelocationCandidate,
-        pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load, ElfError,
+        load_user_elf, parse_elf_header, SharedObjectRelocationApply,
+        SharedObjectRelocationCandidate,
+        pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load,
+        write_relocation_apply, write_relocation_apply_plan, ElfError,
         ElfFileType,
     };
     use super::ext4::{Ext4Fs, FsError};
@@ -2972,6 +2974,48 @@ mod tests {
 
         assert_eq!(applies[0].unwrap().target_offset, 0x1f08);
         assert_eq!(applies[0].unwrap().value, 0x5000_0040);
+    }
+
+    #[test]
+    fn relocation_apply_writes_little_endian_u64_value() {
+        let apply = SharedObjectRelocationApply {
+            target_offset: 8,
+            value: 0x1122_3344_5566_7788,
+        };
+        let mut image = [0u8; 24];
+
+        write_relocation_apply(&mut image, apply).unwrap();
+
+        assert_eq!(&image[8..16], &0x1122_3344_5566_7788u64.to_le_bytes());
+    }
+
+    #[test]
+    fn relocation_apply_rejects_out_of_range_target() {
+        let apply = SharedObjectRelocationApply {
+            target_offset: 20,
+            value: 0x5000_0040,
+        };
+        let mut image = [0u8; 24];
+
+        assert_eq!(
+            write_relocation_apply(&mut image, apply),
+            Err(ElfError::RelocationTargetOutOfRange)
+        );
+    }
+
+    #[test]
+    fn relocation_apply_plan_writes_multiple_values() {
+        let applies = [
+            Some(SharedObjectRelocationApply { target_offset: 0, value: 0x11 }),
+            Some(SharedObjectRelocationApply { target_offset: 8, value: 0x22 }),
+            None,
+        ];
+        let mut image = [0u8; 24];
+
+        write_relocation_apply_plan(&mut image, &applies).unwrap();
+
+        assert_eq!(&image[0..8], &0x11u64.to_le_bytes());
+        assert_eq!(&image[8..16], &0x22u64.to_le_bytes());
     }
 
     #[test]

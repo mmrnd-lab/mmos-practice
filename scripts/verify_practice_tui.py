@@ -2672,6 +2672,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=calculates R_RISCV_RELATIVE relocation values without writing memory yet",
     ),
     ChapterSet(
+        key="ch155_relocation_writeback_boundary",
+        label="Ch155 Relocation Writeback Boundary",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-relocation-writeback",
+                "make shared-object-relocation-writeback PROFILE=release",
+                must_contain=(
+                    "[user-link] relocation-writeback=checked-range little-endian-u64",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch155 relocation writeback boundary",
+                    "[user-link] relocation apply values write checked little-endian u64 slots",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=writes calculated relocation apply values into checked little-endian u64 image slots",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
