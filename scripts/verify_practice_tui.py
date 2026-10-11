@@ -1960,7 +1960,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch116_execv_runtime_resources",
         label="Ch116 Execv Runtime Resources",
-        commit_candidates=["HEAD"],
+        commit_candidates=["af8cc0f"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

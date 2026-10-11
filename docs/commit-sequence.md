@@ -446,6 +446,12 @@
     - process runtime, user memory, new VM처럼 호출마다 달라지는 값은 호출 시점에 넘기고, 재사용 가능한 buffer와 VFS 경계는 store가 보관
     - QEMU runtime marker에서 `[chapter] ch115 execv resource store`, `[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+103. `af8cc0f` `feat(ch116): borrow execve resources from trap runtime`
+    - `ProcessTrapRuntime::execv_resources()`를 추가해 trap runtime이 store에서 execve resource bundle을 빌려주는 경로를 제공
+    - caller는 `store.resources(&mut runtime, ...)` 대신 `runtime.execv_resources(&mut store, ...)`를 호출
+    - store가 VFS/scratch/stack buffer를 보관하고, runtime이 current process/task 경계의 주인이라는 역할을 코드 호출 순서에 드러냄
+    - QEMU runtime marker에서 `[chapter] ch116 execv runtime resources`, `[trap] execve runtime resources routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
