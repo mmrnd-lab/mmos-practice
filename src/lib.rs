@@ -130,8 +130,10 @@ mod tests {
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{
         build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
-        install_user_vm_plan_in_root, is_kernel_mapping, is_leaf_user_mapping,
-        plan_frame_backed_user_image, preflight_satp_commit, KernelRuntimeSatpGuard,
+        install_frame_backed_user_mapping_in_tables, install_user_vm_plan_in_root,
+        is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
+        plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
+        KernelRuntimeSatpGuard,
         KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
         SatpCommitPreflight, SatpCommitPreflightError, UserFrameBackedImageError,
     };
@@ -2836,6 +2838,69 @@ mod tests {
         assert_eq!(
             plan_frame_backed_user_image(&loaded, &mut pmm, 512),
             Err(UserFrameBackedImageError::OutOfFrames)
+        );
+    }
+
+    #[test]
+    fn frame_backed_user_mapping_installs_4k_leafs_below_root() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let install = install_frame_backed_user_mapping_in_tables(
+            &mut root,
+            &mut l1,
+            0x9000_2000,
+            &mut l0,
+            0x9000_3000,
+            &plan,
+        )
+        .unwrap();
+
+        let root_entry = root.entries[vpn2(0x4000_0000)];
+        let l1_entry = l1.entries[vpn1(0x4000_0000)];
+        let code_entry = l0.entries[vpn0(0x4000_0000)];
+        let stack_entry = l0.entries[vpn0(0x400f_f000)];
+
+        assert!(is_table_mapping(root_entry));
+        assert_eq!(root_entry.ppn(), 0x9000_2000 / super::sv39::PAGE_SIZE);
+        assert!(is_table_mapping(l1_entry));
+        assert_eq!(l1_entry.ppn(), 0x9000_3000 / super::sv39::PAGE_SIZE);
+        assert!(is_leaf_user_mapping(code_entry));
+        assert_eq!(code_entry.ppn(), 0x9000_0000 / super::sv39::PAGE_SIZE);
+        assert_eq!(code_entry.flags() & PTE_X, PTE_X);
+        assert!(is_leaf_user_mapping(stack_entry));
+        assert_eq!(stack_entry.ppn(), 0x9000_1000 / super::sv39::PAGE_SIZE);
+        assert_eq!(stack_entry.flags() & PTE_W, PTE_W);
+        assert_eq!(install.mapped_pages, 2);
+    }
+
+    #[test]
+    fn frame_backed_user_mapping_rejects_unaligned_table_frames() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        assert_eq!(
+            install_frame_backed_user_mapping_in_tables(
+                &mut root,
+                &mut l1,
+                0x9000_2001,
+                &mut l0,
+                0x9000_3000,
+                &plan,
+            ),
+            Err(super::user_vm::UserFrameBackedMappingError::UnalignedTableFrame)
         );
     }
 

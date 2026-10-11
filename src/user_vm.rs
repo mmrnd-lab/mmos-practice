@@ -73,6 +73,21 @@ pub enum UserFrameBackedImageError {
     EntryNotMapped,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UserFrameBackedMappingInstall {
+    pub l1_frame_pa: usize,
+    pub l0_frame_pa: usize,
+    pub mapped_pages: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserFrameBackedMappingError {
+    MissingSegment,
+    UnalignedTableFrame,
+    UnsupportedAddressRange,
+    OutOfFrames,
+}
+
 #[derive(Debug)]
 pub struct ProcessAddressSpace {
     pub root_frame_pa: usize,
@@ -242,6 +257,89 @@ pub fn plan_frame_backed_user_image<const FREE_CAP: usize>(
         segment_count: loaded.segment_count,
         segments,
     })
+}
+
+pub fn install_frame_backed_user_mapping_in_tables(
+    root: &mut RootPageTable,
+    l1: &mut RootPageTable,
+    l1_frame_pa: usize,
+    l0: &mut RootPageTable,
+    l0_frame_pa: usize,
+    plan: &UserFrameBackedImagePlan,
+) -> Result<UserFrameBackedMappingInstall, UserFrameBackedMappingError> {
+    if l1_frame_pa % PAGE_SIZE != 0 || l0_frame_pa % PAGE_SIZE != 0 {
+        return Err(UserFrameBackedMappingError::UnalignedTableFrame);
+    }
+
+    clear_root_page_table(l1);
+    clear_root_page_table(l0);
+
+    let root_vpn2 = vpn2(plan.entry_vaddr);
+    let l1_vpn1 = vpn1(plan.entry_vaddr);
+    root.entries[root_vpn2] = PageTableEntry::leaf(l1_frame_pa / PAGE_SIZE, 0);
+    l1.entries[l1_vpn1] = PageTableEntry::leaf(l0_frame_pa / PAGE_SIZE, 0);
+
+    let mut mapped_pages = 0usize;
+    let mut idx = 0usize;
+    while idx < plan.segment_count {
+        let seg = plan.segments[idx].ok_or(UserFrameBackedMappingError::MissingSegment)?;
+        ensure_same_leaf_table(plan.entry_vaddr, seg.vaddr)?;
+        l0.entries[vpn0(seg.vaddr)] = PageTableEntry::leaf(
+            seg.frame_pa / PAGE_SIZE,
+            pflags_to_pte(seg.flags) | PTE_A | PTE_D,
+        );
+        mapped_pages += 1;
+        idx += 1;
+    }
+
+    let stack_vaddr = plan.stack_top - PAGE_SIZE;
+    ensure_same_leaf_table(plan.entry_vaddr, stack_vaddr)?;
+    l0.entries[vpn0(stack_vaddr)] = PageTableEntry::leaf(
+        plan.stack_frame_start_pa / PAGE_SIZE,
+        PTE_U | PTE_R | PTE_W | PTE_A | PTE_D,
+    );
+    mapped_pages += plan.stack_pages;
+
+    Ok(UserFrameBackedMappingInstall {
+        l1_frame_pa,
+        l0_frame_pa,
+        mapped_pages,
+    })
+}
+
+pub fn install_frame_backed_user_mapping<const FREE_CAP: usize>(
+    root: &mut RootPageTable,
+    plan: &UserFrameBackedImagePlan,
+    pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
+) -> Result<UserFrameBackedMappingInstall, UserFrameBackedMappingError> {
+    let l1_frame_pa = pmm.alloc().ok_or(UserFrameBackedMappingError::OutOfFrames)?;
+    let l0_frame_pa = pmm.alloc().ok_or(UserFrameBackedMappingError::OutOfFrames)?;
+    let l1 = unsafe { root_page_table_from_identity_frame_mut(l1_frame_pa) };
+    let l0 = unsafe { root_page_table_from_identity_frame_mut(l0_frame_pa) };
+    install_frame_backed_user_mapping_in_tables(root, l1, l1_frame_pa, l0, l0_frame_pa, plan)
+}
+
+fn ensure_same_leaf_table(base: usize, vaddr: usize) -> Result<(), UserFrameBackedMappingError> {
+    if vpn2(base) != vpn2(vaddr) || vpn1(base) != vpn1(vaddr) {
+        return Err(UserFrameBackedMappingError::UnsupportedAddressRange);
+    }
+    Ok(())
+}
+
+pub fn vpn2(vaddr: usize) -> usize {
+    (vaddr >> 30) & 0x1ff
+}
+
+pub fn vpn1(vaddr: usize) -> usize {
+    (vaddr >> 21) & 0x1ff
+}
+
+pub fn vpn0(vaddr: usize) -> usize {
+    (vaddr >> 12) & 0x1ff
+}
+
+pub fn is_table_mapping(entry: PageTableEntry) -> bool {
+    entry.is_valid() && (entry.flags() & (PTE_R | PTE_W | PTE_X)) == 0
 }
 
 pub fn build_user_vm_plan(

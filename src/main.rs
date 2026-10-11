@@ -84,6 +84,7 @@ static mut USER_ADDRESS_SPACES: user_vm::ProcessAddressSpaceTable<2> =
 static mut PCB_ADDRESS_SPACE_HANDLE_READY: bool = false;
 static mut SATP_HARDWARE_COMMIT_PROBE_READY: bool = false;
 static mut USER_FRAME_BACKED_IMAGE_READY: bool = false;
+static mut USER_FRAME_BACKED_MAPPING_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -670,6 +671,7 @@ pub extern "C" fn rust_main() -> ! {
     run_pcb_address_space_handle_demo();
     run_satp_hardware_commit_probe_demo();
     run_user_frame_backed_image_demo();
+    run_user_frame_backed_mapping_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -718,6 +720,12 @@ fn run_satp_hardware_commit_probe_demo() {
 fn run_user_frame_backed_image_demo() {
     if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_IMAGE_READY)) } {
         console::puts("[chapter] ch82 user frame backed image\n");
+    }
+}
+
+fn run_user_frame_backed_mapping_demo() {
+    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_MAPPING_READY)) } {
+        console::puts("[chapter] ch83 user frame backed page mapping\n");
     }
 }
 
@@ -1318,6 +1326,45 @@ fn run_user_launch_demo() {
                                                                                                                                                                             ),
                                                                                                                                                                             true,
                                                                                                                                                                         );
+                                                                                                                                                                    }
+                                                                                                                                                                    if let Ok(mapping) =
+                                                                                                                                                                        user_vm::install_frame_backed_user_mapping(
+                                                                                                                                                                            space_root,
+                                                                                                                                                                            &frame_plan,
+                                                                                                                                                                            &mut pmm,
+                                                                                                                                                                        )
+                                                                                                                                                                    {
+                                                                                                                                                                        let root_entry =
+                                                                                                                                                                            space_root.entries[
+                                                                                                                                                                                user_vm::vpn2(
+                                                                                                                                                                                    frame_plan
+                                                                                                                                                                                        .entry_vaddr,
+                                                                                                                                                                                )
+                                                                                                                                                                            ];
+                                                                                                                                                                        if user_vm::is_table_mapping(
+                                                                                                                                                                            root_entry,
+                                                                                                                                                                        )
+                                                                                                                                                                            && root_entry
+                                                                                                                                                                                .ppn()
+                                                                                                                                                                                == mapping
+                                                                                                                                                                                    .l1_frame_pa
+                                                                                                                                                                                    / sv39::PAGE_SIZE
+                                                                                                                                                                            && mapping
+                                                                                                                                                                                .mapped_pages
+                                                                                                                                                                                == frame_plan
+                                                                                                                                                                                    .segment_count
+                                                                                                                                                                                    + frame_plan
+                                                                                                                                                                                        .stack_pages
+                                                                                                                                                                        {
+                                                                                                                                                                            unsafe {
+                                                                                                                                                                                core::ptr::write_volatile(
+                                                                                                                                                                                    core::ptr::addr_of_mut!(
+                                                                                                                                                                                        USER_FRAME_BACKED_MAPPING_READY
+                                                                                                                                                                                    ),
+                                                                                                                                                                                    true,
+                                                                                                                                                                                );
+                                                                                                                                                                            }
+                                                                                                                                                                        }
                                                                                                                                                                     }
                                                                                                                                                                 }
                                                                                                                                                             }
