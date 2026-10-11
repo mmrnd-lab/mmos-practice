@@ -677,6 +677,7 @@ pub extern "C" fn rust_main() -> ! {
     run_scheduler_runtime_demo();
     run_process_runtime_demo();
     run_process_exit_runtime_demo();
+    run_process_exit_schedule_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -747,6 +748,51 @@ fn run_process_exit_runtime_demo() {
         if report.owner_pid == owner_pid && report.tasks_marked == 2 {
             console::puts("[chapter] ch90 process exit runtime\n");
             console::puts("[proc] exit pid=1 code=0 tasks=2\n");
+        }
+    }
+}
+
+fn run_process_exit_schedule_demo() {
+    let mut processes = process_model::ProcessTable::<3, 2, 2>::new();
+    let mut tasks = process_model::TaskTable::<4>::new();
+    let mut scheduler = scheduler::Scheduler::<4>::new();
+    let Ok(owner_pid) = processes.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(other_pid) = processes.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut tid = 1usize;
+    while tid <= 3 {
+        let pid = if tid <= 2 { owner_pid } else { other_pid };
+        let mut frame = trap::TrapFrame::default();
+        frame.sepc = 0x4000_0000 + tid * 0x1000;
+        if tasks
+            .add_task(process_model::TaskControlBlock::new(tid, pid, frame))
+            .is_err()
+            || scheduler.add_runnable(tid, frame).is_err()
+        {
+            return;
+        }
+        tid += 1;
+    }
+    let _ = scheduler.on_tick();
+
+    if let Ok(report) = process_model::exit_process_from_task_with_scheduler(
+        &mut processes,
+        &mut tasks,
+        &mut scheduler,
+        1,
+        0,
+    ) {
+        if report.exit.owner_pid == owner_pid
+            && report.exit.tasks_marked == 2
+            && report.scheduler_tasks_marked == 2
+            && scheduler.current_tid() == Some(3)
+        {
+            console::puts("[chapter] ch91 exit schedule handoff\n");
+            console::puts("[proc] exit handoff prev=1 next=3 owner_tasks=2 scheduler_tasks=2\n");
         }
     }
 }

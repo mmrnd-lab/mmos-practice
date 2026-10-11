@@ -147,6 +147,36 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
         Some(ScheduleDecision::Switched { prev_tid, next_tid })
     }
 
+    pub fn schedule_after_current_exited(&mut self) -> Option<ScheduleDecision> {
+        let cur = self.current_idx?;
+        let mut current = self.slots[cur]?;
+        let prev_tid = current.tid;
+        current.state = TaskState::Zombie;
+        self.slots[cur] = Some(current);
+
+        let Some(next) = self.find_next_runnable((cur + 1) % MAX_TASKS) else {
+            self.current_idx = None;
+            return Some(ScheduleDecision::Idle {
+                blocked_tid: prev_tid,
+            });
+        };
+
+        if next == cur {
+            self.current_idx = None;
+            return Some(ScheduleDecision::Idle {
+                blocked_tid: prev_tid,
+            });
+        }
+
+        if let Some(mut task) = self.slots[next] {
+            task.state = TaskState::Running;
+            self.slots[next] = Some(task);
+        }
+        self.current_idx = Some(next);
+        let next_tid = self.slots[next].map(|task| task.tid)?;
+        Some(ScheduleDecision::Switched { prev_tid, next_tid })
+    }
+
     pub fn on_tick(&mut self) -> Option<(usize, usize)> {
         self.tick_count = self.tick_count.wrapping_add(1);
 

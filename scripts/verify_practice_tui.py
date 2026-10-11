@@ -1544,6 +1544,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-wide exit marks owner PCB and all owned TCBs before user init still exits cleanly",
     ),
     ChapterSet(
+        key="ch91_exit_schedule_handoff",
+        label="Ch91 Exit Schedule Handoff",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch91 exit schedule handoff",
+                    "[proc] exit handoff prev=1 next=3 owner_tasks=2 scheduler_tasks=2",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process-wide exit removes sibling tasks from scheduler and hands off to another process",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

@@ -76,7 +76,8 @@ mod tests {
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{
-        exit_process_from_task, ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable,
+        exit_process_from_task, exit_process_from_task_with_scheduler, ProcError, ProcState,
+        ProcessTable, TaskControlBlock, TaskTable,
     };
     use super::process_io::{
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
@@ -1796,6 +1797,55 @@ mod tests {
             2
         );
         assert_eq!(tasks.get(3).unwrap().sched_state, TaskState::Runnable);
+    }
+
+    #[test]
+    fn process_exit_runtime_hands_off_scheduler_to_other_process() {
+        let mut processes = ProcessTable::<3, 2, 2>::new();
+        let mut tasks = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let owner_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            tasks
+                .add_task(TaskControlBlock::new(tid, pid, frame))
+                .unwrap();
+            scheduler.add_runnable(tid, frame).unwrap();
+        }
+        assert_eq!(scheduler.on_tick(), None);
+        assert_eq!(scheduler.current_tid(), Some(1));
+
+        let report = exit_process_from_task_with_scheduler(
+            &mut processes,
+            &mut tasks,
+            &mut scheduler,
+            1,
+            9,
+        )
+        .unwrap();
+
+        assert_eq!(report.exit.owner_pid, owner_pid);
+        assert_eq!(report.exit.tasks_marked, 2);
+        assert_eq!(report.scheduler_tasks_marked, 2);
+        assert_eq!(
+            report.decision,
+            ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 3
+            }
+        );
+        assert_eq!(scheduler.task_state(1), Some(TaskState::Zombie));
+        assert_eq!(scheduler.task_state(2), Some(TaskState::Zombie));
+        assert_eq!(scheduler.task_state(3), Some(TaskState::Running));
+        assert_eq!(scheduler.current_tid(), Some(3));
+        assert_eq!(processes.get(owner_pid).unwrap().exit_code, Some(9));
     }
 
     #[test]

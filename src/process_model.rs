@@ -1,7 +1,7 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::scheduler::TaskState;
+use crate::scheduler::{ScheduleDecision, Scheduler, TaskState};
 use crate::trap::TrapFrame;
 use crate::vm::VmSpace;
 
@@ -200,6 +200,13 @@ pub struct ProcessExitRuntime {
     pub tasks_marked: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessExitScheduleRuntime {
+    pub exit: ProcessExitRuntime,
+    pub scheduler_tasks_marked: usize,
+    pub decision: ScheduleDecision,
+}
+
 impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
     pub const fn new() -> Self {
         Self {
@@ -278,6 +285,28 @@ impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
         }
         count
     }
+
+    pub fn mark_owner_scheduler_tasks_state_except<const SCHED_TASKS: usize>(
+        &self,
+        owner_pid: usize,
+        except_tid: usize,
+        scheduler: &mut Scheduler<SCHED_TASKS>,
+        state: TaskState,
+    ) -> usize {
+        let mut marked = 0usize;
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(tcb) = self.slots[idx] {
+                if tcb.owner_pid == owner_pid && tcb.tid != except_tid {
+                    if scheduler.set_state(tcb.tid, state) {
+                        marked += 1;
+                    }
+                }
+            }
+            idx += 1;
+        }
+        marked
+    }
 }
 
 pub fn exit_process_from_task<
@@ -300,5 +329,36 @@ pub fn exit_process_from_task<
         owner_pid,
         exit_code: code,
         tasks_marked,
+    })
+}
+
+pub fn exit_process_from_task_with_scheduler<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCHED_TASKS: usize,
+>(
+    processes: &mut ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    tasks: &mut TaskTable<MAX_TASKS>,
+    scheduler: &mut Scheduler<SCHED_TASKS>,
+    current_tid: usize,
+    code: i32,
+) -> Result<ProcessExitScheduleRuntime, ProcError> {
+    let exit = exit_process_from_task(processes, tasks, current_tid, code)?;
+    let sibling_scheduler_tasks = tasks.mark_owner_scheduler_tasks_state_except(
+        exit.owner_pid,
+        current_tid,
+        scheduler,
+        TaskState::Zombie,
+    );
+    let decision = scheduler
+        .schedule_after_current_exited()
+        .ok_or(ProcError::MissingTask)?;
+
+    Ok(ProcessExitScheduleRuntime {
+        exit,
+        scheduler_tasks_marked: sibling_scheduler_tasks + 1,
+        decision,
     })
 }
