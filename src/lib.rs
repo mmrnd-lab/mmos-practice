@@ -67,7 +67,9 @@ mod tests {
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
-    use super::process_io::{CurrentProcessIoContext, ProcessIoContext, ProcessIoTable};
+    use super::process_io::{
+        CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
+    };
     use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
@@ -542,6 +544,57 @@ mod tests {
             SyscallResult::Continue(10)
         );
         assert_eq!(dev.written(), b"task-owned".to_vec());
+    }
+
+
+    #[test]
+    fn process_io_runtime_creates_process_with_stdio() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+
+        assert_eq!(pid, 1);
+        assert_eq!(runtime.current_for_task(&task).unwrap().pid(), pid);
+        assert!(runtime.processes_mut().get_mut(pid).is_ok());
+    }
+
+    #[test]
+    fn process_owned_io_runtime_write_uses_created_process_context() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let fd = runtime
+            .current_for_task_mut(&task)
+            .unwrap()
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0xe000, 0xe020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"owned-io", 0xe000, &vm);
+        let mut scratch = [0u8; 16];
+
+        let current = runtime.current_for_task(&task).unwrap();
+        assert_eq!(
+            handle_current_process_write_checked_user_syscall(
+                current,
+                &user,
+                fd,
+                0xe000,
+                8,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(8)
+        );
+        assert_eq!(dev.written(), b"owned-io".to_vec());
     }
 
     #[test]

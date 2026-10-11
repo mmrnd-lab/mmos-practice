@@ -248,6 +248,47 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
 
+    let mut proc_io_runtime = process_io::ProcessIoRuntime::<2, 2, 2, 8>::new();
+    let runtime_pid = proc_io_runtime
+        .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
+        .unwrap_or(0);
+    let runtime_task =
+        process_model::TaskControlBlock::new(2, runtime_pid, trap::TrapFrame::default(), 0);
+    let mut owned_vm = vm::VmSpace::<2>::new();
+    let _ = owned_vm.map_anon(0x7000, 0x7020, sv39::PTE_R);
+    let owned_user = user_copy::CheckedUserSlice::new(b"/dev/console\0owned", 0x7000, &owned_vm);
+    let mut owned_path = [0u8; 32];
+    let owned_fd = {
+        let current = proc_io_runtime.current_for_task_mut(&runtime_task);
+        match current {
+            Ok(current) => syscall::handle_process_open_checked_user_path(
+                current.io_mut(),
+                &dev_ns,
+                &owned_user,
+                0x7000,
+                1,
+                &mut owned_path,
+            ),
+            Err(_) => syscall::SyscallResult::Continue(-1),
+        }
+    };
+    if let syscall::SyscallResult::Continue(fd) = owned_fd {
+        let mut owned_write = [0u8; 16];
+        if let Ok(current) = proc_io_runtime.current_for_task(&runtime_task) {
+            if syscall::handle_current_process_write_checked_user_syscall(
+                current,
+                &owned_user,
+                fd as usize,
+                0x700d,
+                5,
+                &mut owned_write,
+            ) == syscall::SyscallResult::Continue(5)
+            {
+                console::puts("[chapter] ch42 process owned io runtime\n");
+            }
+        }
+    }
+
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
         console::puts("[mmos-practice] user init context prepared (SPP=U)\n");

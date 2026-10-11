@@ -4,7 +4,7 @@
 use crate::char_device::CharacterDevice;
 use crate::devfs::DeviceNamespace;
 use crate::fd_table::{stdio_table_with_capacity, FileDescriptorTable, FileError, OpenMode};
-use crate::process_model::{ProcError, TaskControlBlock};
+use crate::process_model::{ProcError, ProcessTable, TaskControlBlock};
 
 #[derive(Clone, Copy)]
 pub struct ProcessIoContext<const MAX_FDS: usize> {
@@ -151,5 +151,72 @@ impl<const MAX_PROCS: usize, const MAX_FDS: usize> ProcessIoTable<MAX_PROCS, MAX
         task: &TaskControlBlock,
     ) -> Result<&mut CurrentProcessIoContext<MAX_FDS>, ProcError> {
         self.get_mut(task.owner_pid)
+    }
+}
+
+
+pub struct ProcessIoRuntime<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_FDS: usize,
+> {
+    processes: ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    io: ProcessIoTable<MAX_PROCS, MAX_FDS>,
+}
+
+impl<
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_AREAS: usize,
+        const MAX_FDS: usize,
+    > ProcessIoRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_FDS>
+{
+    pub const fn new() -> Self {
+        Self {
+            processes: ProcessTable::new(),
+            io: ProcessIoTable::new(),
+        }
+    }
+
+    pub fn create_process_with_stdio(
+        &mut self,
+        parent: Option<usize>,
+        vm: crate::vm::VmSpace<MAX_AREAS>,
+        console: &'static dyn CharacterDevice,
+    ) -> Result<usize, ProcError> {
+        let pid = self.processes.create_process(parent, vm)?;
+        self.io.insert_stdio(pid, console)?;
+        Ok(pid)
+    }
+
+    pub fn processes(&self) -> &ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS> {
+        &self.processes
+    }
+
+    pub fn processes_mut(&mut self) -> &mut ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS> {
+        &mut self.processes
+    }
+
+    pub fn io(&self) -> &ProcessIoTable<MAX_PROCS, MAX_FDS> {
+        &self.io
+    }
+
+    pub fn io_mut(&mut self) -> &mut ProcessIoTable<MAX_PROCS, MAX_FDS> {
+        &mut self.io
+    }
+
+    pub fn current_for_task(
+        &self,
+        task: &TaskControlBlock,
+    ) -> Result<&CurrentProcessIoContext<MAX_FDS>, ProcError> {
+        self.io.current_for_task(task)
+    }
+
+    pub fn current_for_task_mut(
+        &mut self,
+        task: &TaskControlBlock,
+    ) -> Result<&mut CurrentProcessIoContext<MAX_FDS>, ProcError> {
+        self.io.current_for_task_mut(task)
     }
 }
