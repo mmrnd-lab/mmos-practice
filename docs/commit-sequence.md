@@ -722,3 +722,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 shared object image bytes를 mutable buffer로 받아 relocation count, entry frame PA, mapped page count, leaf PTE를 검증
     - `make shared-object-load-pipeline` 타깃이 실제 CRT shared object artifact의 pipeline 전제 조건을 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch160 shared object load pipeline`, `[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings` 확인
+
+145. `11ce5c6` `feat(ch161): load shared object path through pipeline`
+    - `SharedObjectPathLoadError`와 `load_shared_object_from_vfs_in_tables()`를 추가해 VFS path read와 shared object load pipeline을 연결
+    - unit test가 ext4 image의 `/lib/libmmos_user_crt.so` bytes를 scratch buffer로 읽은 뒤 pipeline 결과와 leaf PTE를 검증
+    - `make shared-object-path-load` 타깃이 boot disk 안 shared object path가 pipeline 입력으로 준비되는 상태를 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch161 shared object path load`, `[user-link] shared object path load reads VFS bytes before running the load pipeline` 확인

@@ -2824,7 +2824,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch161_shared_object_path_load",
         label="Ch161 Shared Object Path Load",
-        commit_candidates=["HEAD"],
+        commit_candidates=["11ce5c6"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
