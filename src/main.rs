@@ -3081,6 +3081,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings\n");
     console::puts("[chapter] ch161 shared object path load\n");
     console::puts("[user-link] shared object path load reads VFS bytes before running the load pipeline\n");
+    console::puts("[chapter] ch162 shared object dependency load\n");
+    console::puts("[user-link] exec dependency names /lib/libmmos_user_crt.so before path load\n");
 }
 
 fn run_kernel_satp_guard_demo() {

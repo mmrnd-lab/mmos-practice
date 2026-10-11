@@ -171,12 +171,13 @@ mod tests {
         install_frame_backed_shared_object_mapping_in_tables,
         install_frame_backed_user_mapping_in_tables, install_user_vm_plan_in_root,
         is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
-        load_shared_object_pipeline_in_tables,
+        load_shared_object_dependency_in_tables, load_shared_object_pipeline_in_tables,
         load_shared_object_from_vfs_in_tables,
         plan_frame_backed_shared_object, plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
         KernelRuntimeSatpGuard,
         KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
         SatpCommitPreflight, SatpCommitPreflightError, SharedObjectFramePlanError,
+        SharedObjectDependency, USER_CRT_SHARED_OBJECT_DEPENDENCY,
         UserFrameBackedImageError,
     };
     use super::vfs::Vfs;
@@ -5416,6 +5417,52 @@ mod tests {
         assert_eq!(loaded.mapped_pages, 1);
         assert!(is_leaf_user_mapping(shared_entry));
         assert_eq!(shared_entry.ppn(), 0x9100_0000 / super::sv39::PAGE_SIZE);
+    }
+
+    #[test]
+    fn shared_object_dependency_load_uses_declared_path_and_base() {
+        let init = build_test_init_elf();
+        let mut shared_object = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut shared_object, 0x1d8, 0);
+        let mut image = vec![0u8; super::demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+        super::demo_user_init::build_demo_ext4_image_with_shared_object(
+            &mut image,
+            &init,
+            &shared_object,
+        )
+        .unwrap();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let dependency = SharedObjectDependency {
+            path: USER_CRT_SHARED_OBJECT_DEPENDENCY.path,
+            preferred_base: USER_CRT_SHARED_OBJECT_DEPENDENCY.preferred_base,
+        };
+        let mut scratch = [0u8; 1024];
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let loaded = load_shared_object_dependency_in_tables(
+            &vfs,
+            dependency,
+            &mut scratch,
+            &mut pmm,
+            &mut root,
+            &mut l1,
+            0x9100_2000,
+            &mut l0,
+            0x9100_3000,
+        )
+        .unwrap();
+
+        let shared_entry = l0.entries[vpn0(0x9000_0000)];
+        assert_eq!(dependency.path, "/lib/libmmos_user_crt.so");
+        assert_eq!(loaded.base, dependency.preferred_base);
+        assert_eq!(loaded.entry_vaddr, 0x9000_0000);
+        assert_eq!(loaded.mapped_pages, 1);
+        assert!(is_leaf_user_mapping(shared_entry));
     }
 
     #[test]

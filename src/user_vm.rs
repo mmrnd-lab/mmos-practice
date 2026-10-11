@@ -100,6 +100,17 @@ pub struct SharedObjectLoadPipeline {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectDependency {
+    pub path: &'static str,
+    pub preferred_base: usize,
+}
+
+pub const USER_CRT_SHARED_OBJECT_DEPENDENCY: SharedObjectDependency = SharedObjectDependency {
+    path: "/lib/libmmos_user_crt.so",
+    preferred_base: 0x5000_0000,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserFrameBackedImageError {
     NoSegments,
     TooManySegments,
@@ -556,6 +567,31 @@ pub fn load_shared_object_from_vfs_in_tables<const FREE_CAP: usize>(
         l0_frame_pa,
     )
     .map_err(SharedObjectPathLoadError::Pipeline)
+}
+
+pub fn load_shared_object_dependency_in_tables<const FREE_CAP: usize>(
+    vfs: &Vfs<'_>,
+    dependency: SharedObjectDependency,
+    scratch: &mut [u8],
+    pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
+    root: &mut RootPageTable,
+    l1: &mut RootPageTable,
+    l1_frame_pa: usize,
+    l0: &mut RootPageTable,
+    l0_frame_pa: usize,
+) -> Result<SharedObjectLoadPipeline, SharedObjectPathLoadError> {
+    load_shared_object_from_vfs_in_tables(
+        vfs,
+        dependency.path,
+        scratch,
+        dependency.preferred_base,
+        pmm,
+        root,
+        l1,
+        l1_frame_pa,
+        l0,
+        l0_frame_pa,
+    )
 }
 
 pub fn install_frame_backed_user_mapping<const FREE_CAP: usize>(
