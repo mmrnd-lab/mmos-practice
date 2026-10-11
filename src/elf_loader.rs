@@ -54,7 +54,14 @@ impl From<ElfError> for InitLoadError {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElfFileType {
+    Executable,
+    SharedObject,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ElfHeader {
+    pub file_type: ElfFileType,
     pub entry: u64,
     pub phoff: u64,
     pub phentsize: u16,
@@ -89,6 +96,14 @@ pub struct LoadedUserImage<'a> {
     pub segment_count: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectLoadPlan {
+    pub preferred_base: usize,
+    pub entry_offset: usize,
+    pub segment_count: usize,
+    pub needs_relocation: bool,
+}
+
 pub fn parse_elf_header(bytes: &[u8]) -> Result<ElfHeader, ElfError> {
     if bytes.len() < ELF_HEADER_SIZE {
         return Err(ElfError::TooSmall);
@@ -106,10 +121,11 @@ pub fn parse_elf_header(bytes: &[u8]) -> Result<ElfHeader, ElfError> {
         return Err(ElfError::UnsupportedVersion);
     }
 
-    let e_type = le16(bytes, 16);
-    if e_type != ELF_TYPE_EXEC && e_type != ELF_TYPE_DYN {
-        return Err(ElfError::UnsupportedType);
-    }
+    let file_type = match le16(bytes, 16) {
+        ELF_TYPE_EXEC => ElfFileType::Executable,
+        ELF_TYPE_DYN => ElfFileType::SharedObject,
+        _ => return Err(ElfError::UnsupportedType),
+    };
     if le16(bytes, 18) != ELF_MACHINE_RISCV {
         return Err(ElfError::UnsupportedMachine);
     }
@@ -120,6 +136,7 @@ pub fn parse_elf_header(bytes: &[u8]) -> Result<ElfHeader, ElfError> {
     }
 
     Ok(ElfHeader {
+        file_type,
         entry: le64(bytes, 24),
         phoff: le64(bytes, 32),
         phentsize,
@@ -200,6 +217,24 @@ pub fn load_user_elf(bytes: &[u8], stack_top: usize) -> Result<LoadedUserImage<'
     }
 
     Ok(image)
+}
+
+pub fn plan_shared_object_load(
+    bytes: &[u8],
+    preferred_base: usize,
+) -> Result<SharedObjectLoadPlan, ElfError> {
+    let hdr = parse_elf_header(bytes)?;
+    if hdr.file_type != ElfFileType::SharedObject {
+        return Err(ElfError::UnsupportedType);
+    }
+
+    let image = load_user_elf(bytes, 0)?;
+    Ok(SharedObjectLoadPlan {
+        preferred_base,
+        entry_offset: hdr.entry as usize,
+        segment_count: image.segment_count,
+        needs_relocation: true,
+    })
 }
 
 pub fn load_init_from_vfs<'a>(

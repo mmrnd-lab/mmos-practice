@@ -67,7 +67,8 @@ mod tests {
     use super::device::{Device, DeviceKind};
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
     use super::elf_loader::{
-        load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte, ElfError,
+        load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte,
+        plan_shared_object_load, ElfError, ElfFileType,
     };
     use super::ext4::{Ext4Fs, FsError};
     use super::exec_args::{
@@ -2857,6 +2858,8 @@ mod tests {
     #[test]
     fn elf_loader_collects_pt_load_segment() {
         let elf = build_test_init_elf();
+        let header = parse_elf_header(&elf).unwrap();
+        assert_eq!(header.file_type, ElfFileType::Executable);
         let image = load_user_elf(&elf, 0x4010_0000).unwrap();
         assert_eq!(image.entry, 0x4000_0000);
         assert_eq!(image.segment_count, 1);
@@ -2869,6 +2872,25 @@ mod tests {
             .data
             .windows(b"[user-init]".len())
             .any(|w| w == b"[user-init]"));
+    }
+
+    #[test]
+    fn elf_loader_plans_et_dyn_shared_object_mapping() {
+        let elf = build_test_dyn_elf();
+        let header = parse_elf_header(&elf).unwrap();
+        assert_eq!(header.file_type, ElfFileType::SharedObject);
+
+        let plan = plan_shared_object_load(&elf, 0x5000_0000).unwrap();
+        assert_eq!(plan.preferred_base, 0x5000_0000);
+        assert_eq!(plan.entry_offset, 0x4000_0000);
+        assert_eq!(plan.segment_count, 1);
+        assert!(plan.needs_relocation);
+    }
+
+    #[test]
+    fn shared_object_load_plan_rejects_et_exec_image() {
+        let elf = build_test_init_elf();
+        assert_eq!(plan_shared_object_load(&elf, 0x5000_0000), Err(ElfError::UnsupportedType));
     }
 
     #[test]
@@ -5211,6 +5233,13 @@ mod tests {
         let mut elf = vec![0u8; super::demo_user_init::DEMO_INIT_ELF_SIZE];
         let len = super::demo_user_init::build_demo_init_elf(&mut elf).unwrap();
         elf.truncate(len);
+        elf
+    }
+
+    fn build_test_dyn_elf() -> Vec<u8> {
+        let mut elf = build_test_init_elf();
+        elf[16] = 3;
+        elf[17] = 0;
         elf
     }
 

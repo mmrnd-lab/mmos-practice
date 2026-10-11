@@ -2540,6 +2540,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=classifies the current user link model before introducing ET_DYN/shared object loading",
     ),
     ChapterSet(
+        key="ch150_shared_object_load_plan",
+        label="Ch150 Shared Object Load Plan",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-load-plan",
+                "make shared-object-load-plan PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object=ET_DYN loader-plan=base+segments relocation=needed",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch150 shared object load plan",
+                    "[user-link] ET_DYN shared object requires base, segments, and relocation plan",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=records the ET_DYN shared object loader plan boundary before mapping a real .so",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

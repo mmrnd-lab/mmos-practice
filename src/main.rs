@@ -3057,6 +3057,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-crt] build produces libmmos_user_crt.rlib before shared object support\n");
     console::puts("[chapter] ch149 user link model classification\n");
     console::puts("[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent\n");
+    console::puts("[chapter] ch150 shared object load plan\n");
+    console::puts("[user-link] ET_DYN shared object requires base, segments, and relocation plan\n");
 }
 
 fn run_kernel_satp_guard_demo() {
