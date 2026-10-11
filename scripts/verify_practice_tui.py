@@ -1760,6 +1760,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execv path and argv are copied from checked user memory and materialized into a fresh user stack layout",
     ),
     ChapterSet(
+        key="ch105_execv_path_vfs_image",
+        label="Ch105 Execv Path VFS Image",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch105 execv path vfs image",
+                    "[syscall] execv path=/sbin/init entry=0x40000000 segments=1 argc=1",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execv pathname copied from user memory is used to load a VFS ELF image plan",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

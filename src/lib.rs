@@ -17,6 +17,7 @@ pub mod devfs;
 pub mod elf_loader;
 pub mod ext4;
 pub mod exec_args;
+pub mod exec_path;
 pub mod fd_table;
 pub mod irq_guard;
 pub mod idle;
@@ -71,6 +72,7 @@ mod tests {
     use super::exec_args::{
         copyin_execv_args, materialize_execv_stack, ExecvArgBlock, ExecvArgError,
     };
+    use super::exec_path::load_exec_image_from_args;
     use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
     use super::idle::{idle_action_for_schedule_decision, IdleAction};
     use super::kheap::init_kheap;
@@ -824,6 +826,41 @@ mod tests {
             copyin_execv_args(&user, BASE, BASE + 0x100, &mut block),
             Err(ExecvArgError::TooManyArgs)
         );
+    }
+
+    #[test]
+    fn execv_args_path_loads_vfs_elf_exec_image() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let mut vm = VmSpace::<1>::new();
+        vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
+        let mut block = ExecvArgBlock::<4, 64>::new();
+        copyin_execv_args(&user, PATH, ARGV, &mut block).unwrap();
+
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+        let (exec, report) =
+            load_exec_image_from_args(&vfs, &block, &mut scratch, 0x4010_0000).unwrap();
+
+        assert_eq!(report.path_len, 10);
+        assert_eq!(report.argc, 1);
+        assert_eq!(report.entry, 0x4000_0000);
+        assert_eq!(report.stack_top, 0x4010_0000);
+        assert_eq!(report.segment_count, 1);
+        assert_eq!(exec.entry, report.entry);
+        assert_eq!(exec.segment_count, 1);
+        assert_eq!(exec.segments[0].unwrap().vaddr, 0x4000_0000);
     }
 
     #[test]
