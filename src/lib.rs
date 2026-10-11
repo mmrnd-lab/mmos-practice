@@ -29,6 +29,7 @@ pub mod scheduler;
 pub mod sv39;
 pub mod syscall;
 pub mod trap;
+pub mod user_copy;
 pub mod uart;
 pub mod user_exec;
 pub mod user_init;
@@ -74,14 +75,15 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_open_path, handle_process_open_path, handle_process_write,
-        handle_syscall, open_mode_from_flags, Syscall, SyscallResult, SYS_EXIT, SYS_OPENAT,
-        SYS_WRITE,
+        decode_syscall, handle_open_path, handle_process_open_path, handle_process_open_user_path,
+        handle_process_write, handle_process_write_user_buf, handle_syscall, open_mode_from_flags,
+        Syscall, SyscallResult, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
         TrapOutcome, SCAUSE_USER_ECALL,
     };
+    use super::user_copy::{UserCopyError, UserSlice};
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
         UserRegionMut,
@@ -295,6 +297,58 @@ mod tests {
             SyscallResult::Continue(15)
         );
         assert_eq!(dev.written(), b"through-process".to_vec());
+    }
+
+    #[test]
+    fn user_copy_reads_bytes_and_c_strings() {
+        let user = UserSlice::new(b"abc/dev/console\0tail", 0x4000);
+        let mut buf = [0u8; 3];
+        assert_eq!(user.copyin(0x4000, &mut buf), Ok(3));
+        assert_eq!(&buf, b"abc");
+
+        let mut path = [0u8; 32];
+        assert_eq!(user.copyin_cstr(0x4003, &mut path), Ok("/dev/console"));
+    }
+
+    #[test]
+    fn user_copy_rejects_bad_ranges_and_missing_nul() {
+        let user = UserSlice::new(b"abc", 0x8000);
+        let mut buf = [0u8; 4];
+        assert_eq!(user.copyin_bytes(0x8000, 4, &mut buf), Err(UserCopyError::BadAddress));
+        assert_eq!(user.copyin_cstr(0x8000, &mut buf), Err(UserCopyError::BadAddress));
+        assert_eq!(user.copyin_cstr(0x8000, &mut [0u8; 3]), Err(UserCopyError::MissingNul));
+    }
+
+    #[test]
+    fn syscall_open_uses_copyin_path_before_fd_allocation() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let user = UserSlice::new(b"/dev/console\0", 0x5000);
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+        let mut scratch = [0u8; 32];
+
+        assert_eq!(
+            handle_process_open_user_path(&mut io, &ns, &user, 0x5000, 1, &mut scratch),
+            SyscallResult::Continue(3)
+        );
+        assert_eq!(io.write_fd(3, b"copied-path"), Ok(11));
+        assert_eq!(dev.written(), b"copied-path".to_vec());
+    }
+
+    #[test]
+    fn syscall_write_uses_copyin_buffer_before_device_write() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+        let ns = DeviceNamespace::new(dev);
+        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let user = UserSlice::new(b"hello from user", 0x6000);
+        let mut scratch = [0u8; 32];
+
+        assert_eq!(
+            handle_process_write_user_buf(&io, &user, fd, 0x6000, 15, &mut scratch),
+            SyscallResult::Continue(15)
+        );
+        assert_eq!(dev.written(), b"hello from user".to_vec());
     }
 
     #[test]

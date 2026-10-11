@@ -95,6 +95,34 @@ pub fn handle_process_write<const N: usize>(
     }
 }
 
+pub fn handle_process_open_user_path<const N: usize>(
+    io: &mut crate::process_io::ProcessIoContext<N>,
+    ns: &crate::devfs::DeviceNamespace<'_>,
+    user: &crate::user_copy::UserSlice<'_>,
+    path_ptr: usize,
+    flags: usize,
+    scratch: &mut [u8],
+) -> SyscallResult {
+    match user.copyin_cstr(path_ptr, scratch) {
+        Ok(path) => handle_process_open_path(io, ns, path, flags),
+        Err(_) => SyscallResult::Continue(-1),
+    }
+}
+
+pub fn handle_process_write_user_buf<const N: usize>(
+    io: &crate::process_io::ProcessIoContext<N>,
+    user: &crate::user_copy::UserSlice<'_>,
+    fd: usize,
+    ptr: usize,
+    len: usize,
+    scratch: &mut [u8],
+) -> SyscallResult {
+    match user.copyin_bytes(ptr, len, scratch) {
+        Ok(n) => handle_process_write(io, fd, &scratch[..n]),
+        Err(_) => SyscallResult::Continue(-1),
+    }
+}
+
 #[cfg(target_arch = "riscv64")]
 fn handle_write(fd: usize, ptr: usize, len: usize) -> SyscallResult {
     if len == 0 {

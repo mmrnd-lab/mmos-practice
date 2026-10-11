@@ -44,6 +44,8 @@ mod syscall;
 mod trap;
 mod uart;
 #[allow(dead_code)]
+mod user_copy;
+#[allow(dead_code)]
 mod user_exec;
 mod user_init;
 mod user_launch;
@@ -122,6 +124,21 @@ pub extern "C" fn rust_main() -> ! {
     {
         if syscall::handle_process_write(&current_io, fd as usize, b"").is_ok_continue_zero() {
             console::puts("[chapter] ch36 process fd context\n");
+        }
+    }
+    let user_mem = user_copy::UserSlice::new(b"/dev/console\0", 0x4000);
+    let mut path_scratch = [0u8; 32];
+    let mut copy_io = process_io::ProcessIoContext::<8>::with_stdio(console::device());
+    if let syscall::SyscallResult::Continue(fd) = syscall::handle_process_open_user_path(
+        &mut copy_io,
+        &dev_ns,
+        &user_mem,
+        0x4000,
+        1,
+        &mut path_scratch,
+    ) {
+        if fd >= 3 {
+            console::puts("[chapter] ch37 user copyin\n");
         }
     }
 
