@@ -41,6 +41,12 @@ pub enum InitLoadError {
     Elf(ElfError),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharedObjectLoadError {
+    Fs(FsError),
+    Elf(ElfError),
+}
+
 impl From<FsError> for InitLoadError {
     fn from(value: FsError) -> Self {
         Self::Fs(value)
@@ -48,6 +54,18 @@ impl From<FsError> for InitLoadError {
 }
 
 impl From<ElfError> for InitLoadError {
+    fn from(value: ElfError) -> Self {
+        Self::Elf(value)
+    }
+}
+
+impl From<FsError> for SharedObjectLoadError {
+    fn from(value: FsError) -> Self {
+        Self::Fs(value)
+    }
+}
+
+impl From<ElfError> for SharedObjectLoadError {
     fn from(value: ElfError) -> Self {
         Self::Elf(value)
     }
@@ -235,6 +253,16 @@ pub fn plan_shared_object_load(
         segment_count: image.segment_count,
         needs_relocation: true,
     })
+}
+
+pub fn plan_shared_object_from_vfs(
+    vfs: &Vfs<'_>,
+    path: &str,
+    scratch: &mut [u8],
+    preferred_base: usize,
+) -> Result<SharedObjectLoadPlan, SharedObjectLoadError> {
+    let used = vfs.read_all(path, scratch)?;
+    Ok(plan_shared_object_load(&scratch[..used], preferred_base)?)
 }
 
 pub fn load_init_from_vfs<'a>(

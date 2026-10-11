@@ -3,6 +3,7 @@
 
 pub const DEMO_EXT4_IMAGE_SIZE: usize = 16 * 1024;
 pub const DEMO_INIT_ELF_SIZE: usize = 0x1c0;
+pub const DEMO_SHARED_OBJECT_SIZE: usize = DEMO_INIT_ELF_SIZE;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DemoBuildError {
@@ -88,6 +89,20 @@ pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
 }
 
 pub fn build_demo_ext4_image(image: &mut [u8], elf: &[u8]) -> Result<(), DemoBuildError> {
+    build_demo_ext4_image_with_shared_object(image, elf, &[])
+}
+
+pub fn build_demo_shared_object(out: &mut [u8]) -> Result<usize, DemoBuildError> {
+    let len = build_demo_init_elf(out)?;
+    write_le16(out, 16, 3);
+    Ok(len)
+}
+
+pub fn build_demo_ext4_image_with_shared_object(
+    image: &mut [u8],
+    elf: &[u8],
+    shared_object: &[u8],
+) -> Result<(), DemoBuildError> {
     if image.len() < DEMO_EXT4_IMAGE_SIZE {
         return Err(DemoBuildError::ImageTooSmall);
     }
@@ -97,8 +112,18 @@ pub fn build_demo_ext4_image(image: &mut [u8], elf: &[u8]) -> Result<(), DemoBui
     write_inode(image, 2, 0x4000, 1024, 10);
     write_inode(image, 12, 0x4000, 1024, 11);
     write_inode(image, 13, 0x8000, elf.len() as u32, 12);
-    write_root_dir(image);
+    if !shared_object.is_empty() {
+        write_inode(image, 14, 0x4000, 1024, 13);
+        write_inode(image, 15, 0x8000, shared_object.len() as u32, 14);
+    }
+    write_root_dir(image, !shared_object.is_empty());
     write_sbin_dir(image);
+    if !shared_object.is_empty() {
+        write_lib_dir(image);
+        let so_start = 14 * 1024;
+        let so_end = so_start + shared_object.len();
+        image[so_start..so_end].copy_from_slice(shared_object);
+    }
     let start = 12 * 1024;
     let end = start + elf.len();
     image[start..end].copy_from_slice(elf);
@@ -131,11 +156,16 @@ fn write_inode(image: &mut [u8], inode_number: u32, mode: u16, size: u32, first_
     write_le32(&mut image[base..base + inode_size], 40, first_block);
 }
 
-fn write_root_dir(image: &mut [u8]) {
+fn write_root_dir(image: &mut [u8], include_lib: bool) {
     let block = &mut image[10 * 1024..11 * 1024];
     write_dir_entry(block, 0, 2, 12, b".", 2);
     write_dir_entry(block, 12, 2, 12, b"..", 2);
-    write_dir_entry(block, 24, 12, (1024 - 24) as u16, b"sbin", 2);
+    if include_lib {
+        write_dir_entry(block, 24, 12, 12, b"sbin", 2);
+        write_dir_entry(block, 36, 14, (1024 - 36) as u16, b"lib", 2);
+    } else {
+        write_dir_entry(block, 24, 12, (1024 - 24) as u16, b"sbin", 2);
+    }
 }
 
 fn write_sbin_dir(image: &mut [u8]) {
@@ -143,6 +173,13 @@ fn write_sbin_dir(image: &mut [u8]) {
     write_dir_entry(block, 0, 12, 12, b".", 2);
     write_dir_entry(block, 12, 2, 12, b"..", 2);
     write_dir_entry(block, 24, 13, (1024 - 24) as u16, b"init", 1);
+}
+
+fn write_lib_dir(image: &mut [u8]) {
+    let block = &mut image[13 * 1024..14 * 1024];
+    write_dir_entry(block, 0, 14, 12, b".", 2);
+    write_dir_entry(block, 12, 2, 12, b"..", 2);
+    write_dir_entry(block, 24, 15, (1024 - 24) as u16, b"libmmos_user_crt.so", 1);
 }
 
 fn write_dir_entry(

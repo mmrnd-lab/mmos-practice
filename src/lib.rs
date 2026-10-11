@@ -68,7 +68,7 @@ mod tests {
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
     use super::elf_loader::{
         load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte,
-        plan_shared_object_load, ElfError, ElfFileType,
+        plan_shared_object_from_vfs, plan_shared_object_load, ElfError, ElfFileType,
     };
     use super::ext4::{Ext4Fs, FsError};
     use super::exec_args::{
@@ -2912,6 +2912,26 @@ mod tests {
     }
 
     #[test]
+    fn vfs_shared_object_can_be_read_and_planned_by_loader() {
+        let image = build_test_ext4_image_with_shared_object();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+
+        let copied = vfs.read_all("/lib/libmmos_user_crt.so", &mut scratch).unwrap();
+        assert_eq!(copied, build_test_shared_object().len());
+        let plan = plan_shared_object_from_vfs(
+            &vfs,
+            "/lib/libmmos_user_crt.so",
+            &mut scratch,
+            0x5000_0000,
+        ).unwrap();
+        assert_eq!(plan.preferred_base, 0x5000_0000);
+        assert_eq!(plan.segment_count, 1);
+        assert!(plan.needs_relocation);
+    }
+
+    #[test]
     fn demo_init_elf_opens_console_before_write() {
         let elf = build_test_init_elf();
         assert!(elf
@@ -5229,6 +5249,18 @@ mod tests {
         image
     }
 
+    fn build_test_ext4_image_with_shared_object() -> Vec<u8> {
+        let elf = build_test_init_elf();
+        let shared_object = build_test_shared_object();
+        let mut image = vec![0u8; super::demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+        super::demo_user_init::build_demo_ext4_image_with_shared_object(
+            &mut image,
+            &elf,
+            &shared_object,
+        ).unwrap();
+        image
+    }
+
     fn build_test_init_elf() -> Vec<u8> {
         let mut elf = vec![0u8; super::demo_user_init::DEMO_INIT_ELF_SIZE];
         let len = super::demo_user_init::build_demo_init_elf(&mut elf).unwrap();
@@ -5241,6 +5273,13 @@ mod tests {
         elf[16] = 3;
         elf[17] = 0;
         elf
+    }
+
+    fn build_test_shared_object() -> Vec<u8> {
+        let mut shared_object = vec![0u8; super::demo_user_init::DEMO_SHARED_OBJECT_SIZE];
+        let len = super::demo_user_init::build_demo_shared_object(&mut shared_object).unwrap();
+        shared_object.truncate(len);
+        shared_object
     }
 
     fn write_cstr_at(buf: &mut [u8], offset: usize, bytes: &[u8]) {

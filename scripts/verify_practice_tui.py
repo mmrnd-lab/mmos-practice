@@ -2565,6 +2565,38 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=records the ET_DYN shared object loader plan boundary before mapping a real .so",
     ),
     ChapterSet(
+        key="ch151_user_image_shared_object_artifact",
+        label="Ch151 User Image Shared Object Artifact",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-crt-shared-object",
+                "make user-crt-shared-object PROFILE=release",
+                must_contain=(
+                    "[user-link] crt-shared-object=ET_DYN path=/lib/libmmos_user_crt.so",
+                ),
+            ),
+            Step(
+                "user-image-shared-object",
+                "make user-image-shared-object PROFILE=release",
+                must_contain=(
+                    "[user-link] image-shared-object=/lib/libmmos_user_crt.so readable=yes",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch151 user image shared object artifact",
+                    "[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=packages a tiny ET_DYN CRT shared object candidate into the user image under /lib",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

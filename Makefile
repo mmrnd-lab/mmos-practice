@@ -16,6 +16,8 @@ UIMAGE := $(BUILD_DIR)/mmos.uImage
 BOOT_DISK := $(BUILD_DIR)/drive0.img
 USER_INIT_ELF := $(BUILD_DIR)/user-init.elf
 USER_CRT_RLIB := user/crt/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_crt.rlib
+USER_CRT_SO := $(BUILD_DIR)/lib/libmmos_user_crt.so
+USER_CRT_SO_OBJ := $(BUILD_DIR)/lib/mmos_user_crt_shared.o
 UBOOT_BUILD := $(BUILD_DIR)/u-boot
 UBOOT_BIN := $(UBOOT_BUILD)/u-boot.bin
 UBOOT_SPL := $(UBOOT_BUILD)/spl/u-boot-spl
@@ -41,7 +43,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-init user-link-model shared-object-load-plan uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -69,6 +71,15 @@ $(USER_CRT_RLIB): require-container user/crt/Cargo.toml user/crt/src/lib.rs
 
 user-crt: $(USER_CRT_RLIB)
 
+$(USER_CRT_SO): require-container user/crt/shared_object.S | $(BUILD_DIR)
+	@mkdir -p $(dir $(USER_CRT_SO))
+	$(CROSS_COMPILE)as -o $(USER_CRT_SO_OBJ) user/crt/shared_object.S
+	$(CROSS_COMPILE)ld -shared -o $(USER_CRT_SO) $(USER_CRT_SO_OBJ)
+
+user-crt-shared-object: $(USER_CRT_SO)
+	@riscv64-linux-gnu-readelf -h $(USER_CRT_SO) | grep -q 'Type:[[:space:]]*DYN'
+	@echo "[user-link] crt-shared-object=ET_DYN path=/lib/libmmos_user_crt.so"
+
 $(USER_INIT_ELF): require-container user/common/mmos_user_app.ld user/init/build.rs | $(BUILD_DIR)
 	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-T/workspace/mmos-practice/user/common/mmos_user_app.ld' cargo build --manifest-path user/init/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
 	cp user/init/target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-user-init $(USER_INIT_ELF)
@@ -84,6 +95,10 @@ shared-object-load-plan: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -h $(USER_INIT_ELF) | grep -q 'Type:[[:space:]]*EXEC'
 	@echo "[user-link] shared-object=ET_DYN loader-plan=base+segments relocation=needed"
 
+user-image-shared-object: require-container $(BOOT_DISK) $(USER_CRT_SO)
+	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] image-shared-object=/lib/libmmos_user_crt.so readable=yes"
+
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
@@ -98,8 +113,8 @@ $(UIMAGE): require-container $(KERNEL_RAW) | $(BUILD_DIR)
 
 uImage: $(UIMAGE)
 
-$(BOOT_DISK): require-container $(UIMAGE) $(USER_INIT_ELF) boot/extlinux.conf | $(BUILD_DIR)
-	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf $(USER_INIT_ELF)
+$(BOOT_DISK): require-container $(UIMAGE) $(USER_INIT_ELF) $(USER_CRT_SO) boot/extlinux.conf | $(BUILD_DIR)
+	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf $(USER_INIT_ELF) $(USER_CRT_SO)
 
 boot-disk: $(BOOT_DISK)
 

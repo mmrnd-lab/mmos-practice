@@ -3059,6 +3059,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent\n");
     console::puts("[chapter] ch150 shared object load plan\n");
     console::puts("[user-link] ET_DYN shared object requires base, segments, and relocation plan\n");
+    console::puts("[chapter] ch151 user image shared object artifact\n");
+    console::puts("[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate\n");
 }
 
 fn run_kernel_satp_guard_demo() {
