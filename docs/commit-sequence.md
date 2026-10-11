@@ -274,6 +274,11 @@
     - root table이 OS 전체에 하나뿐인 singleton이 아니라 process address space별 storage라는 점을 테스트와 런타임 probe로 검증
 
 
+72. `07e7415` `feat(ch80): bind pcb to address space handle`
+    - PCB에 `address_space_id` handle을 추가하고 `ProcessAddressSpaceTable`에서 실제 address-space storage를 찾는 경로를 추가
+    - scheduler의 address-space switch가 PCB에 복사된 `satp` 대신 address-space table에서 해석한 `satp`를 사용할 수 있음을 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash

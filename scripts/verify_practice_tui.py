@@ -1374,6 +1374,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process address space owns root table storage and satp token",
     ),
     ChapterSet(
+        key="ch80_pcb_address_space_handle",
+        label="Ch80 PCB Address Space Handle",
+        commit_candidates=["07e7415"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch80 pcb address space handle",
+                    "[chapter] ch79 process address space root",
+                    "[chapter] ch78 kernel satp runtime guard",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=PCB address_space_id resolves satp through address-space table",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
