@@ -121,8 +121,9 @@ mod tests {
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
-        install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
-        UserRegionMut,
+        install_exec_context, load_init_exec_image, materialize_frame_backed_user_image,
+        materialize_segments, ExecError, FrameBackedMaterializeError, FrameRegionMut,
+        UserExecImage, UserRegionMut,
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::user_launch::prepare_user_init_launch;
@@ -2838,6 +2839,74 @@ mod tests {
         assert_eq!(
             plan_frame_backed_user_image(&loaded, &mut pmm, 512),
             Err(UserFrameBackedImageError::OutOfFrames)
+        );
+    }
+
+    #[test]
+    fn frame_backed_user_image_materializes_segments_and_stack_bytes() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+        let mut code_frame = [0u8; super::sv39::PAGE_SIZE];
+        let mut stack_frame = [0u8; super::sv39::PAGE_SIZE];
+        let mut stack_bytes = [0u8; 512];
+        let stack = build_initial_user_stack::<4, 4>(
+            &mut stack_bytes,
+            loaded.stack_top,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let mut regions = [FrameRegionMut {
+            frame_pa: plan.segments[0].unwrap().frame_pa,
+            bytes: &mut code_frame,
+        }];
+
+        materialize_frame_backed_user_image(
+            &loaded,
+            &plan,
+            &mut regions,
+            &mut stack_frame,
+            &stack_bytes,
+        )
+        .unwrap();
+
+        assert_eq!(&code_frame[..4], &loaded.segments[0].unwrap().data[..4]);
+        assert!(code_frame
+            .windows(b"[user-init]".len())
+            .any(|w| w == b"[user-init]"));
+        assert_eq!(&stack_frame[..stack_bytes.len()], &stack_bytes);
+        let sp_offset = stack.sp - (loaded.stack_top - stack_bytes.len());
+        assert!(sp_offset < stack_bytes.len());
+        assert!(stack_frame
+            .windows(b"/sbin/init".len())
+            .any(|w| w == b"/sbin/init"));
+    }
+
+    #[test]
+    fn frame_backed_user_image_materialize_rejects_missing_segment_frame() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+        let mut stack_frame = [0u8; super::sv39::PAGE_SIZE];
+        let stack_bytes = [0u8; 512];
+        let mut regions: [FrameRegionMut<'_>; 0] = [];
+
+        assert_eq!(
+            materialize_frame_backed_user_image(
+                &loaded,
+                &plan,
+                &mut regions,
+                &mut stack_frame,
+                &stack_bytes,
+            ),
+            Err(FrameBackedMaterializeError::MissingSegmentFrame(
+                plan.segments[0].unwrap().frame_pa
+            ))
         );
     }
 

@@ -13,9 +13,24 @@ pub enum ExecError {
     MalformedImage,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrameBackedMaterializeError {
+    MissingSegmentFrame(usize),
+    SegmentFrameTooSmall(usize),
+    StackFrameTooSmall,
+    MalformedImage,
+}
+
 #[derive(Debug)]
 pub struct UserRegionMut<'a> {
     pub vaddr: usize,
+    pub bytes: &'a mut [u8],
+}
+
+
+#[derive(Debug)]
+pub struct FrameRegionMut<'a> {
+    pub frame_pa: usize,
     pub bytes: &'a mut [u8],
 }
 
@@ -106,6 +121,83 @@ pub fn materialize_segments(
     }
 
     Ok(())
+}
+
+pub fn materialize_frame_backed_user_image(
+    loaded: &LoadedUserImage<'_>,
+    plan: &crate::user_vm::UserFrameBackedImagePlan,
+    regions: &mut [FrameRegionMut<'_>],
+    stack_frame: &mut [u8],
+    stack_bytes: &[u8],
+) -> Result<(), FrameBackedMaterializeError> {
+    let mut idx = 0usize;
+    while idx < plan.segment_count {
+        let frame_plan = plan.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
+        let seg = loaded.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
+        let region_idx = find_frame_region(regions, frame_plan.frame_pa)
+            .ok_or(FrameBackedMaterializeError::MissingSegmentFrame(frame_plan.frame_pa))?;
+        if regions[region_idx].bytes.len() < frame_plan.mem_size {
+            return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(frame_plan.frame_pa));
+        }
+
+        let dst = &mut regions[region_idx].bytes[..frame_plan.mem_size];
+        dst[..seg.file_size].copy_from_slice(seg.data);
+        dst[seg.file_size..].fill(0);
+        idx += 1;
+    }
+
+    if stack_frame.len() < stack_bytes.len() {
+        return Err(FrameBackedMaterializeError::StackFrameTooSmall);
+    }
+    stack_frame.fill(0);
+    stack_frame[..stack_bytes.len()].copy_from_slice(stack_bytes);
+    Ok(())
+}
+
+#[cfg(target_arch = "riscv64")]
+pub unsafe fn materialize_frame_backed_user_image_to_frames(
+    loaded: &LoadedUserImage<'_>,
+    plan: &crate::user_vm::UserFrameBackedImagePlan,
+    stack_bytes: &[u8],
+) -> Result<(), FrameBackedMaterializeError> {
+    let mut idx = 0usize;
+    while idx < plan.segment_count {
+        let frame_plan = plan.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
+        let seg = loaded.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
+        let dst = unsafe {
+            core::slice::from_raw_parts_mut(frame_plan.frame_pa as *mut u8, crate::sv39::PAGE_SIZE)
+        };
+        if dst.len() < frame_plan.mem_size {
+            return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(frame_plan.frame_pa));
+        }
+        dst[..frame_plan.mem_size].fill(0);
+        dst[..seg.file_size].copy_from_slice(seg.data);
+        idx += 1;
+    }
+
+    let stack = unsafe {
+        core::slice::from_raw_parts_mut(
+            plan.stack_frame_start_pa as *mut u8,
+            crate::sv39::PAGE_SIZE,
+        )
+    };
+    if stack.len() < stack_bytes.len() {
+        return Err(FrameBackedMaterializeError::StackFrameTooSmall);
+    }
+    stack.fill(0);
+    stack[..stack_bytes.len()].copy_from_slice(stack_bytes);
+    Ok(())
+}
+
+fn find_frame_region(regions: &[FrameRegionMut<'_>], frame_pa: usize) -> Option<usize> {
+    let mut idx = 0usize;
+    while idx < regions.len() {
+        if regions[idx].frame_pa == frame_pa {
+            return Some(idx);
+        }
+        idx += 1;
+    }
+    None
 }
 
 pub fn load_init_exec_image<'a>(

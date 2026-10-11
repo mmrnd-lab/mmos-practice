@@ -85,6 +85,7 @@ static mut PCB_ADDRESS_SPACE_HANDLE_READY: bool = false;
 static mut SATP_HARDWARE_COMMIT_PROBE_READY: bool = false;
 static mut USER_FRAME_BACKED_IMAGE_READY: bool = false;
 static mut USER_FRAME_BACKED_MAPPING_READY: bool = false;
+static mut USER_FRAME_BACKED_MATERIALIZE_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -672,6 +673,7 @@ pub extern "C" fn rust_main() -> ! {
     run_satp_hardware_commit_probe_demo();
     run_user_frame_backed_image_demo();
     run_user_frame_backed_mapping_demo();
+    run_user_frame_backed_materialize_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -726,6 +728,12 @@ fn run_user_frame_backed_image_demo() {
 fn run_user_frame_backed_mapping_demo() {
     if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_MAPPING_READY)) } {
         console::puts("[chapter] ch83 user frame backed page mapping\n");
+    }
+}
+
+fn run_user_frame_backed_materialize_demo() {
+    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_MATERIALIZE_READY)) } {
+        console::puts("[chapter] ch84 user frame materialize\n");
     }
 }
 
@@ -1363,6 +1371,24 @@ fn run_user_launch_demo() {
                                                                                                                                                                                     ),
                                                                                                                                                                                     true,
                                                                                                                                                                                 );
+                                                                                                                                                                            }
+                                                                                                                                                                            if unsafe {
+                                                                                                                                                                                user_exec::materialize_frame_backed_user_image_to_frames(
+                                                                                                                                                                                    &loaded,
+                                                                                                                                                                                    &frame_plan,
+                                                                                                                                                                                    stack_bytes,
+                                                                                                                                                                                )
+                                                                                                                                                                            }
+                                                                                                                                                                            .is_ok()
+                                                                                                                                                                            {
+                                                                                                                                                                                unsafe {
+                                                                                                                                                                                    core::ptr::write_volatile(
+                                                                                                                                                                                        core::ptr::addr_of_mut!(
+                                                                                                                                                                                            USER_FRAME_BACKED_MATERIALIZE_READY
+                                                                                                                                                                                        ),
+                                                                                                                                                                                        true,
+                                                                                                                                                                                    );
+                                                                                                                                                                                }
                                                                                                                                                                             }
                                                                                                                                                                         }
                                                                                                                                                                     }
