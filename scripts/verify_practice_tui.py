@@ -1241,6 +1241,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=satp commit plan is accepted by the hardware CSR write gate",
     ),
     ChapterSet(
+        key="ch73_user_launch_csr_sequence",
+        label="Ch73 User Launch CSR Sequence",
+        commit_candidates=["35a7b0c"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch73 user launch csr sequence",
+                    "[chapter] ch72 satp hardware commit gate",
+                    "[chapter] ch71 enter user sscratch prepare",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=user launch CSR sequence orders sscratch, satp, sfence.vma, and sret state",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

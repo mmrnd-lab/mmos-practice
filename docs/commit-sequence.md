@@ -239,6 +239,11 @@
     - hardware commit helper가 `csrw satp`와 `sfence.vma`를 한 경계로 묶도록 준비하고 런타임 probe로 검증
 
 
+65. `35a7b0c` `feat(ch73): prepare user launch csr sequence`
+    - user launch 직전 CSR 설정 순서를 `sscratch -> satp/sfence -> sepc/sp -> sret` 계약으로 묶는 sequence를 추가
+    - trap stack 준비와 satp hardware commit gate가 같은 launch path에서 일관된 값을 사용하는지 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
