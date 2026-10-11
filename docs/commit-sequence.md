@@ -506,6 +506,12 @@
     - demo와 unit test는 holder를 직접 넘기지 않고 store를 넘겨 trap entry 표면을 한 단계 더 좁힘
     - QEMU runtime marker에서 `[chapter] ch125 execv prepared store`, `[trap] execve prepared store routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+113. `29a7802` `feat(ch126): prepare execve entry store from runtime`
+    - `PreparedExecvEntryStore::prepare(runtime, vfs)`를 추가해 runtime과 VFS로부터 prepared holder가 설치된 store를 바로 생성
+    - demo와 unit test에서 `empty() -> install()` 수동 초기화 흐름을 제거
+    - execve entry store 초기화 순서를 `runtime + VFS -> prepared store` 형태로 고정
+    - QEMU runtime marker에서 `[chapter] ch126 execv prepared init`, `[trap] execve prepared init routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

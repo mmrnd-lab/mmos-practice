@@ -2138,6 +2138,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap entry helper obtains the prepared runtime holder from a store",
     ),
     ChapterSet(
+        key="ch126_execv_prepared_init",
+        label="Ch126 Execv Prepared Init",
+        commit_candidates=["29a7802"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch126 execv prepared init",
+                    "[trap] execve prepared init routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared execve entry store is built from runtime and VFS",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
