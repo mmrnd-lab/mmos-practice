@@ -356,6 +356,35 @@ pub fn handle_syscall_result(frame: &mut TrapFrame, result: syscall::SyscallResu
     }
 }
 
+pub fn handle_current_execv_frame_from_runtime<
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &mut TrapFrame,
+    ctx: syscall::CurrentExecvRuntimeContext<
+        '_,
+        '_,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+) -> TrapOutcome {
+    let result = syscall::dispatch_current_execv_frame_from_runtime::<
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(frame, ctx);
+    handle_syscall_result(frame, result)
+}
+
 pub fn handle_blocking_syscall_result(
     frame: &mut TrapFrame,
     result: syscall::BlockingReadResult,
