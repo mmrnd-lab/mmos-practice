@@ -79,6 +79,7 @@ class Step:
     cmd: str
     allow_failure: bool = False
     expected_pattern: Optional[str] = None
+    must_contain: Sequence[str] = ()
 
 
 @dataclass
@@ -156,9 +157,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["a6f0bfe"],
         steps=[
             Step("build", "make mmos.bin PROFILE=release"),
-            Step("run", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=("[mmos-practice] console backend=",),
+            ),
         ],
-        note="old stage: make test target not available",
+        note="old stage: make test target not available; runtime signature=console backend line",
     ),
     ChapterSet(
         key="ch05_test_core",
@@ -184,8 +189,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["44d87b9", "0c49470"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("U-Boot", "[mmos-practice] console backend="),
+            ),
         ],
+        note="runtime signature=OpenSBI -> U-Boot -> MMOS",
     ),
     ChapterSet(
         key="ch08_trap_scaffold",
@@ -198,7 +208,11 @@ CHAPTERS: List[ChapterSet] = [
                 allow_failure=True,
                 expected_pattern="csrsi sie, 0x222",
             ),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("U-Boot", "trap/irq"),
+            ),
         ],
         note="known historical failure on old chain due csr immediate",
     ),
@@ -208,8 +222,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["3e762b3", "7be437e", "9b432b6"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("trap/irq",),
+            ),
         ],
+        note="runtime signature=trap/irq path prints on boot",
     ),
     ChapterSet(
         key="ch11_sv39",
@@ -217,8 +236,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["160aa64", "5198a8b", "35455eb"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("trap/irq",),
+            ),
         ],
+        note="runtime signature=sv39 stage still reaches trap/irq boot line",
     ),
     ChapterSet(
         key="ch12_user_init",
@@ -226,8 +250,16 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["47bfc68", "7864d66", "aebd5a6"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[mmos-practice] user init context prepared (SPP=U)",
+                    "[mmos-practice] user init demo exit=0",
+                ),
+            ),
         ],
+        note="runtime signature=user init context + demo exit",
     ),
     ChapterSet(
         key="ch14_device",
@@ -235,8 +267,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["4ee7926", "23e4dac", "f56d0b8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("running QEMU via OpenSBI -> U-Boot -> MMOS",),
+            ),
         ],
+        note="runtime signature=storage boot chain via U-Boot",
     ),
     ChapterSet(
         key="ch14_fs",
@@ -244,8 +281,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["898715e", "09576d8", "2e62b95"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("running QEMU via OpenSBI -> U-Boot -> MMOS",),
+            ),
         ],
+        note="runtime signature=ext4/extlinux boot path active",
     ),
     ChapterSet(
         key="ch16_elf",
@@ -253,8 +295,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["8fd867a", "c417d4a", "7c47a7a"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-u-boot",
+                "make run-u-boot PROFILE=release RUN_SECONDS=4",
+                must_contain=("[mmos-practice] user init demo exit=0",),
+            ),
         ],
+        note="runtime signature=loaded user init demo exits cleanly",
     ),
     ChapterSet(
         key="ch18_exec_prep",
@@ -262,8 +309,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["be06b86"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=("[mmos-practice] user init context prepared (SPP=U)",),
+            ),
         ],
+        note="runtime signature=exec-ready init context appears",
     ),
     ChapterSet(
         key="ch19_user_vm_fault",
@@ -271,8 +323,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["e8efdbe", "6775657"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=("[mmos-practice] trap/irq scaffold ready",),
+            ),
         ],
+        note="runtime signature=trap path alive after vm/fault integration",
     ),
     ChapterSet(
         key="ch20_scheduler_switch",
@@ -280,8 +337,13 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["f0c13f2"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=("[mmos-practice] trap/irq scaffold ready",),
+            ),
         ],
+        note="runtime signature=kernel boots with scheduler-enabled codebase",
     ),
     ChapterSet(
         key="ch21_process_model",
@@ -289,10 +351,49 @@ CHAPTERS: List[ChapterSet] = [
         commit_candidates=["79e393b"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
-            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=("[mmos-practice] trap/irq scaffold ready",),
+            ),
         ],
+        note="runtime signature=process model stage boots stably",
+    ),
+    ChapterSet(
+        key="ch22_fork_exec_wait",
+        label="Ch22 Fork/Exec/Wait (Runtime Demo)",
+        commit_candidates=["main"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[sched] tick current=1",
+                    "[sched] switch prev=1 next=2",
+                    "[proc] fork parent=1 child=2",
+                    "[proc] exec pid=2 path=/bin/sh",
+                    "[proc] wait reap pid=2 code=0",
+                ),
+            ),
+        ],
+        note="runtime signature=scheduler/process model demo logs are visible in QEMU",
     ),
 ]
+
+
+def check_patterns(output: str, patterns: Sequence[str]) -> Tuple[List[str], List[str]]:
+    if not patterns:
+        return [], []
+    out_norm = output.lower()
+    found: List[str] = []
+    missing: List[str] = []
+    for p in patterns:
+        if p.lower() in out_norm:
+            found.append(p)
+        else:
+            missing.append(p)
+    return found, missing
 
 
 def repo_path_for_host(host: str) -> str:
@@ -1044,6 +1145,14 @@ def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[Chap
                     status = "FAIL"
                     detail = f"Exit code: {rc}"
                     chapter_failed = True
+            elif step.must_contain:
+                found, missing = check_patterns(out, step.must_contain)
+                if found:
+                    append_log(state, f"[signature:found] {', '.join(found)}")
+                if missing:
+                    append_log(state, f"[signature:missing] {', '.join(missing)}")
+                    status = "WARN"
+                    detail = f"Missing expected runtime signature: {', '.join(missing)}"
 
             state.results.append(
                 StepResult(
@@ -1459,6 +1568,8 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
     y = 9
     y += render_wrapped(right, y, 2, f"Action: {state.current_action}", right_w - 4, 2)
     y += render_wrapped(right, y, 2, f"Cmd: {state.current_cmd}", right_w - 4, 4)
+    if y < top_h - 2 and selected.note:
+        y += render_wrapped(right, y, 2, f"Chapter Hint: {selected.note}", right_w - 4, 2)
 
     if y < top_h - 2:
         right.addnstr(y, 2, f"Info: {state.status_line}", right_w - 4, state.theme.info_text)

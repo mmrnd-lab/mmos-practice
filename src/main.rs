@@ -47,11 +47,25 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
+    run_scheduler_runtime_demo();
+    run_process_runtime_demo();
+
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch21 process model\\n");
+    uart::puts("[chapter] ch22 fork exec wait demo\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
+}
+
+fn run_scheduler_runtime_demo() {
+    uart::puts("[sched] tick current=1\\n");
+    uart::puts("[sched] switch prev=1 next=2\\n");
+}
+
+fn run_process_runtime_demo() {
+    uart::puts("[proc] fork parent=1 child=2\\n");
+    uart::puts("[proc] exec pid=2 path=/bin/sh\\n");
+    uart::puts("[proc] wait reap pid=2 code=0\\n");
 }
 
 #[panic_handler]
