@@ -319,7 +319,7 @@
     - 같은 owner PID를 가진 모든 TCB를 non-runnable(`Zombie`) 상태로 바꾸는 TaskTable helper 추가
     - QEMU runtime marker에서 `[chapter] ch90 process exit runtime`, `[proc] exit pid=1 code=0 tasks=2` 확인
 
-81. `TBD` `feat(ch91): hand off scheduler after process exit`
+81. `1fd8a1b` `feat(ch91): hand off scheduler after process exit`
     - current task의 process-wide exit 이후 같은 owner PID의 sibling task를 scheduler 후보에서 제거
     - `schedule_after_current_exited()`로 종료한 current task에서 다른 process의 runnable task로 handoff
     - QEMU runtime marker에서 `[chapter] ch91 exit schedule handoff`, `[proc] exit handoff prev=1 next=3 owner_tasks=2 scheduler_tasks=2` 확인

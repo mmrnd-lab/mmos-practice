@@ -1546,7 +1546,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch91_exit_schedule_handoff",
         label="Ch91 Exit Schedule Handoff",
-        commit_candidates=["HEAD"],
+        commit_candidates=["1fd8a1b"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
