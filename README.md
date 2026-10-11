@@ -14,6 +14,19 @@
 2. 해당 단계 커밋을 checkout하여 상태를 재현한다.
 3. 같은 흐름으로 로컬에서 다시 구현하고 커밋한다.
 
+## User App 최소 빌드 (24장 준비)
+
+실제 user ELF를 만드는 최소 파이프라인은 아래 명령으로 확인할 수 있다.
+
+```bash
+cd /home/nicesj/mmrnd/mmos/mmos-practice
+make user-init PROFILE=release
+make boot-disk PROFILE=release
+```
+
+- `build/user-init.elf`: `no_std + no_main + _start` 기반 최소 user app ELF
+- `build/drive0.img`: `/sbin/init`로 user ELF가 주입된 ext4 부트 이미지
+
 ## 브랜치 정책
 
 - 기본 브랜치: `main`

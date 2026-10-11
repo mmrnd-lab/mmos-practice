@@ -12,6 +12,7 @@ BUILD_DIR := build
 KERNEL_RAW := $(BUILD_DIR)/mmos.raw
 UIMAGE := $(BUILD_DIR)/mmos.uImage
 BOOT_DISK := $(BUILD_DIR)/drive0.img
+USER_INIT_ELF := $(BUILD_DIR)/user-init.elf
 UBOOT_BUILD := $(BUILD_DIR)/u-boot
 UBOOT_BIN := $(UBOOT_BUILD)/u-boot.bin
 
@@ -23,7 +24,7 @@ else
 $(error unsupported CONSOLE=$(CONSOLE) (expected sbi or mmio))
 endif
 
-.PHONY: require-container image shell test mmos.bin uImage boot-disk u-boot run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-init uImage boot-disk u-boot run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -44,7 +45,13 @@ test: require-container
 	cargo test --lib --target $(TEST_TARGET)
 
 mmos.bin: require-container
-	cargo build --profile $(PROFILE) $(CARGO_CONSOLE_FLAGS)
+	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-Tsrc/kernel.ld' cargo build --profile $(PROFILE) $(CARGO_CONSOLE_FLAGS)
+
+$(USER_INIT_ELF): require-container | $(BUILD_DIR)
+	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-T/workspace/mmos-practice/user/common/mmos_user_app.ld' cargo build --manifest-path user/init/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
+	cp user/init/target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-user-init $(USER_INIT_ELF)
+
+user-init: $(USER_INIT_ELF)
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -60,8 +67,8 @@ $(UIMAGE): require-container $(KERNEL_RAW) | $(BUILD_DIR)
 
 uImage: $(UIMAGE)
 
-$(BOOT_DISK): require-container $(UIMAGE) boot/extlinux.conf | $(BUILD_DIR)
-	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf
+$(BOOT_DISK): require-container $(UIMAGE) $(USER_INIT_ELF) boot/extlinux.conf | $(BUILD_DIR)
+	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf $(USER_INIT_ELF)
 
 boot-disk: $(BOOT_DISK)
 

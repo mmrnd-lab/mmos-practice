@@ -7,7 +7,21 @@ set -euo pipefail
 IMAGE="${1:-build/drive0.img}"
 UIMAGE="${2:-build/mmos.uImage}"
 EXTLINUX_CONF="${3:-boot/extlinux.conf}"
-SIZE_MB="${4:-64}"
+ARG4="${4:-}"
+ARG5="${5:-}"
+
+USER_ELF=""
+SIZE_MB="64"
+if [[ -n "${ARG4}" ]]; then
+  if [[ "${ARG4}" =~ ^[0-9]+$ ]]; then
+    SIZE_MB="${ARG4}"
+  else
+    USER_ELF="${ARG4}"
+    if [[ -n "${ARG5}" ]]; then
+      SIZE_MB="${ARG5}"
+    fi
+  fi
+fi
 
 if [ ! -f "${UIMAGE}" ]; then
   echo "missing uImage: ${UIMAGE}" >&2
@@ -28,6 +42,14 @@ mkdir -p "${TMPDIR}/boot/extlinux" "${TMPDIR}/extlinux"
 cp "${UIMAGE}" "${TMPDIR}/boot/mmos.uImage"
 cp "${EXTLINUX_CONF}" "${TMPDIR}/boot/extlinux/extlinux.conf"
 cp "${EXTLINUX_CONF}" "${TMPDIR}/extlinux/extlinux.conf"
+if [ -n "${USER_ELF}" ]; then
+  if [ ! -f "${USER_ELF}" ]; then
+    echo "missing user ELF: ${USER_ELF}" >&2
+    exit 1
+  fi
+  mkdir -p "${TMPDIR}/sbin"
+  cp "${USER_ELF}" "${TMPDIR}/sbin/init"
+fi
 
 rm -f "${IMAGE}"
 dd if=/dev/zero of="${IMAGE}" bs=1M count="${SIZE_MB}" status=none
@@ -39,4 +61,8 @@ OFFSET_BYTES=$((2048 * 512))
 FS_SIZE_KB=$(((SIZE_MB - 1) * 1024))
 mkfs.ext4 -F -d "${TMPDIR}" -E offset="${OFFSET_BYTES}" "${IMAGE}" "${FS_SIZE_KB}" >/dev/null
 
-echo "created bootable ext4 image: ${IMAGE}"
+if [ -n "${USER_ELF}" ]; then
+  echo "created bootable ext4 image with /sbin/init: ${IMAGE}"
+else
+  echo "created bootable ext4 image: ${IMAGE}"
+fi

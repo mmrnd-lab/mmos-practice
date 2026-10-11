@@ -7,3 +7,5 @@ Cargo.lock
 *.img
 *.qcow2
 .DS_Store
+
+/user/*/target
