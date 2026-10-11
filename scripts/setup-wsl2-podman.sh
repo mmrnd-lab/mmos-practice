@@ -41,9 +41,32 @@ if [[ ! -s /etc/subuid || ! -s /etc/subgid ]]; then
   echo "warning: subordinate UID/GID mappings are empty; rootless Podman may use a reduced mapping"
 fi
 
+# Artifacts created earlier by a rootful Docker container can remain owned by
+# host root and block the keep-id user. Limit repair to generated directories.
+GENERATED_DIRS=(
+  "${ROOT_DIR}/target"
+  "${ROOT_DIR}/build"
+  "${ROOT_DIR}/user/crt/target"
+  "${ROOT_DIR}/user/libc/target"
+  "${ROOT_DIR}/user/init/target"
+  "${ROOT_DIR}/user/shell/target"
+  "${ROOT_DIR}/user/stdin-probe/target"
+)
+for generated_dir in "${GENERATED_DIRS[@]}"; do
+  if [[ -d "${generated_dir}" ]] && find "${generated_dir}" ! -user "$(id -u)" -print -quit | grep -q .; then
+    echo "repairing generated artifact ownership: ${generated_dir}"
+    sudo chown -R "$(id -u):$(id -g)" "${generated_dir}"
+  fi
+done
+
 podman info >/dev/null
-podman run --rm docker.io/library/alpine:latest true
-podman build -t mmos-practice:latest "${ROOT_DIR}"
+# Podman 5 uses pasta by default for rootless networking. WSL2 can expose a
+# large mirrored route table (VPNs and Windows host routes in particular),
+# which makes pasta fail while duplicating routes. slirp4netns avoids copying
+# that host route table and is sufficient for image pulls/builds and MMOS QEMU.
+PODMAN_NETWORK="${PODMAN_NETWORK:-slirp4netns}"
+podman run --rm --network "${PODMAN_NETWORK}" docker.io/library/alpine:latest true
+podman build --network "${PODMAN_NETWORK}" -t mmos-practice:latest "${ROOT_DIR}"
 
 echo "WSL2 Podman environment is ready."
 echo "Next: cd ${ROOT_DIR} && ./docker.run"

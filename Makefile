@@ -3,6 +3,11 @@
 
 PROFILE ?= release
 ENGINE ?= podman
+ifeq ($(ENGINE),podman)
+CONTAINER_NETWORK ?= slirp4netns
+else
+CONTAINER_NETWORK ?= default
+endif
 QEMU ?= qemu-system-riscv64
 QEMU_VIRTIO_MODERN ?= -global virtio-mmio.force-legacy=false
 RUN_SECONDS ?= 5
@@ -63,7 +68,7 @@ require-container:
 	fi
 
 image:
-	$(ENGINE) build -t mmos-practice:latest .
+	$(ENGINE) build --network $(CONTAINER_NETWORK) -t mmos-practice:latest .
 
 shell:
 	./docker.run

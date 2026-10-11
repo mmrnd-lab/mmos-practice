@@ -4,8 +4,15 @@ set -euo pipefail
 ENGINE="${ENGINE:-podman}"
 IMAGE="${IMAGE:-mmos-practice:latest}"
 
+if [[ "${ENGINE}" == "podman" ]]; then
+  NETWORK="${NETWORK:-slirp4netns}"
+else
+  NETWORK="${NETWORK:-default}"
+fi
+
 ${ENGINE} run --rm -it \
   --userns=keep-id \
+  --network "${NETWORK}" \
   -v "$PWD":/workspace/mmos-practice \
   -w /workspace/mmos-practice \
   "${IMAGE}" \

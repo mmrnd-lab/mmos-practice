@@ -34,6 +34,12 @@ Podman이 이미 설치되어 있다면 패키지 설치를 생략할 수 있다
 ./scripts/setup-wsl2-podman.sh --skip-install
 ```
 
+WSL2에서는 rootless Podman 네트워크로 `slirp4netns`를 사용한다. Podman 5의 기본값인
+`pasta`가 Windows나 VPN에서 전달된 많은 host route를 복제하다
+`netlink: Too many routes to duplicate`로 실패하는 경우를 피하기 위한 설정이다.
+이전에 rootful Docker가 만든 `target`, `build`, `user/*/target` 산출물이 있으면 설정
+스크립트가 해당 생성 디렉터리만 현재 WSL 사용자 소유로 교정한다.
+
 ## 진행 방법
 
 1. `docs/practice-roadmap.md`에서 현재 장의 목표를 확인한다.
