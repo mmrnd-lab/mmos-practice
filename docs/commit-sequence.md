@@ -597,3 +597,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `SYS_WRITE`가 아닌 syscall은 기존 `handle_prepared_process_syscall_entry()`로 위임해 ch138의 clone/wait4/execve 라우팅을 보존
     - unit test는 process syscall entry가 `write(1, user_ptr, len)`을 current process stdio fd로 dispatch하고 live trap frame에 `a0/sepc`를 writeback하는지 검증
     - QEMU runtime marker에서 `[chapter] ch139 process syscall write entry`, `[trap] process syscall entry routed write a0=8 sepc=0x40007004` 확인
+
+125. `fc073f2` `feat(ch140): route read through process syscall entry`
+    - `handle_prepared_process_syscall_entry_with_current_io()`에 `SYS_READ` 분기를 추가해 current process fd table과 checked user copyout 경로로 처리
+    - `SYS_READ`/`SYS_WRITE`가 아닌 syscall은 기존 prepared process syscall entry로 위임해 clone/wait4/execve 라우팅을 보존
+    - unit test는 process syscall entry가 `read(0, user_ptr, len)`을 current process stdio fd로 dispatch하고 live trap frame에 `a0/sepc`를 writeback하는지 검증
+    - QEMU runtime marker에서 `[chapter] ch140 process syscall read entry`, `[trap] process syscall entry routed read a0=1 sepc=0x40008004` 확인

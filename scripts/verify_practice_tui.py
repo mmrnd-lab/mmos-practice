@@ -2356,7 +2356,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch140_process_syscall_read_entry",
         label="Ch140 Process Syscall Read Entry",
-        commit_candidates=["HEAD"],
+        commit_candidates=["fc073f2"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
