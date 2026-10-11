@@ -1385,11 +1385,13 @@ mod tests {
         live_frame.set_a1(ARGV);
         live_frame.set_a2(0);
 
-        let prepared_runtime =
-            PreparedExecvTrapRuntime::<4, 2, 2, 5, 512, 256>::new(runtime, &vfs);
-        assert_eq!(prepared_runtime.runtime().execv_stack_top_va(), 0x4010_0000);
-        let mut entry_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::empty();
-        entry_store.install(prepared_runtime);
+        let mut entry_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+            runtime, &vfs,
+        );
+        assert_eq!(
+            entry_store.with_prepared_runtime(|prepared| prepared.runtime().execv_stack_top_va()),
+            Some(0x4010_0000)
+        );
 
         let outcome = crate::trap::handle_execv_user_ecall_with_prepared_store::<
             4,

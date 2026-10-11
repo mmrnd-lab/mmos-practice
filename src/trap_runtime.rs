@@ -212,6 +212,15 @@ impl<
         Self { prepared: None }
     }
 
+    pub const fn prepare(
+        runtime: ProcessTrapRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
+        vfs: &'v crate::vfs::Vfs<'v>,
+    ) -> Self {
+        Self {
+            prepared: Some(PreparedExecvTrapRuntime::new(runtime, vfs)),
+        }
+    }
+
     pub fn install(
         &mut self,
         prepared: PreparedExecvTrapRuntime<
