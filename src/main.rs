@@ -34,7 +34,7 @@ pub extern "C" fn _start() -> ! {
     let _ = trap::handle_trap(&mut boot_tf, trap::SCAUSE_USER_ECALL, 0);
 
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch10 trap syscall\\n");
+    uart::puts("[chapter] ch11 sv39\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }

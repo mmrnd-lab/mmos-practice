@@ -7,6 +7,7 @@ pub mod irq_guard;
 pub mod kheap;
 pub mod page_frame_allocator;
 pub mod syscall;
+pub mod sv39;
 pub mod trap;
 
 pub fn align_up(value: usize, align: usize) -> usize {
@@ -20,6 +21,7 @@ mod tests {
     use super::kheap::init_kheap;
     use super::page_frame_allocator::PageFrameAllocator;
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
+    use super::sv39::{make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_W, PTE_X};
     use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
 
     #[test]
@@ -79,5 +81,25 @@ mod tests {
             TrapOutcome::Resume
         );
         assert_eq!(frame.sepc, 0x8020_1004);
+    }
+
+    #[test]
+    fn sv39_leaf_entry_keeps_ppn_and_flags() {
+        let pte = PageTableEntry::leaf(0x80200, PTE_R | PTE_W | PTE_X | PTE_A | PTE_D);
+        assert_eq!(pte.ppn(), 0x80200);
+        assert_eq!(pte.flags() & (PTE_R | PTE_W | PTE_X), PTE_R | PTE_W | PTE_X);
+    }
+
+    #[test]
+    fn sv39_satp_has_mode_8() {
+        let satp = make_satp(0x12345, 0);
+        assert_eq!(satp >> 60, 8);
+    }
+
+    #[test]
+    fn sv39_root_table_maps_identity_entry() {
+        let mut root = RootPageTable::new();
+        root.map_gib_identity(2, 0x20000, PTE_R | PTE_X);
+        assert_eq!(root.entries[2].ppn(), 0x20000);
     }
 }
