@@ -512,6 +512,12 @@
     - execve entry store 초기화 순서를 `runtime + VFS -> prepared store` 형태로 고정
     - QEMU runtime marker에서 `[chapter] ch126 execv prepared init`, `[trap] execve prepared init routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+114. `8497b2f` `feat(ch127): bundle prepared execve entry input`
+    - `ExecvPreparedEntryInput`을 추가해 user memory view, user base, replacement VM을 하나의 dispatch input으로 묶음
+    - `trap::handle_execv_user_ecall_with_prepared_store()`가 세 개의 개별 인자 대신 input 객체를 받도록 변경
+    - demo와 unit test는 execve dispatch 시점에 남은 입력을 명시적인 구조체로 구성
+    - QEMU runtime marker에서 `[chapter] ch127 execv prepared input`, `[trap] execve prepared input routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

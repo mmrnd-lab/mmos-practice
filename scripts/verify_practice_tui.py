@@ -2156,6 +2156,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve entry store is built from runtime and VFS",
     ),
     ChapterSet(
+        key="ch127_execv_prepared_input",
+        label="Ch127 Execv Prepared Input",
+        commit_candidates=["8497b2f"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch127 execv prepared input",
+                    "[trap] execve prepared input routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared execve entry input bundles user memory and replacement VM",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
