@@ -179,6 +179,11 @@
     - 실제 `/sbin/init` launch handoff에서 만든 task context가 scheduler state에 들어감을 검증
 
 
+53. `f0241cd` `feat(ch61): add user process creation path`
+    - launch plan을 process table, task table, scheduler에 함께 등록하는 공통 생성 경로를 추가
+    - boot-time init 등록과 이후 fork/exec 계열 syscall이 공유할 user process 생성 primitive를 검증
+
+
 ## Reproduce Example
 
 ```bash

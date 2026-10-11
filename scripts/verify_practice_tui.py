@@ -1009,6 +1009,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user init launch trap frame is installed into global trap runtime",
     ),
     ChapterSet(
+        key="ch61_user_process_creation_path",
+        label="Ch61 User Process Creation Path",
+        commit_candidates=["f0241cd"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch61 user process creation path",
+                    "[chapter] ch59 launch task global runtime",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=launch plan is registered through the common user process creation path",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
