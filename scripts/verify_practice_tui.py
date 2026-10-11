@@ -1526,9 +1526,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=sret enters user code, write traps back, and init exits cleanly",
     ),
     ChapterSet(
-        key="ch90_process_exit_runtime",
-        label="Ch90 Process Exit Runtime",
-        commit_candidates=["ch90_process_exit_runtime"],
+        key="ch91_process_wide_exit_runtime_model",
+        label="Ch91 Process-wide Exit Runtime Model",
+        commit_candidates=["ch91_process_wide_exit_runtime_model"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1544,9 +1544,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-wide exit marks owner PCB and all owned TCBs before user init still exits cleanly",
     ),
     ChapterSet(
-        key="ch91_exit_schedule_handoff",
-        label="Ch91 Exit Schedule Handoff",
-        commit_candidates=["ch91_exit_schedule_handoff"],
+        key="ch92_exit_schedule_handoff",
+        label="Ch92 Exit Schedule Handoff",
+        commit_candidates=["ch92_exit_schedule_handoff"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1562,9 +1562,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-wide exit removes sibling tasks from scheduler and hands off to another process",
     ),
     ChapterSet(
-        key="ch92_trap_exit_process_dispatch",
-        label="Ch92 Trap Exit Process Dispatch",
-        commit_candidates=["ch92_trap_exit_process_dispatch"],
+        key="ch93_trap_exit_process_dispatch",
+        label="Ch93 Trap Exit Process Dispatch",
+        commit_candidates=["ch93_trap_exit_process_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1580,9 +1580,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=TrapOutcome::Exit-style dispatch applies process exit and restores the next process frame",
     ),
     ChapterSet(
-        key="ch93_process_trap_runtime_exit",
-        label="Ch93 Process Trap Runtime Exit",
-        commit_candidates=["ch93_process_trap_runtime_exit"],
+        key="ch94_process_trap_runtime_exit",
+        label="Ch94 Process Trap Runtime Exit",
+        commit_candidates=["ch94_process_trap_runtime_exit"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1598,9 +1598,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-aware trap runtime owns process/task tables and dispatches exit to the next process frame",
     ),
     ChapterSet(
-        key="ch94_process_trap_runtime_reap",
-        label="Ch94 Process Trap Runtime Reap",
-        commit_candidates=["ch94_process_trap_runtime_reap"],
+        key="ch95_process_trap_runtime_reap",
+        label="Ch95 Process Trap Runtime Reap",
+        commit_candidates=["ch95_process_trap_runtime_reap"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1616,9 +1616,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-aware trap runtime reaps the exited owner and removes its task slots",
     ),
     ChapterSet(
-        key="ch95_process_wait_child_reap",
-        label="Ch95 Process Wait Child Reap",
-        commit_candidates=["ch95_process_wait_child_reap"],
+        key="ch96_process_wait_child_reap",
+        label="Ch96 Process Wait Child Reap",
+        commit_candidates=["ch96_process_wait_child_reap"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1634,9 +1634,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=parent wait path reaps a zombie child through the process-aware trap runtime",
     ),
     ChapterSet(
-        key="ch96_wait_syscall_surface",
-        label="Ch96 Wait Syscall Surface",
-        commit_candidates=["ch96_wait_syscall_surface"],
+        key="ch97_wait_syscall_surface",
+        label="Ch97 Wait Syscall Surface",
+        commit_candidates=["ch97_wait_syscall_surface"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1652,9 +1652,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=current process wait syscall surface reaps a zombie child and copies out status",
     ),
     ChapterSet(
-        key="ch97_blocking_wait_wakeup",
-        label="Ch97 Blocking Wait Wakeup",
-        commit_candidates=["ch97_blocking_wait_wakeup"],
+        key="ch98_blocking_wait_wakeup",
+        label="Ch98 Blocking Wait Wakeup",
+        commit_candidates=["ch98_blocking_wait_wakeup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1670,9 +1670,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=parent waits before child exit, blocks, and wakes when child becomes zombie",
     ),
     ChapterSet(
-        key="ch98_wait_no_child_boundary",
-        label="Ch98 Wait No Child Boundary",
-        commit_candidates=["ch98_wait_no_child_boundary"],
+        key="ch99_wait_no_child_boundary",
+        label="Ch99 Wait No Child Boundary",
+        commit_candidates=["ch99_wait_no_child_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1706,9 +1706,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=current process creates a runnable child through the minimal fork adapter and the existing wait path reaps it",
     ),
     ChapterSet(
-        key="ch102_clone_syscall_surface",
-        label="Ch102 Clone Syscall Surface",
-        commit_candidates=["ch102_clone_syscall_surface"],
+        key="ch101_clone_syscall_surface",
+        label="Ch101 Clone Syscall Surface",
+        commit_candidates=["ch101_clone_syscall_surface"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1724,9 +1724,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=decoded clone syscall creates a runnable child process and applies the requested child stack pointer",
     ),
     ChapterSet(
-        key="ch103_minimal_execv_adapter",
-        label="Ch103 Minimal Execv Adapter",
-        commit_candidates=["ch103_minimal_execv_adapter"],
+        key="ch102_minimal_execv_adapter",
+        label="Ch102 Minimal Execv Adapter",
+        commit_candidates=["ch102_minimal_execv_adapter"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1742,9 +1742,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=fork child task context is replaced by the minimal execv adapter and returns success to the caller",
     ),
     ChapterSet(
-        key="ch104_execv_user_arg_copyin",
-        label="Ch104 Execv User Arg Copyin",
-        commit_candidates=["ch104_execv_user_arg_copyin"],
+        key="ch102_execv_user_arg_copyin",
+        label="Ch102 Execv User Arg Copyin",
+        commit_candidates=["ch102_execv_user_arg_copyin"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1760,9 +1760,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execv path and argv are copied from checked user memory and materialized into a fresh user stack layout",
     ),
     ChapterSet(
-        key="ch105_execv_path_vfs_image",
-        label="Ch105 Execv Path VFS Image",
-        commit_candidates=["ch105_execv_path_vfs_image"],
+        key="ch102_execv_path_vfs_image",
+        label="Ch102 Execv Path VFS Image",
+        commit_candidates=["ch102_execv_path_vfs_image"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1778,9 +1778,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execv pathname copied from user memory is used to load a VFS ELF image plan",
     ),
     ChapterSet(
-        key="ch106_execv_apply_pipeline",
-        label="Ch106 Execv Apply Pipeline",
-        commit_candidates=["ch106_execv_apply_pipeline"],
+        key="ch102_execv_apply_pipeline",
+        label="Ch102 Execv Apply Pipeline",
+        commit_candidates=["ch102_execv_apply_pipeline"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1796,9 +1796,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execv copyin, VFS ELF image loading, stack layout, and child task context replacement are applied as one pipeline",
     ),
     ChapterSet(
-        key="ch107_execv_syscall_surface",
-        label="Ch107 Execv Syscall Surface",
-        commit_candidates=["ch107_execv_syscall_surface"],
+        key="ch102_execv_syscall_surface",
+        label="Ch102 Execv Syscall Surface",
+        commit_candidates=["ch102_execv_syscall_surface"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1814,9 +1814,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=decoded execve syscall arguments drive the checked execv apply pipeline and replace the child task context",
     ),
     ChapterSet(
-        key="ch108_current_execv_syscall_runtime",
-        label="Ch108 Current Execv Syscall Runtime",
-        commit_candidates=["ch108_current_execv_syscall_runtime"],
+        key="ch103_current_execv_syscall_runtime",
+        label="Ch103 Current Execv Syscall Runtime",
+        commit_candidates=["ch103_current_execv_syscall_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1832,9 +1832,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve syscall helper uses the current runtime task instead of an explicit target tid",
     ),
     ChapterSet(
-        key="ch109_execv_dispatch_context",
-        label="Ch109 Execv Dispatch Context",
-        commit_candidates=["ch109_execv_dispatch_context"],
+        key="ch103_execv_dispatch_context",
+        label="Ch103 Execv Dispatch Context",
+        commit_candidates=["ch103_execv_dispatch_context"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1850,9 +1850,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=decoded execve is routed through a dispatch context into the current execv helper",
     ),
     ChapterSet(
-        key="ch110_execv_runtime_context_lookup",
-        label="Ch110 Execv Runtime Context Lookup",
-        commit_candidates=["ch110_execv_runtime_context_lookup"],
+        key="ch103_execv_runtime_context_lookup",
+        label="Ch103 Execv Runtime Context Lookup",
+        commit_candidates=["ch103_execv_runtime_context_lookup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1868,9 +1868,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch builds checked user memory from the current process VM",
     ),
     ChapterSet(
-        key="ch111_execv_frame_dispatch",
-        label="Ch111 Execv Frame Dispatch",
-        commit_candidates=["ch111_execv_frame_dispatch"],
+        key="ch103_execv_frame_dispatch",
+        label="Ch103 Execv Frame Dispatch",
+        commit_candidates=["ch103_execv_frame_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1886,9 +1886,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch decodes syscall arguments from a trap frame register snapshot",
     ),
     ChapterSet(
-        key="ch112_execv_frame_writeback",
-        label="Ch112 Execv Frame Writeback",
-        commit_candidates=["ch112_execv_frame_writeback"],
+        key="ch103_execv_frame_writeback",
+        label="Ch103 Execv Frame Writeback",
+        commit_candidates=["ch103_execv_frame_writeback"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1904,9 +1904,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve syscall result is written back to the live trap frame",
     ),
     ChapterSet(
-        key="ch113_execv_trap_dispatch",
-        label="Ch113 Execv Trap Dispatch",
-        commit_candidates=["ch113_execv_trap_dispatch"],
+        key="ch103_execv_trap_dispatch",
+        label="Ch103 Execv Trap Dispatch",
+        commit_candidates=["ch103_execv_trap_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1922,9 +1922,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap dispatch routes execve ecall through current runtime context",
     ),
     ChapterSet(
-        key="ch114_execv_trap_resources",
-        label="Ch114 Execv Trap Resources",
-        commit_candidates=["ch114_execv_trap_resources"],
+        key="ch103_execv_trap_resources",
+        label="Ch103 Execv Trap Resources",
+        commit_candidates=["ch103_execv_trap_resources"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1940,9 +1940,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap-side execve resources build the current runtime context",
     ),
     ChapterSet(
-        key="ch115_execv_resource_store",
-        label="Ch115 Execv Resource Store",
-        commit_candidates=["ch115_execv_resource_store"],
+        key="ch103_execv_resource_store",
+        label="Ch103 Execv Resource Store",
+        commit_candidates=["ch103_execv_resource_store"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1958,9 +1958,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve trap resource store builds the trap-side resources",
     ),
     ChapterSet(
-        key="ch116_execv_runtime_resources",
-        label="Ch116 Execv Runtime Resources",
-        commit_candidates=["ch116_execv_runtime_resources"],
+        key="ch103_execv_runtime_resources",
+        label="Ch103 Execv Runtime Resources",
+        commit_candidates=["ch103_execv_runtime_resources"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1976,9 +1976,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process trap runtime borrows the execve resource store",
     ),
     ChapterSet(
-        key="ch117_execv_runtime_dispatch",
-        label="Ch117 Execv Runtime Dispatch",
-        commit_candidates=["ch117_execv_runtime_dispatch"],
+        key="ch103_execv_runtime_dispatch",
+        label="Ch103 Execv Runtime Dispatch",
+        commit_candidates=["ch103_execv_runtime_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1994,9 +1994,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process trap runtime builds resources and dispatches execve trap",
     ),
     ChapterSet(
-        key="ch118_execv_dispatch_state",
-        label="Ch118 Execv Dispatch State",
-        commit_candidates=["ch118_execv_dispatch_state"],
+        key="ch103_execv_dispatch_state",
+        label="Ch103 Execv Dispatch State",
+        commit_candidates=["ch103_execv_dispatch_state"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2012,9 +2012,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch state owns the resource store and routes runtime dispatch",
     ),
     ChapterSet(
-        key="ch119_execv_dispatch_plan",
-        label="Ch119 Execv Dispatch Plan",
-        commit_candidates=["ch119_execv_dispatch_plan"],
+        key="ch103_execv_dispatch_plan",
+        label="Ch103 Execv Dispatch Plan",
+        commit_candidates=["ch103_execv_dispatch_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2030,9 +2030,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch plan prepares the dispatch state",
     ),
     ChapterSet(
-        key="ch120_execv_runtime_plan",
-        label="Ch120 Execv Runtime Plan",
-        commit_candidates=["ch120_execv_runtime_plan"],
+        key="ch103_execv_runtime_plan",
+        label="Ch103 Execv Runtime Plan",
+        commit_candidates=["ch103_execv_runtime_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2048,9 +2048,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process trap runtime owns the execve dispatch plan policy",
     ),
     ChapterSet(
-        key="ch121_execv_prepared_dispatch",
-        label="Ch121 Execv Prepared Dispatch",
-        commit_candidates=["ch121_execv_prepared_dispatch"],
+        key="ch103_execv_prepared_dispatch",
+        label="Ch103 Execv Prepared Dispatch",
+        commit_candidates=["ch103_execv_prepared_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2066,9 +2066,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process trap runtime prepares the execve dispatch state from VFS",
     ),
     ChapterSet(
-        key="ch122_execv_prepared_runtime",
-        label="Ch122 Execv Prepared Runtime",
-        commit_candidates=["ch122_execv_prepared_runtime"],
+        key="ch103_execv_prepared_runtime",
+        label="Ch103 Execv Prepared Runtime",
+        commit_candidates=["ch103_execv_prepared_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2084,9 +2084,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve runtime stores process runtime and dispatch state together",
     ),
     ChapterSet(
-        key="ch123_execv_prepared_ecall",
-        label="Ch123 Execv Prepared Ecall",
-        commit_candidates=["ch123_execv_prepared_ecall"],
+        key="ch103_execv_prepared_ecall",
+        label="Ch103 Execv Prepared Ecall",
+        commit_candidates=["ch103_execv_prepared_ecall"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2102,9 +2102,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve runtime exposes a user-ecall dispatch surface",
     ),
     ChapterSet(
-        key="ch124_execv_prepared_entry",
-        label="Ch124 Execv Prepared Entry",
-        commit_candidates=["ch124_execv_prepared_entry"],
+        key="ch103_execv_prepared_entry",
+        label="Ch103 Execv Prepared Entry",
+        commit_candidates=["ch103_execv_prepared_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2120,9 +2120,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap entry helper routes execve through the prepared runtime holder",
     ),
     ChapterSet(
-        key="ch125_execv_prepared_store",
-        label="Ch125 Execv Prepared Store",
-        commit_candidates=["ch125_execv_prepared_store"],
+        key="ch103_execv_prepared_store",
+        label="Ch103 Execv Prepared Store",
+        commit_candidates=["ch103_execv_prepared_store"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2138,9 +2138,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap entry helper obtains the prepared runtime holder from a store",
     ),
     ChapterSet(
-        key="ch126_execv_prepared_init",
-        label="Ch126 Execv Prepared Init",
-        commit_candidates=["ch126_execv_prepared_init"],
+        key="ch103_execv_prepared_init",
+        label="Ch103 Execv Prepared Init",
+        commit_candidates=["ch103_execv_prepared_init"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2156,9 +2156,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve entry store is built from runtime and VFS",
     ),
     ChapterSet(
-        key="ch127_execv_prepared_input",
-        label="Ch127 Execv Prepared Input",
-        commit_candidates=["ch127_execv_prepared_input"],
+        key="ch103_execv_prepared_input",
+        label="Ch103 Execv Prepared Input",
+        commit_candidates=["ch103_execv_prepared_input"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2174,9 +2174,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve entry input bundles user memory and replacement VM",
     ),
     ChapterSet(
-        key="ch128_execv_entry_input_boundary",
-        label="Ch128 Execv Entry Input Boundary",
-        commit_candidates=["ch128_execv_entry_input_boundary"],
+        key="ch103_execv_entry_input_boundary",
+        label="Ch103 Execv Entry Input Boundary",
+        commit_candidates=["ch103_execv_entry_input_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2192,9 +2192,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry store constructs the execve input boundary",
     ),
     ChapterSet(
-        key="ch129_execv_user_source_boundary",
-        label="Ch129 Execv User Source Boundary",
-        commit_candidates=["ch129_execv_user_source_boundary"],
+        key="ch103_execv_user_source_boundary",
+        label="Ch103 Execv User Source Boundary",
+        commit_candidates=["ch103_execv_user_source_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2210,9 +2210,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry input receives a named user copy source",
     ),
     ChapterSet(
-        key="ch130_execv_replacement_vm_boundary",
-        label="Ch130 Execv Replacement VM Boundary",
-        commit_candidates=["ch130_execv_replacement_vm_boundary"],
+        key="ch103_execv_replacement_vm_boundary",
+        label="Ch103 Execv Replacement VM Boundary",
+        commit_candidates=["ch103_execv_replacement_vm_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2228,9 +2228,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry input receives a named replacement VM",
     ),
     ChapterSet(
-        key="ch131_execv_entry_recipe",
-        label="Ch131 Execv Entry Recipe",
-        commit_candidates=["ch131_execv_entry_recipe"],
+        key="ch103_execv_entry_recipe",
+        label="Ch103 Execv Entry Recipe",
+        commit_candidates=["ch103_execv_entry_recipe"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2246,9 +2246,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry input is built from a recipe",
     ),
     ChapterSet(
-        key="ch132_execv_recipe_store_boundary",
-        label="Ch132 Execv Recipe Store Boundary",
-        commit_candidates=["ch132_execv_recipe_store_boundary"],
+        key="ch103_execv_recipe_store_boundary",
+        label="Ch103 Execv Recipe Store Boundary",
+        commit_candidates=["ch103_execv_recipe_store_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2264,9 +2264,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry recipe is built at the store boundary",
     ),
     ChapterSet(
-        key="ch135_clone_trap_dispatch",
-        label="Ch135 Clone Trap Dispatch",
-        commit_candidates=["ch135_clone_trap_dispatch"],
+        key="ch101_clone_trap_dispatch",
+        label="Ch101 Clone Trap Dispatch",
+        commit_candidates=["ch101_clone_trap_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2282,9 +2282,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=clone ecall is decoded from trap frame and writes back parent/child registers",
     ),
     ChapterSet(
-        key="ch136_wait4_trap_dispatch",
-        label="Ch136 Wait4 Trap Dispatch",
-        commit_candidates=["ch136_wait4_trap_dispatch"],
+        key="ch101_wait4_trap_dispatch",
+        label="Ch101 Wait4 Trap Dispatch",
+        commit_candidates=["ch101_wait4_trap_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2300,9 +2300,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=wait4 ecall is decoded from trap frame, reaps a zombie child, copies status, and writes back parent registers",
     ),
     ChapterSet(
-        key="ch137_execve_prepared_entry_dispatch",
-        label="Ch137 Execve Prepared Entry Dispatch",
-        commit_candidates=["ch137_execve_prepared_entry_dispatch"],
+        key="ch104_execve_prepared_entry_dispatch",
+        label="Ch104 Execve Prepared Entry Dispatch",
+        commit_candidates=["ch104_execve_prepared_entry_dispatch"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2318,9 +2318,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve entry builds recipe/input at the store boundary and dispatches the ecall",
     ),
     ChapterSet(
-        key="ch138_prepared_process_syscall_entry",
-        label="Ch138 Prepared Process Syscall Entry",
-        commit_candidates=["ch138_prepared_process_syscall_entry"],
+        key="ch104_prepared_process_syscall_entry",
+        label="Ch104 Prepared Process Syscall Entry",
+        commit_candidates=["ch104_prepared_process_syscall_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2336,9 +2336,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=one prepared process syscall entry routes clone, wait4, and execve from trap-frame syscall numbers",
     ),
     ChapterSet(
-        key="ch139_process_syscall_write_entry",
-        label="Ch139 Process Syscall Write Entry",
-        commit_candidates=["ch139_process_syscall_write_entry"],
+        key="ch104_process_syscall_write_entry",
+        label="Ch104 Process Syscall Write Entry",
+        commit_candidates=["ch104_process_syscall_write_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2354,9 +2354,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared process syscall entry routes write through current process fd table and checked user copyin",
     ),
     ChapterSet(
-        key="ch140_process_syscall_read_entry",
-        label="Ch140 Process Syscall Read Entry",
-        commit_candidates=["ch140_process_syscall_read_entry"],
+        key="ch104_process_syscall_read_entry",
+        label="Ch104 Process Syscall Read Entry",
+        commit_candidates=["ch104_process_syscall_read_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2372,9 +2372,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared process syscall entry routes read through current process fd table and checked user copyout",
     ),
     ChapterSet(
-        key="ch141_process_syscall_close_entry",
-        label="Ch141 Process Syscall Close Entry",
-        commit_candidates=["ch141_process_syscall_close_entry"],
+        key="ch104_process_syscall_close_entry",
+        label="Ch104 Process Syscall Close Entry",
+        commit_candidates=["ch104_process_syscall_close_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2390,9 +2390,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared process syscall entry routes close through mutable current process fd table",
     ),
     ChapterSet(
-        key="ch142_process_syscall_openat_entry",
-        label="Ch142 Process Syscall OpenAt Entry",
-        commit_candidates=["ch142_process_syscall_openat_entry"],
+        key="ch104_process_syscall_openat_entry",
+        label="Ch104 Process Syscall OpenAt Entry",
+        commit_candidates=["ch104_process_syscall_openat_entry"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2408,9 +2408,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared process syscall entry routes openat through checked pathname copyin and device namespace lookup",
     ),
     ChapterSet(
-        key="ch143_process_syscall_io_resources",
-        label="Ch143 Process Syscall IO Resources",
-        commit_candidates=["ch143_process_syscall_io_resources"],
+        key="ch104_process_syscall_io_resources",
+        label="Ch104 Process Syscall IO Resources",
+        commit_candidates=["ch104_process_syscall_io_resources"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2426,9 +2426,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process syscall entry receives one IO resources bundle for open/read/write/close paths",
     ),
     ChapterSet(
-        key="ch145_empty_fd_table_init_stdio",
-        label="Ch145 Empty FD Table Init Stdio",
-        commit_candidates=["ch145_empty_fd_table_init_stdio"],
+        key="ch105_empty_fd_table_init_stdio",
+        label="Ch105 Empty FD Table Init Stdio",
+        commit_candidates=["ch105_empty_fd_table_init_stdio"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2444,9 +2444,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=init constructs fd 0/1/2 by opening /dev/console from an empty fd table",
     ),
     ChapterSet(
-        key="ch146_user_init_runtime_split",
-        label="Ch146 User Init Runtime Split",
-        commit_candidates=["ch146_user_init_runtime_split"],
+        key="ch105_user_init_runtime_split",
+        label="Ch105 User Init Runtime Split",
+        commit_candidates=["ch105_user_init_runtime_split"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2467,9 +2467,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user/init factors syscall wrappers and stdio bootstrap before moving them into minimal libc",
     ),
     ChapterSet(
-        key="ch147_user_crt_library_boundary",
-        label="Ch147 User libc Library Boundary",
-        commit_candidates=["ch147_user_crt_library_boundary"],
+        key="ch105_user_crt_library_boundary",
+        label="Ch105 User libc Library Boundary",
+        commit_candidates=["ch105_user_crt_library_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2490,9 +2490,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=init links reusable syscall and stdio API from the user/libc crate",
     ),
     ChapterSet(
-        key="ch148_user_crt_static_link_artifact",
-        label="Ch148 User libc Static Link Artifact",
-        commit_candidates=["ch148_user_crt_static_link_artifact"],
+        key="ch105_user_crt_static_link_artifact",
+        label="Ch105 User libc Static Link Artifact",
+        commit_candidates=["ch105_user_crt_static_link_artifact"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2517,9 +2517,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=libc is currently a static rlib artifact, not a runtime-mapped shared object",
     ),
     ChapterSet(
-        key="ch149_user_link_model_classification",
-        label="Ch149 User Link Model Classification",
-        commit_candidates=["ch149_user_link_model_classification"],
+        key="ch105_user_link_model_classification",
+        label="Ch105 User Link Model Classification",
+        commit_candidates=["ch105_user_link_model_classification"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2540,9 +2540,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=classifies the current user link model before introducing ET_DYN/shared object loading",
     ),
     ChapterSet(
-        key="ch150_shared_object_load_plan",
-        label="Ch150 Shared Object Load Plan",
-        commit_candidates=["ch150_shared_object_load_plan"],
+        key="ch106_shared_object_load_plan",
+        label="Ch106 Shared Object Load Plan",
+        commit_candidates=["ch106_shared_object_load_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2565,9 +2565,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=records the ET_DYN shared object loader plan boundary before mapping a real .so",
     ),
     ChapterSet(
-        key="ch151_user_image_shared_object_artifact",
-        label="Ch151 User Image Shared Object Artifact",
-        commit_candidates=["ch151_user_image_shared_object_artifact"],
+        key="ch106_user_image_shared_object_artifact",
+        label="Ch106 User Image Shared Object Artifact",
+        commit_candidates=["ch106_user_image_shared_object_artifact"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2597,9 +2597,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=packages a tiny ET_DYN libc shared object candidate into the user image under /lib",
     ),
     ChapterSet(
-        key="ch152_shared_object_dynamic_metadata",
-        label="Ch152 Shared Object Dynamic Metadata",
-        commit_candidates=["ch152_shared_object_dynamic_metadata"],
+        key="ch106_shared_object_dynamic_metadata",
+        label="Ch106 Shared Object Dynamic Metadata",
+        commit_candidates=["ch106_shared_object_dynamic_metadata"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2622,9 +2622,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=parses shared object dynamic metadata and confirms RELA table shape before relocation apply",
     ),
     ChapterSet(
-        key="ch153_shared_object_relocation_candidates",
-        label="Ch153 Shared Object Relocation Candidates",
-        commit_candidates=["ch153_shared_object_relocation_candidates"],
+        key="ch106_shared_object_relocation_candidates",
+        label="Ch106 Shared Object Relocation Candidates",
+        commit_candidates=["ch106_shared_object_relocation_candidates"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2647,9 +2647,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=turns RELA records into relocation apply candidates without writing memory yet",
     ),
     ChapterSet(
-        key="ch154_relative_relocation_apply_value",
-        label="Ch154 Relative Relocation Apply Value",
-        commit_candidates=["ch154_relative_relocation_apply_value"],
+        key="ch106_relative_relocation_apply_value",
+        label="Ch106 Relative Relocation Apply Value",
+        commit_candidates=["ch106_relative_relocation_apply_value"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2672,9 +2672,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=calculates R_RISCV_RELATIVE relocation values without writing memory yet",
     ),
     ChapterSet(
-        key="ch155_relocation_writeback_boundary",
-        label="Ch155 Relocation Writeback Boundary",
-        commit_candidates=["ch155_relocation_writeback_boundary"],
+        key="ch106_relocation_writeback_boundary",
+        label="Ch106 Relocation Writeback Boundary",
+        commit_candidates=["ch106_relocation_writeback_boundary"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2697,9 +2697,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=writes calculated relocation apply values into checked little-endian u64 image slots",
     ),
     ChapterSet(
-        key="ch156_shared_object_relocation_materialize",
-        label="Ch156 Shared Object Relocation Materialize",
-        commit_candidates=["ch156_shared_object_relocation_materialize"],
+        key="ch106_shared_object_relocation_materialize",
+        label="Ch106 Shared Object Relocation Materialize",
+        commit_candidates=["ch106_shared_object_relocation_materialize"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2722,9 +2722,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=connects RELA scan, relative relocation calculation, and checked writeback into one materialization step",
     ),
     ChapterSet(
-        key="ch157_shared_object_mapping_plan",
-        label="Ch157 Shared Object Mapping Plan",
-        commit_candidates=["ch157_shared_object_mapping_plan"],
+        key="ch106_shared_object_mapping_plan",
+        label="Ch106 Shared Object Mapping Plan",
+        commit_candidates=["ch106_shared_object_mapping_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2747,9 +2747,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=turns ET_DYN load segments into preferred-base user mapping candidates before page table install",
     ),
     ChapterSet(
-        key="ch158_shared_object_frame_plan",
-        label="Ch158 Shared Object Frame Plan",
-        commit_candidates=["ch158_shared_object_frame_plan"],
+        key="ch106_shared_object_frame_plan",
+        label="Ch106 Shared Object Frame Plan",
+        commit_candidates=["ch106_shared_object_frame_plan"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2772,9 +2772,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=allocates PMM-backed frames for shared object mapping candidates before page table install",
     ),
     ChapterSet(
-        key="ch159_shared_object_page_table_install",
-        label="Ch159 Shared Object Page Table Install",
-        commit_candidates=["ch159_shared_object_page_table_install"],
+        key="ch106_shared_object_page_table_install",
+        label="Ch106 Shared Object Page Table Install",
+        commit_candidates=["ch106_shared_object_page_table_install"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2797,9 +2797,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=installs shared object frame-backed segment leaf mappings without adding stack pages",
     ),
     ChapterSet(
-        key="ch160_shared_object_load_pipeline",
-        label="Ch160 Shared Object Load Pipeline",
-        commit_candidates=["ch160_shared_object_load_pipeline"],
+        key="ch106_shared_object_load_pipeline",
+        label="Ch106 Shared Object Load Pipeline",
+        commit_candidates=["ch106_shared_object_load_pipeline"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2822,9 +2822,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=combines shared object relocation materialization, frame planning, and leaf mapping install",
     ),
     ChapterSet(
-        key="ch161_shared_object_path_load",
-        label="Ch161 Shared Object Path Load",
-        commit_candidates=["ch161_shared_object_path_load"],
+        key="ch106_shared_object_path_load",
+        label="Ch106 Shared Object Path Load",
+        commit_candidates=["ch106_shared_object_path_load"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2847,9 +2847,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=loads shared object bytes from VFS path before running the shared object load pipeline",
     ),
     ChapterSet(
-        key="ch162_shared_object_dependency_load",
-        label="Ch162 Shared Object Dependency Load",
-        commit_candidates=["ch162_shared_object_dependency_load"],
+        key="ch106_shared_object_dependency_load",
+        label="Ch106 Shared Object Dependency Load",
+        commit_candidates=["ch106_shared_object_dependency_load"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2872,9 +2872,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec dependency names the shared object path and base before the path loader runs",
     ),
     ChapterSet(
-        key="ch163_exec_shared_object_dependency",
-        label="Ch163 Exec Shared Object Dependency",
-        commit_candidates=["ch163_exec_shared_object_dependency"],
+        key="ch106_exec_shared_object_dependency",
+        label="Ch106 Exec Shared Object Dependency",
+        commit_candidates=["ch106_exec_shared_object_dependency"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2897,9 +2897,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec image preparation carries the libc shared object dependency into the loader boundary",
     ),
     ChapterSet(
-        key="ch164_process_exec_shared_object_runtime",
-        label="Ch164 Process Exec Shared Object Runtime",
-        commit_candidates=["ch164_process_exec_shared_object_runtime"],
+        key="ch106_process_exec_shared_object_runtime",
+        label="Ch106 Process Exec Shared Object Runtime",
+        commit_candidates=["ch106_process_exec_shared_object_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2922,9 +2922,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process exec result preserves loaded shared object metadata",
     ),
     ChapterSet(
-        key="ch165_exec_apply_shared_object_runtime",
-        label="Ch165 Exec Apply Shared Object Runtime",
-        commit_candidates=["ch165_exec_apply_shared_object_runtime"],
+        key="ch106_exec_apply_shared_object_runtime",
+        label="Ch106 Exec Apply Shared Object Runtime",
+        commit_candidates=["ch106_exec_apply_shared_object_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2947,9 +2947,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec apply path passes loaded shared object metadata into process runtime",
     ),
     ChapterSet(
-        key="ch166_exec_dispatch_shared_object_runtime",
-        label="Ch166 Exec Dispatch Shared Object Runtime",
-        commit_candidates=["ch166_exec_dispatch_shared_object_runtime"],
+        key="ch106_exec_dispatch_shared_object_runtime",
+        label="Ch106 Exec Dispatch Shared Object Runtime",
+        commit_candidates=["ch106_exec_dispatch_shared_object_runtime"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2972,9 +2972,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec dispatch path can select the shared object aware apply runtime",
     ),
     ChapterSet(
-        key="ch168_user_crt_entry_main",
-        label="Ch168 User CRT Entry Calls Main",
-        commit_candidates=["ch168_user_crt_entry_main"],
+        key="ch107_user_crt_entry_main",
+        label="Ch107 User CRT Entry Calls Main",
+        commit_candidates=["ch107_user_crt_entry_main"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -2999,9 +2999,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=CRT _start decodes initial stack and hands startup control to libc",
     ),
     ChapterSet(
-        key="ch169_user_main_startup_args",
-        label="Ch169 User Main Startup Args",
-        commit_candidates=["ch169_user_main_startup_args"],
+        key="ch107_user_main_startup_args",
+        label="Ch107 User Main Startup Args",
+        commit_candidates=["ch107_user_main_startup_args"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -3026,9 +3026,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user main prints argv0 and env0 from startup ABI pointers",
     ),
     ChapterSet(
-        key="ch170_execve_envp_copyin",
-        label="Ch170 Execve Envp Copyin",
-        commit_candidates=["ch170_execve_envp_copyin"],
+        key="ch107_execve_envp_copyin",
+        label="Ch107 Execve Envp Copyin",
+        commit_candidates=["ch107_execve_envp_copyin"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -3052,9 +3052,9 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve copies envp table into replacement user stack",
     ),
     ChapterSet(
-        key="ch171_user_crt_env_lookup",
-        label="Ch171 User libc Env Lookup",
-            commit_candidates=["ch171_user_crt_env_lookup"],
+        key="ch107_user_crt_env_lookup",
+        label="Ch107 User libc Env Lookup",
+            commit_candidates=["ch107_user_crt_env_lookup"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -3132,41 +3132,6 @@ CHAPTER_ALIASES: dict[str, tuple[str, str, str]] = {
     'ch60_task_switching_wrapup': ('ch59_launch_task_global_runtime', 'Ch60 Task Switching Wrapup', 'ch60_task_switching_wrapup'),
     'ch88_user_execution_pipeline_wrapup': ('ch87_first_user_sret_syscall', 'Ch88 User Execution Pipeline Wrapup', 'ch88_user_execution_pipeline_wrapup'),
     'ch89_process_exit_runtime_start': ('ch87_first_user_sret_syscall', 'Ch89 Process Exit Runtime Start', 'ch89_process_exit_runtime_start'),
-    'ch91_process_wide_exit_runtime_model': ('ch90_process_exit_runtime', 'Ch91 Process-wide Exit Runtime Model', 'ch91_process_wide_exit_runtime_model'),
-    'ch92_exit_schedule_handoff': ('ch91_exit_schedule_handoff', 'Ch92 Exit Schedule Handoff', 'ch92_exit_schedule_handoff'),
-    'ch93_trap_exit_process_dispatch': ('ch92_trap_exit_process_dispatch', 'Ch93 Trap Exit Process Dispatch', 'ch93_trap_exit_process_dispatch'),
-    'ch94_process_trap_runtime_exit': ('ch93_process_trap_runtime_exit', 'Ch94 Process Trap Runtime Exit', 'ch94_process_trap_runtime_exit'),
-    'ch95_process_trap_runtime_reap': ('ch94_process_trap_runtime_reap', 'Ch95 Process Trap Runtime Reap', 'ch95_process_trap_runtime_reap'),
-    'ch96_process_wait_child_reap': ('ch95_process_wait_child_reap', 'Ch96 Process Wait Child Reap', 'ch96_process_wait_child_reap'),
-    'ch97_wait_syscall_surface': ('ch96_wait_syscall_surface', 'Ch97 Wait Syscall Surface', 'ch97_wait_syscall_surface'),
-    'ch98_blocking_wait_wakeup': ('ch97_blocking_wait_wakeup', 'Ch98 Blocking Wait Wakeup', 'ch98_blocking_wait_wakeup'),
-    'ch99_wait_no_child_boundary': ('ch98_wait_no_child_boundary', 'Ch99 Wait No Child Boundary', 'ch99_wait_no_child_boundary'),
-    'ch101_clone_syscall_surface': ('ch102_clone_syscall_surface', 'Ch101 Clone Syscall Surface', 'ch101_clone_syscall_surface'),
-    'ch101_clone_trap_dispatch': ('ch135_clone_trap_dispatch', 'Ch101 Clone Trap Dispatch', 'ch101_clone_trap_dispatch'),
-    'ch101_wait4_trap_dispatch': ('ch136_wait4_trap_dispatch', 'Ch101 Wait4 Trap Dispatch', 'ch101_wait4_trap_dispatch'),
-    'ch102_minimal_execv_adapter': ('ch103_minimal_execv_adapter', 'Ch102 Minimal Execv Adapter', 'ch102_minimal_execv_adapter'),
-    'ch102_execv_user_arg_copyin': ('ch104_execv_user_arg_copyin', 'Ch102 Execv User Arg Copyin', 'ch102_execv_user_arg_copyin'),
-    'ch102_execv_path_vfs_image': ('ch105_execv_path_vfs_image', 'Ch102 Execv Path VFS Image', 'ch102_execv_path_vfs_image'),
-    'ch102_execv_apply_pipeline': ('ch106_execv_apply_pipeline', 'Ch102 Execv Apply Pipeline', 'ch102_execv_apply_pipeline'),
-    'ch102_execv_syscall_surface': ('ch107_execv_syscall_surface', 'Ch102 Execv Syscall Surface', 'ch102_execv_syscall_surface'),
-    'ch103_current_execv_syscall_runtime': ('ch108_current_execv_syscall_runtime', 'Ch103 Current Execv Syscall Runtime', 'ch103_current_execv_syscall_runtime'),
-    'ch103_execv_trap_dispatch': ('ch113_execv_trap_dispatch', 'Ch103 Execv Trap Dispatch', 'ch103_execv_trap_dispatch'),
-    'ch103_execv_prepared_runtime': ('ch122_execv_prepared_runtime', 'Ch103 Execv Prepared Runtime', 'ch103_execv_prepared_runtime'),
-    'ch103_execv_recipe_store_boundary': ('ch132_execv_recipe_store_boundary', 'Ch103 Execv Recipe Store Boundary', 'ch103_execv_recipe_store_boundary'),
-    'ch104_prepared_process_syscall_entry': ('ch138_prepared_process_syscall_entry', 'Ch104 Prepared Process Syscall Entry', 'ch104_prepared_process_syscall_entry'),
-    'ch104_process_syscall_write_entry': ('ch139_process_syscall_write_entry', 'Ch104 Process Syscall Write Entry', 'ch104_process_syscall_write_entry'),
-    'ch104_process_syscall_openat_entry': ('ch142_process_syscall_openat_entry', 'Ch104 Process Syscall OpenAt Entry', 'ch104_process_syscall_openat_entry'),
-    'ch104_process_syscall_io_resources': ('ch143_process_syscall_io_resources', 'Ch104 Process Syscall IO Resources', 'ch104_process_syscall_io_resources'),
-    'ch105_empty_fd_table_init_stdio': ('ch145_empty_fd_table_init_stdio', 'Ch105 Empty FD Table Init Stdio', 'ch105_empty_fd_table_init_stdio'),
-    'ch105_user_crt_library_boundary': ('ch147_user_crt_library_boundary', 'Ch105 User libc Library Boundary', 'ch105_user_crt_library_boundary'),
-    'ch105_user_link_model_classification': ('ch149_user_link_model_classification', 'Ch105 User Link Model Classification', 'ch105_user_link_model_classification'),
-    'ch106_shared_object_load_plan': ('ch150_shared_object_load_plan', 'Ch106 Shared Object Load Plan', 'ch106_shared_object_load_plan'),
-    'ch106_relative_relocation_apply_value': ('ch154_relative_relocation_apply_value', 'Ch106 Relative Relocation Apply Value', 'ch106_relative_relocation_apply_value'),
-    'ch106_shared_object_load_pipeline': ('ch160_shared_object_load_pipeline', 'Ch106 Shared Object Load Pipeline', 'ch106_shared_object_load_pipeline'),
-    'ch106_exec_dispatch_shared_object_runtime': ('ch166_exec_dispatch_shared_object_runtime', 'Ch106 Exec Dispatch Shared Object Runtime', 'ch106_exec_dispatch_shared_object_runtime'),
-    'ch107_user_crt_entry_main': ('ch168_user_crt_entry_main', 'Ch107 User CRT Entry Calls Main', 'ch107_user_crt_entry_main'),
-    'ch107_execve_envp_copyin': ('ch170_execve_envp_copyin', 'Ch107 Execve Envp Copyin', 'ch107_execve_envp_copyin'),
-    'ch107_user_crt_env_lookup': ('ch171_user_crt_env_lookup', 'Ch107 User libc Env Lookup', 'ch107_user_crt_env_lookup'),
 }
 
 
