@@ -46,7 +46,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch14 device layer\\n");
+    uart::puts("[chapter] ch15 fs layer\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
