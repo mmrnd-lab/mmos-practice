@@ -2410,7 +2410,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch143_process_syscall_io_resources",
         label="Ch143 Process Syscall IO Resources",
-        commit_candidates=["HEAD"],
+        commit_candidates=["a280b2a"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

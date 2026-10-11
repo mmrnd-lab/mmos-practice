@@ -615,3 +615,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - entry helper가 `DeviceNamespace`, pathname user slice, pathname scratch buffer를 받아 current process fd table에 새 fd를 할당
     - open 결과 fd로 다시 `write`를 시도해 열린 fd가 실제 current process fd table에 남는지 검증
     - QEMU runtime marker에서 `[chapter] ch142 process syscall openat entry`, `[trap] process syscall entry routed openat a0=3 sepc=0x4000a004 wrote=10` 확인
+
+128. `a280b2a` `feat(ch143): bundle process syscall io resources`
+    - `ProcessSyscallIoResources`를 추가해 current I/O, write/read/open user slice, scratch buffer, device namespace를 하나의 entry resource 값으로 묶음
+    - `handle_prepared_process_syscall_entry_with_current_io()`가 긴 I/O 인자 목록 대신 resource bundle 하나를 받도록 정리
+    - 기존 `openat`, `read`, `write`, `close` 라우팅 동작은 유지하고 호출부의 entry resource 전달 형태만 단순화
+    - QEMU runtime marker에서 `[chapter] ch143 process syscall io resources`, `[trap] process syscall io resources routed openat a0=3 sepc=0x4000a004 wrote=10` 확인
