@@ -102,11 +102,13 @@ mod tests {
         apply_schedule_decision, dispatch_trap_outcome,
         dispatch_trap_outcome_with_global_runtime, handle_blocking_syscall_result,
         handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
-        handle_user_page_fault_outcome, prepare_kernel_trap_stack_switch,
+        handle_user_page_fault_outcome, prepare_enter_user_scratch,
+        prepare_kernel_trap_stack_switch,
         prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
         simulate_trap_entry_stack_swap,
         schedule_after_blocked_syscall, KernelTrapStackError, KernelTrapStackSwitch,
-        TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL, TRAP_FRAME_SIZE,
+        TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
+        TRAP_FRAME_SIZE,
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
@@ -1565,6 +1567,19 @@ mod tests {
 
         assert_eq!(ret.restored_user_sp, scratch.user_sp);
         assert_eq!(ret.next_sscratch, scratch.kernel_frame_sp);
+    }
+
+    #[test]
+    fn enter_user_prepares_sscratch_from_user_stack_pointer() {
+        let mut frame = TrapFrame::default();
+        frame.set_sp(0x4010_0000);
+
+        let scratch = prepare_enter_user_scratch(&frame).unwrap();
+
+        assert_eq!(scratch.user_sp, frame.sp());
+        assert_eq!(scratch.kernel_frame_sp, super::trap::kernel_trap_stack_top() - TRAP_FRAME_SIZE);
+        assert_eq!(scratch.kernel_frame_sp & 0xf, 0);
+        assert_eq!(scratch.sscratch, scratch.kernel_frame_sp);
     }
 
     #[test]

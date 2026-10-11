@@ -921,6 +921,27 @@ fn run_user_launch_demo() {
                                                                         console::puts(
                                                                             "[chapter] ch70 trap entry asm stack switch\n",
                                                                         );
+                                                                        let mut probe_frame =
+                                                                            p.trapframe;
+                                                                        probe_frame.set_sp(
+                                                                            loaded.stack_top,
+                                                                        );
+                                                                        if let Ok(enter_scratch) =
+                                                                            trap::prepare_enter_user_scratch(
+                                                                                &probe_frame,
+                                                                            )
+                                                                        {
+                                                                            if enter_scratch.sscratch == enter_scratch.kernel_frame_sp
+                                                                                && enter_scratch
+                                                                                    .user_sp
+                                                                                    == loaded
+                                                                                        .stack_top
+                                                                            {
+                                                                                console::puts(
+                                                                                    "[chapter] ch71 enter user sscratch prepare\n",
+                                                                                );
+                                                                            }
+                                                                        }
                                                                     }
                                                                 }
                                                             }

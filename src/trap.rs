@@ -15,6 +15,20 @@ use crate::{
 };
 
 pub const TRAP_FRAME_SIZE: usize = 272;
+pub const KERNEL_TRAP_STACK_SIZE: usize = 4096;
+
+#[repr(align(16))]
+struct KernelTrapStack([u8; KERNEL_TRAP_STACK_SIZE]);
+
+static KERNEL_TRAP_STACK: KernelTrapStack = KernelTrapStack([0; KERNEL_TRAP_STACK_SIZE]);
+
+pub fn kernel_trap_stack_bottom() -> usize {
+    core::ptr::addr_of!(KERNEL_TRAP_STACK.0) as usize
+}
+
+pub fn kernel_trap_stack_top() -> usize {
+    kernel_trap_stack_bottom() + KERNEL_TRAP_STACK_SIZE
+}
 
 #[repr(C)]
 #[derive(Default, Debug, Clone, Copy)]
@@ -106,6 +120,12 @@ pub fn simulate_trap_entry_return_scratch(scratch: TrapEntryScratch) -> TrapEntr
         restored_user_sp: scratch.user_sp,
         next_sscratch: scratch.kernel_frame_sp,
     }
+}
+
+pub fn prepare_enter_user_scratch(
+    frame: &TrapFrame,
+) -> Result<TrapEntryScratch, KernelTrapStackError> {
+    prepare_trap_entry_scratch(frame.sp(), kernel_trap_stack_top(), kernel_trap_stack_bottom())
 }
 
 impl TrapFrame {
@@ -493,8 +513,15 @@ pub unsafe fn enter_user(frame: &TrapFrame) -> ! {
     let a1 = frame.regs[11];
     let a2 = frame.regs[12];
     let a7 = frame.regs[17];
+    let scratch = match prepare_enter_user_scratch(frame) {
+        Ok(scratch) => scratch.sscratch,
+        Err(_) => loop {
+            core::arch::asm!("wfi")
+        },
+    };
 
     core::arch::asm!(
+        "csrw sscratch, {scratch}",
         "csrw sepc, {sepc}",
         "csrw sstatus, {sstatus}",
         "mv sp, {usp}",
@@ -510,6 +537,7 @@ pub unsafe fn enter_user(frame: &TrapFrame) -> ! {
         ua1 = in(reg) a1,
         ua2 = in(reg) a2,
         ua7 = in(reg) a7,
+        scratch = in(reg) scratch,
         options(noreturn)
     );
 }
