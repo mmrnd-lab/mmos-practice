@@ -2649,7 +2649,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch154_relative_relocation_apply_value",
         label="Ch154 Relative Relocation Apply Value",
-        commit_candidates=["HEAD"],
+        commit_candidates=["bcfc871"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

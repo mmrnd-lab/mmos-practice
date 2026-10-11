@@ -679,3 +679,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `make shared-object-relocations` 타깃이 실제 `libmmos_user_crt.so`의 relocation scan 결과를 고정
     - QEMU runtime marker에서 `[chapter] ch153 shared object relocation candidates`, `[user-link] RELA records are scanned into relocation apply candidates` 확인
 
+138. `bcfc871` `feat(ch154): calculate relative relocation values`
+    - `R_RISCV_RELATIVE` relocation type을 첫 지원 대상으로 고정
+    - `calculate_relative_relocation()`이 symbol이 없는 relative relocation에 대해 `load_base + addend` 값을 계산
+    - symbol index가 필요한 RELA 후보와 지원하지 않는 relocation type은 명시적 오류로 분리
+    - `calculate_relative_relocation_plan()`이 relocation 후보 목록을 apply value 목록으로 변환
+    - QEMU runtime marker에서 `[chapter] ch154 relative relocation apply value`, `[user-link] R_RISCV_RELATIVE computes relocation value as base plus addend` 확인
+
