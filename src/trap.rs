@@ -385,6 +385,91 @@ pub fn handle_current_execv_frame_from_runtime<
     handle_syscall_result(frame, result)
 }
 
+pub struct ExecvTrapRuntimeResources<
+    'a,
+    'v,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+> {
+    pub runtime: &'a mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    pub user_bytes: &'a [u8],
+    pub user_base: usize,
+    pub vfs: &'a crate::vfs::Vfs<'v>,
+    pub scratch: &'a mut [u8],
+    pub stack_bytes: &'a mut [u8],
+    pub stack_top_va: usize,
+    pub new_vm: crate::vm::VmSpace<MAX_AREAS>,
+}
+
+impl<
+        'a,
+        'v,
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_AREAS: usize,
+        const MAX_TASKS: usize,
+    > ExecvTrapRuntimeResources<'a, 'v, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>
+{
+    pub fn into_current_context(
+        self,
+    ) -> syscall::CurrentExecvRuntimeContext<
+        'a,
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    > {
+        syscall::CurrentExecvRuntimeContext {
+            runtime: self.runtime,
+            user_bytes: self.user_bytes,
+            user_base: self.user_base,
+            vfs: self.vfs,
+            scratch: self.scratch,
+            stack_bytes: self.stack_bytes,
+            stack_top_va: self.stack_top_va,
+            new_vm: self.new_vm,
+        }
+    }
+}
+
+pub fn handle_trap_with_execv_resources<
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &mut TrapFrame,
+    scause: usize,
+    stval: usize,
+    resources: ExecvTrapRuntimeResources<
+        '_,
+        '_,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+) -> TrapOutcome {
+    handle_trap_with_current_execv_runtime::<
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(frame, scause, stval, resources.into_current_context())
+}
+
 pub fn handle_trap_with_current_execv_runtime<
     const MAX_ARGS: usize,
     const ARG_BYTES: usize,
