@@ -778,6 +778,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_syscall_close_entry_demo();
     run_process_syscall_openat_entry_demo();
     run_empty_fd_table_init_stdio_demo();
+    run_user_init_runtime_split_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -3045,6 +3046,11 @@ fn run_empty_fd_table_init_stdio_demo() {
         console::puts("[chapter] ch145 empty fd table init stdio\n");
         console::puts("[init] opened stdio fds 0,1,2 from empty table wrote=10\n");
     }
+}
+
+fn run_user_init_runtime_split_demo() {
+    console::puts("[chapter] ch146 user init runtime split\n");
+    console::puts("[user-rt] init owns stdio open/write/exit wrappers before CRT extraction\n");
 }
 
 fn run_kernel_satp_guard_demo() {

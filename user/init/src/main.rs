@@ -4,60 +4,17 @@
 
 #![no_main]
 
-const SYS_OPENAT: usize = 56;
-const SYS_WRITE: usize = 64;
-const SYS_EXIT: usize = 93;
-const AT_FDCWD: usize = (-100isize) as usize;
-const O_RDONLY: usize = 0;
-const O_WRONLY: usize = 1;
-
-#[inline(always)]
-fn syscall1(nr: usize, a0: usize) -> usize {
-    let ret;
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0 => ret,
-            in("a7") nr,
-        );
-    }
-    ret
-}
-
-#[inline(always)]
-fn syscall3(nr: usize, a0: usize, a1: usize, a2: usize) -> usize {
-    let ret;
-    unsafe {
-        core::arch::asm!(
-            "ecall",
-            inlateout("a0") a0 => ret,
-            in("a1") a1,
-            in("a2") a2,
-            in("a7") nr,
-        );
-    }
-    ret
-}
-
-fn exit(code: i32) -> ! {
-    let _ = syscall1(SYS_EXIT, code as usize);
-    loop {
-        unsafe { core::arch::asm!("wfi") }
-    }
-}
+mod rt;
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
-    let console = b"/dev/console\0";
-    let _ = syscall3(SYS_OPENAT, AT_FDCWD, console.as_ptr() as usize, O_RDONLY);
-    let _ = syscall3(SYS_OPENAT, AT_FDCWD, console.as_ptr() as usize, O_WRONLY);
-    let _ = syscall3(SYS_OPENAT, AT_FDCWD, console.as_ptr() as usize, O_WRONLY);
+    rt::init_stdio_console();
     let msg = b"[user-init] hello from user app\n";
-    let _ = syscall3(SYS_WRITE, 1, msg.as_ptr() as usize, msg.len());
-    exit(0)
+    let _ = rt::write(1, msg);
+    rt::exit(0)
 }
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
-    exit(1)
+    rt::exit(1)
 }
