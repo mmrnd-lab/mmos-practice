@@ -6,8 +6,8 @@ use core::cell::UnsafeCell;
 use crate::{
     irq_guard::IrqGuard,
     process_model::{
-        reap_exited_process, ProcError, ProcessReapRuntime, ProcessTable, TaskControlBlock,
-        TaskTable,
+        reap_exited_process, wait_reap_zombie_child, ProcError, ProcessReapRuntime,
+        ProcessTable, ProcessWaitReapRuntime, TaskControlBlock, TaskTable,
     },
     scheduler::{SchedError, ScheduleDecision, Scheduler, TaskState},
     trap::{
@@ -109,7 +109,11 @@ impl<
         parent: Option<usize>,
         vm: VmSpace<MAX_AREAS>,
     ) -> Result<usize, ProcError> {
-        self.processes.create_process(parent, vm)
+        let pid = self.processes.create_process(parent, vm)?;
+        if let Some(parent_pid) = parent {
+            self.processes.get_mut(parent_pid)?.add_child(pid)?;
+        }
+        Ok(pid)
     }
 
     pub fn add_runnable_task(
@@ -151,6 +155,18 @@ impl<
             &mut self.tasks,
             &mut self.scheduler,
             pid,
+        )
+    }
+
+    pub fn wait_reap_child(
+        &mut self,
+        parent_pid: usize,
+    ) -> Result<ProcessWaitReapRuntime, ProcError> {
+        wait_reap_zombie_child(
+            &mut self.processes,
+            &mut self.tasks,
+            &mut self.scheduler,
+            parent_pid,
         )
     }
 

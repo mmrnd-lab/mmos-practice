@@ -681,6 +681,7 @@ pub extern "C" fn rust_main() -> ! {
     run_trap_exit_process_dispatch_demo();
     run_process_trap_runtime_demo();
     run_process_trap_runtime_reap_demo();
+    run_process_trap_runtime_wait_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -925,6 +926,52 @@ fn run_process_trap_runtime_reap_demo() {
         {
             console::puts("[chapter] ch94 process trap runtime reap\n");
             console::puts("[proc] runtime reap pid=1 code=0 tasks=2 sched=2 next=3\n");
+        }
+    }
+}
+
+fn run_process_trap_runtime_wait_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(child_pid) = runtime.create_process(Some(parent_pid), vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(other_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    for (tid, pid) in [(1usize, child_pid), (2, child_pid), (3, other_pid)] {
+        let mut frame = trap::TrapFrame::default();
+        frame.sepc = 0x4000_0000 + tid * 0x1000;
+        frame.set_a0(tid);
+        frame.set_sp(0x4010_0000 + tid * 0x1000);
+        if runtime.add_runnable_task(tid, pid, frame).is_err() {
+            return;
+        }
+    }
+    runtime.start_first_task();
+
+    let mut live = trap::TrapFrame::default();
+    if runtime.dispatch_exit(&mut live, 1, 7)
+        != trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+            prev_tid: 1,
+            next_tid: 3,
+        })
+    {
+        return;
+    }
+
+    if let Ok(report) = runtime.wait_reap_child(parent_pid) {
+        if report.child_pid == child_pid
+            && report.exit_code == 7
+            && report.tasks_reaped == 2
+            && report.scheduler_tasks_reaped == 2
+            && runtime.current_tid() == Some(3)
+        {
+            console::puts("[chapter] ch95 process wait child reap\n");
+            console::puts("[proc] wait parent=1 child=2 code=7 tasks=2 sched=2 next=3\n");
         }
     }
 }

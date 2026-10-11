@@ -220,6 +220,15 @@ pub struct ProcessReapRuntime {
     pub scheduler_tasks_reaped: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessWaitReapRuntime {
+    pub parent_pid: usize,
+    pub child_pid: usize,
+    pub exit_code: i32,
+    pub tasks_reaped: usize,
+    pub scheduler_tasks_reaped: usize,
+}
+
 impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
     pub const fn new() -> Self {
         Self {
@@ -430,4 +439,38 @@ pub fn reap_exited_process<
         tasks_reaped,
         scheduler_tasks_reaped,
     })
+}
+
+pub fn wait_reap_zombie_child<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCHED_TASKS: usize,
+>(
+    processes: &mut ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    tasks: &mut TaskTable<MAX_TASKS>,
+    scheduler: &mut Scheduler<SCHED_TASKS>,
+    parent_pid: usize,
+) -> Result<ProcessWaitReapRuntime, ProcError> {
+    let children = processes.get(parent_pid)?.children;
+    let mut child_idx = 0usize;
+    while child_idx < MAX_CHILDREN {
+        if let Some(child_pid) = children[child_idx] {
+            if processes.get(child_pid)?.state == ProcState::Zombie {
+                let reap = reap_exited_process(processes, tasks, scheduler, child_pid)?;
+                let parent = processes.get_mut(parent_pid)?;
+                parent.children[child_idx] = None;
+                return Ok(ProcessWaitReapRuntime {
+                    parent_pid,
+                    child_pid,
+                    exit_code: reap.exit_code,
+                    tasks_reaped: reap.tasks_reaped,
+                    scheduler_tasks_reaped: reap.scheduler_tasks_reaped,
+                });
+            }
+        }
+        child_idx += 1;
+    }
+    Err(ProcError::NotZombie)
 }

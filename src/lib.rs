@@ -77,7 +77,7 @@ mod tests {
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{
         exit_process_from_task, exit_process_from_task_with_scheduler, ProcError, ProcState,
-        reap_exited_process, ProcessTable, TaskControlBlock, TaskTable,
+        reap_exited_process, wait_reap_zombie_child, ProcessTable, TaskControlBlock, TaskTable,
     };
     use super::process_io::{
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
@@ -2011,6 +2011,95 @@ mod tests {
         assert_eq!(report.tasks_reaped, 2);
         assert_eq!(report.scheduler_tasks_reaped, 2);
         assert_eq!(runtime.process_state(owner_pid), Ok(ProcState::Reaped));
+        assert_eq!(runtime.task_state(1), None);
+        assert_eq!(runtime.task_state(2), None);
+        assert_eq!(runtime.task_state(3), Some(TaskState::Running));
+        assert_eq!(runtime.current_tid(), Some(3));
+    }
+
+    #[test]
+    fn process_wait_reaps_first_zombie_child() {
+        let mut processes = ProcessTable::<4, 2, 2>::new();
+        let mut tasks = TaskTable::<5>::new();
+        let mut scheduler = Scheduler::<5>::new();
+        let parent_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let child_pid = processes
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        processes
+            .get_mut(parent_pid)
+            .unwrap()
+            .add_child(child_pid)
+            .unwrap();
+
+        for (tid, pid) in [(1, child_pid), (2, child_pid), (3, other_pid)] {
+            let frame = TrapFrame::default();
+            tasks
+                .add_task(TaskControlBlock::new(tid, pid, frame))
+                .unwrap();
+            scheduler.add_runnable(tid, frame).unwrap();
+        }
+        let _ = scheduler.on_tick();
+        let _ = exit_process_from_task_with_scheduler(
+            &mut processes,
+            &mut tasks,
+            &mut scheduler,
+            1,
+            8,
+        )
+        .unwrap();
+
+        let report =
+            wait_reap_zombie_child(&mut processes, &mut tasks, &mut scheduler, parent_pid)
+                .unwrap();
+
+        assert_eq!(report.parent_pid, parent_pid);
+        assert_eq!(report.child_pid, child_pid);
+        assert_eq!(report.exit_code, 8);
+        assert_eq!(report.tasks_reaped, 2);
+        assert_eq!(report.scheduler_tasks_reaped, 2);
+        assert_eq!(processes.get(child_pid).unwrap().state, ProcState::Reaped);
+        assert_eq!(processes.get(parent_pid).unwrap().children[0], None);
+        assert!(tasks.get(1).is_err());
+        assert!(tasks.get(2).is_err());
+        assert_eq!(scheduler.task_state(3), Some(TaskState::Running));
+    }
+
+    #[test]
+    fn process_trap_runtime_wait_reaps_child() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let child_pid = runtime
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, child_pid), (2, child_pid), (3, other_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            runtime.add_runnable_task(tid, pid, frame).unwrap();
+        }
+        runtime.start_first_task();
+
+        let mut live = TrapFrame::default();
+        let _ = runtime.dispatch_exit(&mut live, 1, 12);
+        let report = runtime.wait_reap_child(parent_pid).unwrap();
+
+        assert_eq!(report.parent_pid, parent_pid);
+        assert_eq!(report.child_pid, child_pid);
+        assert_eq!(report.exit_code, 12);
+        assert_eq!(report.tasks_reaped, 2);
+        assert_eq!(report.scheduler_tasks_reaped, 2);
+        assert_eq!(runtime.process_state(child_pid), Ok(ProcState::Reaped));
         assert_eq!(runtime.task_state(1), None);
         assert_eq!(runtime.task_state(2), None);
         assert_eq!(runtime.task_state(3), Some(TaskState::Running));
