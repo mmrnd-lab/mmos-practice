@@ -2724,7 +2724,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch157_shared_object_mapping_plan",
         label="Ch157 Shared Object Mapping Plan",
-        commit_candidates=["HEAD"],
+        commit_candidates=["20a1102"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

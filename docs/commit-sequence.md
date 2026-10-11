@@ -698,3 +698,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 relative relocation이 mutable shared object image에 반영되는 경우와 빈 relocation table이 정상 처리되는 경우를 검증
     - `make shared-object-materialize` 타깃이 현재 tiny shared object artifact의 relocation materialize 결과를 고정
     - QEMU runtime marker에서 `[chapter] ch156 shared object relocation materialize`, `[user-link] shared object materialization connects RELA scan, relative apply, and writeback` 확인
+
+141. `20a1102` `feat(ch157): plan shared object user mappings`
+    - `SharedObjectMappingPlan`과 `SharedObjectSegmentMapping`을 추가해 ET_DYN entry/segment 주소를 preferred base 기준 user vaddr 후보로 변환
+    - `plan_shared_object_mappings()`가 `preferred_base + ELF vaddr` 형태로 entry와 load segment mapping 주소를 계산
+    - `make shared-object-mapping-plan` 타깃이 실제 CRT shared object가 ET_DYN이고 LOAD segment를 가진다는 점을 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch157 shared object mapping plan`, `[user-link] shared object segments become base-offset user mapping candidates` 확인
