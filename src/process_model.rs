@@ -193,6 +193,19 @@ impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
         Err(ProcError::TableFull)
     }
 
+    pub fn get(&self, tid: usize) -> Result<&TaskControlBlock, ProcError> {
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(tcb) = self.slots[idx].as_ref() {
+                if tcb.tid == tid {
+                    return Ok(tcb);
+                }
+            }
+            idx += 1;
+        }
+        Err(ProcError::MissingTask)
+    }
+
     pub fn get_mut(&mut self, tid: usize) -> Result<&mut TaskControlBlock, ProcError> {
         let mut idx = 0usize;
         while idx < MAX_TASKS {

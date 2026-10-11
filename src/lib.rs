@@ -30,6 +30,7 @@ pub mod sbi;
 pub mod scheduler;
 pub mod sv39;
 pub mod syscall;
+pub mod task_vm;
 pub mod trap;
 pub mod trap_runtime;
 pub mod user_copy;
@@ -84,6 +85,7 @@ mod tests {
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
+    use super::task_vm::address_space_switch_for_decision;
     use super::syscall::{
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
@@ -2028,6 +2030,65 @@ mod tests {
         assert_eq!(live.sp(), second_launch.sp);
         assert_eq!(task_table.get_mut(second.tid).unwrap().owner_pid, second.pid);
         assert_eq!(proc_table.get_mut(first.pid).unwrap().children[0], Some(second.pid));
+    }
+
+    #[test]
+    fn switched_task_exposes_next_address_space_token() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut first_stack = [0u8; 512];
+        let mut second_stack = [0u8; 512];
+        let first_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345,
+            &mut first_stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let second_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12346,
+            &mut second_stack,
+            &["/sbin/worker"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let first = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            first_launch,
+        )
+        .unwrap();
+        let second = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            Some(first.pid),
+            VmSpace::<4>::new(),
+            second_launch,
+        )
+        .unwrap();
+
+        scheduler.on_tick();
+        scheduler.set_state(first.tid, TaskState::Blocked);
+        let decision =
+            schedule_after_blocked_syscall(&first_launch.trapframe, &mut scheduler).unwrap();
+        let switch = address_space_switch_for_decision(&proc_table, &task_table, decision)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(switch.prev_tid, first.tid);
+        assert_eq!(switch.next_tid, second.tid);
+        assert_eq!(switch.next_satp, second_launch.satp);
+        assert_ne!(first_launch.satp, second_launch.satp);
     }
 
     #[test]

@@ -49,6 +49,8 @@ mod scheduler;
 #[allow(dead_code)]
 mod sv39;
 mod syscall;
+#[allow(dead_code)]
+mod task_vm;
 mod trap;
 #[allow(dead_code)]
 mod trap_runtime;
@@ -810,6 +812,19 @@ fn run_user_launch_demo() {
                                 && live.sp() == second_plan.sp
                             {
                                 console::puts("[chapter] ch62 second user task switch\n");
+                                if let Ok(Some(space)) =
+                                    task_vm::address_space_switch_for_decision(
+                                        &proc_table,
+                                        &task_table,
+                                        decision,
+                                    )
+                                {
+                                    if space.next_tid == second.tid
+                                        && space.next_satp == second_plan.satp
+                                    {
+                                        console::puts("[chapter] ch63 task address space token\n");
+                                    }
+                                }
                             }
                         }
                     }
