@@ -1742,6 +1742,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=fork child task context is replaced by the minimal execv adapter and returns success to the caller",
     ),
     ChapterSet(
+        key="ch104_execv_user_arg_copyin",
+        label="Ch104 Execv User Arg Copyin",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch104 execv user arg copyin",
+                    "[syscall] execv path=/sbin/init argc=2 argv0=/sbin/init stack_argc=2",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execv path and argv are copied from checked user memory and materialized into a fresh user stack layout",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

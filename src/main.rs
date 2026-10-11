@@ -34,6 +34,8 @@ mod elf_loader;
 #[allow(dead_code)]
 mod ext4;
 #[allow(dead_code)]
+mod exec_args;
+#[allow(dead_code)]
 mod page_fault;
 #[allow(dead_code)]
 mod pmm;
@@ -688,6 +690,7 @@ pub extern "C" fn rust_main() -> ! {
     run_minimal_fork_adapter_demo();
     run_clone_syscall_surface_demo();
     run_minimal_execv_adapter_demo();
+    run_execv_user_arg_copyin_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1282,6 +1285,65 @@ fn run_minimal_execv_adapter_demo() {
         console::puts("[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0
 ");
     }
+}
+
+
+fn run_execv_user_arg_copyin_demo() {
+    const BASE: usize = 0x5000_0000;
+    const PATH: usize = BASE;
+    const ARG0: usize = BASE + 0x40;
+    const ARG1: usize = BASE + 0x60;
+    const ARGV: usize = BASE + 0x100;
+    let mut user_mem = [0u8; 512];
+    put_cstr(&mut user_mem, PATH - BASE, b"/sbin/init");
+    put_cstr(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+    put_cstr(&mut user_mem, ARG1 - BASE, b"--verbose");
+    put_usize(&mut user_mem, ARGV - BASE, ARG0);
+    put_usize(
+        &mut user_mem,
+        ARGV - BASE + core::mem::size_of::<usize>(),
+        ARG1,
+    );
+    put_usize(
+        &mut user_mem,
+        ARGV - BASE + 2 * core::mem::size_of::<usize>(),
+        0,
+    );
+
+    let mut vm = vm::VmSpace::<1>::new();
+    if vm.map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R).is_err() {
+        return;
+    }
+    let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &vm);
+    let mut block = exec_args::ExecvArgBlock::<4, 64>::new();
+    let Ok(report) = exec_args::copyin_execv_args(&user, PATH, ARGV, &mut block) else {
+        return;
+    };
+    let mut stack = [0u8; 512];
+    let Ok(layout) = exec_args::materialize_execv_stack(&block, &mut stack, 0x4010_0000) else {
+        return;
+    };
+
+    if report.path_len == 10
+        && report.argc == 2
+        && report.first_arg_len == 10
+        && layout.argc == 2
+        && layout.argv_ptr != 0
+        && layout.envp_ptr != 0
+    {
+        console::puts("[chapter] ch104 execv user arg copyin\n");
+        console::puts("[syscall] execv path=/sbin/init argc=2 argv0=/sbin/init stack_argc=2\n");
+    }
+}
+
+fn put_cstr(buf: &mut [u8], offset: usize, bytes: &[u8]) {
+    buf[offset..offset + bytes.len()].copy_from_slice(bytes);
+    buf[offset + bytes.len()] = 0;
+}
+
+fn put_usize(buf: &mut [u8], offset: usize, value: usize) {
+    let word = core::mem::size_of::<usize>();
+    buf[offset..offset + word].copy_from_slice(&value.to_ne_bytes());
 }
 
 fn run_kernel_satp_guard_demo() {

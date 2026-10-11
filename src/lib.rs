@@ -16,6 +16,7 @@ pub mod device;
 pub mod devfs;
 pub mod elf_loader;
 pub mod ext4;
+pub mod exec_args;
 pub mod fd_table;
 pub mod irq_guard;
 pub mod idle;
@@ -67,6 +68,9 @@ mod tests {
         load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte, ElfError,
     };
     use super::ext4::{Ext4Fs, FsError};
+    use super::exec_args::{
+        copyin_execv_args, materialize_execv_stack, ExecvArgBlock, ExecvArgError,
+    };
     use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
     use super::idle::{idle_action_for_schedule_decision, IdleAction};
     use super::kheap::init_kheap;
@@ -751,6 +755,75 @@ mod tests {
         ro_vm.map_anon(0x3000, 0x3008, PTE_R).unwrap();
         let mut ro_user = CheckedUserSliceMut::new(&mut bytes, 0x3000, &ro_vm);
         assert_eq!(ro_user.copyout_bytes(0x3000, b"x"), Err(UserCopyError::Permission));
+    }
+
+
+    #[test]
+    fn execv_args_copyin_reads_path_argv_and_materializes_stack() {
+        const BASE: usize = 0x5000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARG1: usize = BASE + 0x60;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG1 - BASE, b"--verbose");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), ARG1);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + 2 * core::mem::size_of::<usize>(),
+            0,
+        );
+
+        let mut vm = VmSpace::<1>::new();
+        vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
+        let mut block = ExecvArgBlock::<4, 64>::new();
+        let report = copyin_execv_args(&user, PATH, ARGV, &mut block).unwrap();
+
+        assert_eq!(report.path_len, 10);
+        assert_eq!(report.argc, 2);
+        assert_eq!(report.first_arg_len, 10);
+        assert_eq!(block.path_str().unwrap(), "/sbin/init");
+        assert_eq!(block.arg_str(0).unwrap(), "/sbin/init");
+        assert_eq!(block.arg_str(1).unwrap(), "--verbose");
+
+        let stack_top = 0x4010_0000usize;
+        let mut stack = [0u8; 512];
+        let layout = materialize_execv_stack(&block, &mut stack, stack_top).unwrap();
+        let base = stack_top - stack.len();
+        let sp_off = layout.sp - base;
+        assert_eq!(read_usize_at(&stack, sp_off), 2);
+        let argv0 = read_usize_at(&stack, sp_off + core::mem::size_of::<usize>());
+        let argv1 = read_usize_at(&stack, sp_off + 2 * core::mem::size_of::<usize>());
+        let argv_null = read_usize_at(&stack, sp_off + 3 * core::mem::size_of::<usize>());
+        let envp_null = read_usize_at(&stack, sp_off + 4 * core::mem::size_of::<usize>());
+        assert_eq!(argv_null, 0);
+        assert_eq!(envp_null, 0);
+        assert_eq!(read_cstr_at(&stack, base, argv0), b"/sbin/init");
+        assert_eq!(read_cstr_at(&stack, base, argv1), b"--verbose");
+    }
+
+    #[test]
+    fn execv_args_copyin_rejects_too_many_args() {
+        const BASE: usize = 0x6000_0000;
+        let mut user_mem = [0u8; 280];
+        write_cstr_at(&mut user_mem, 0, b"/sbin/init");
+        write_cstr_at(&mut user_mem, 0x40, b"/sbin/init");
+        write_cstr_at(&mut user_mem, 0x60, b"--verbose");
+        write_usize_at(&mut user_mem, 0x100, BASE + 0x40);
+        write_usize_at(&mut user_mem, 0x108, BASE + 0x60);
+        write_usize_at(&mut user_mem, 0x110, BASE + 0x80);
+        let mut vm = VmSpace::<1>::new();
+        vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        let user = CheckedUserSlice::new(&user_mem, BASE, &vm);
+        let mut block = ExecvArgBlock::<2, 64>::new();
+        assert_eq!(
+            copyin_execv_args(&user, BASE, BASE + 0x100, &mut block),
+            Err(ExecvArgError::TooManyArgs)
+        );
     }
 
     #[test]
@@ -3809,6 +3882,17 @@ mod tests {
         let len = super::demo_user_init::build_demo_init_elf(&mut elf).unwrap();
         elf.truncate(len);
         elf
+    }
+
+    fn write_cstr_at(buf: &mut [u8], offset: usize, bytes: &[u8]) {
+        buf[offset..offset + bytes.len()].copy_from_slice(bytes);
+        buf[offset + bytes.len()] = 0;
+    }
+
+    fn write_usize_at(buf: &mut [u8], offset: usize, value: usize) {
+        let bytes = value.to_ne_bytes();
+        let word = core::mem::size_of::<usize>();
+        buf[offset..offset + word].copy_from_slice(&bytes);
     }
 
     fn read_usize_at(buf: &[u8], offset: usize) -> usize {
