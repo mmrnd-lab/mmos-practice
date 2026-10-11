@@ -142,6 +142,10 @@
     - `TrapOutcome::Schedule`을 추가해 blocking read가 user mode로 바로 복귀하지 않아야 함을 표현
     - blocked syscall 결과는 trap frame을 완료 처리하지 않고 scheduler handoff로 이어지도록 검증
 
+44. `bfed71c` `feat(ch51): schedule next runnable task after blocked syscall`
+    - blocked syscall의 trap frame을 현재 task slot에 저장한 뒤 다음 runnable task를 선택하는 scheduler handoff를 추가
+    - blocked task는 `Blocked` 상태로 남기고 다음 task가 `Running` 상태가 되는 경로를 검증
+
 
 ## Reproduce Example
 

@@ -838,6 +838,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=blocked read syscall asks trap handling to schedule another task",
     ),
     ChapterSet(
+        key="ch51_schedule_next_runnable_task",
+        label="Ch51 Schedule Next Runnable Task",
+        commit_candidates=["bfed71c"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch51 schedule next runnable task",
+                    "[chapter] ch50 blocked syscall scheduler handoff",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=TrapOutcome::Schedule selects the next runnable task after a blocked syscall",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
