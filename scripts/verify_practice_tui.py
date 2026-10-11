@@ -87,7 +87,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch04_kernel",
         label="Ch04 Kernel Bringup",
-        commit_candidates=["99a3846"],
+        commit_candidates=["a6f0bfe"],
         steps=[
             Step("build", "make mmos.bin PROFILE=release"),
             Step("run", "make run-nographic PROFILE=release RUN_SECONDS=4"),
@@ -97,7 +97,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch05_test_core",
         label="Ch05 Test Core",
-        commit_candidates=["ac2e0af"],
+        commit_candidates=["94e4841"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run", "make run-nographic PROFILE=release RUN_SECONDS=4"),
@@ -106,7 +106,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch06_memory",
         label="Ch06 Memory",
-        commit_candidates=["51b11f5"],
+        commit_candidates=["88da5e1"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run", "make run-nographic PROFILE=release RUN_SECONDS=4"),
@@ -115,7 +115,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch07_uboot",
         label="Ch07 U-Boot Flow",
-        commit_candidates=["b8be3eb", "0c49470"],
+        commit_candidates=["44d87b9", "0c49470"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
@@ -124,7 +124,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch08_trap_scaffold",
         label="Ch08 Trap Scaffold",
-        commit_candidates=["7c22760", "4b2aaac", "a18fdd7"],
+        commit_candidates=["837ee9d", "4b2aaac", "a18fdd7"],
         steps=[
             Step(
                 "test+build",
@@ -139,7 +139,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch10_trap_syscall",
         label="Ch10 Trap+Syscall",
-        commit_candidates=["7cc3ddc", "7be437e", "9b432b6"],
+        commit_candidates=["3e762b3", "7be437e", "9b432b6"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
@@ -148,7 +148,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch11_sv39",
         label="Ch11 Sv39",
-        commit_candidates=["37beb82", "5198a8b", "35455eb"],
+        commit_candidates=["160aa64", "5198a8b", "35455eb"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
@@ -157,7 +157,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch12_user_init",
         label="Ch12 User Init",
-        commit_candidates=["7bc24ba", "7864d66", "aebd5a6"],
+        commit_candidates=["47bfc68", "7864d66", "aebd5a6"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
@@ -166,7 +166,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch14_device",
         label="Ch14 Device Layer",
-        commit_candidates=["16d56e0", "23e4dac", "f56d0b8"],
+        commit_candidates=["4ee7926", "23e4dac", "f56d0b8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
@@ -175,7 +175,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch14_fs",
         label="Ch14 FS Layer",
-        commit_candidates=["a0c4031", "09576d8", "2e62b95"],
+        commit_candidates=["898715e", "09576d8", "2e62b95"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
@@ -184,7 +184,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch16_elf",
         label="Ch16 ELF Loader",
-        commit_candidates=["943d8de", "c417d4a", "7c47a7a"],
+        commit_candidates=["8fd867a", "c417d4a", "7c47a7a"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step("run-u-boot", "make run-u-boot PROFILE=release RUN_SECONDS=4"),
