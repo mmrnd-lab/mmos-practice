@@ -11,13 +11,16 @@ pub mod elf_loader;
 pub mod ext4;
 pub mod irq_guard;
 pub mod kheap;
+pub mod page_fault;
 pub mod page_frame_allocator;
+pub mod pmm;
 pub mod syscall;
 pub mod sv39;
 pub mod trap;
 pub mod user_exec;
 pub mod user_init;
 pub mod user_vm;
+pub mod vm;
 pub mod vfs;
 
 pub fn align_up(value: usize, align: usize) -> usize {
@@ -37,7 +40,11 @@ mod tests {
     };
     use super::ext4::{Ext4Fs, FsError};
     use super::kheap::init_kheap;
+    use super::page_fault::{
+        handle_user_page_fault, PageFaultResult, SCAUSE_LOAD_PAGE_FAULT, SCAUSE_STORE_PAGE_FAULT,
+    };
     use super::page_frame_allocator::PageFrameAllocator;
+    use super::pmm::{PageFrameManager, PmmError};
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
@@ -48,6 +55,7 @@ mod tests {
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
+    use super::vm::{FaultAccess, VmError, VmSpace};
     use super::vfs::Vfs;
 
     #[test]
@@ -417,6 +425,75 @@ mod tests {
         assert_eq!(plan.mapped_regions, 2);
         assert!(is_leaf_user_mapping(root.entries[1]));
         assert!(is_leaf_user_mapping(root.entries[2]));
+    }
+
+    #[test]
+    fn pmm_can_reuse_freed_frame() {
+        let mut pmm = PageFrameManager::<8>::new(0x8020_0000, 0x8020_4000, 0x1000);
+        let a = pmm.alloc().unwrap();
+        let b = pmm.alloc().unwrap();
+        assert_eq!(a, 0x8020_0000);
+        assert_eq!(b, 0x8020_1000);
+        pmm.free(a).unwrap();
+        assert_eq!(pmm.alloc(), Some(a));
+    }
+
+    #[test]
+    fn pmm_rejects_out_of_range_free() {
+        let mut pmm = PageFrameManager::<2>::new(0x8020_0000, 0x8020_2000, 0x1000);
+        assert_eq!(pmm.free(0x9000_0000), Err(PmmError::OutOfRange));
+    }
+
+    #[test]
+    fn vm_space_resolves_fault_by_access_mode() {
+        let mut vm = VmSpace::<4>::new();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X).unwrap();
+        assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Read).is_some());
+        assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Execute).is_some());
+        assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Write).is_none());
+    }
+
+    #[test]
+    fn vm_space_rejects_invalid_range() {
+        let mut vm = VmSpace::<2>::new();
+        assert_eq!(vm.map_anon(0x1000, 0x1000, PTE_R), Err(VmError::InvalidRange));
+    }
+
+    #[test]
+    fn page_fault_handler_allocates_mapping_for_valid_area() {
+        let mut vm = VmSpace::<4>::new();
+        vm.map_anon(0x8050_0000, 0x8050_2000, PTE_R | PTE_W).unwrap();
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, 0x1000);
+
+        let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x8050_1234, &vm, &mut pmm);
+        match pf {
+            PageFaultResult::Mapped(m) => {
+                assert_eq!(m.va_page, 0x8050_1000);
+                assert_eq!(m.frame_pa, 0x9000_0000);
+                assert_ne!(m.pte_flags & PTE_W, 0);
+            }
+            _ => panic!("expected mapped fault"),
+        }
+    }
+
+    #[test]
+    fn page_fault_handler_rejects_illegal_access() {
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X).unwrap();
+        let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
+
+        let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
+        assert_eq!(pf, PageFaultResult::InvalidAccess);
+    }
+
+    #[test]
+    fn page_fault_handler_load_fault_maps_readable_area() {
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x8060_0000, 0x8060_1000, PTE_R).unwrap();
+        let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
+
+        let pf = handle_user_page_fault(SCAUSE_LOAD_PAGE_FAULT, 0x8060_00f0, &vm, &mut pmm);
+        assert!(matches!(pf, PageFaultResult::Mapped(_)));
     }
 
     fn build_test_ext4_image() -> Vec<u8> {

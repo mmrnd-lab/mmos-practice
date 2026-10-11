@@ -48,7 +48,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch18 exec prep\\n");
+    uart::puts("[chapter] ch19 user vm fault\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
