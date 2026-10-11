@@ -234,6 +234,11 @@
     - user trap entry가 기대하는 scratch 값이 CPU 안에 준비되는 조건을 테스트와 런타임 probe로 검증
 
 
+64. `93fdc81` `feat(ch72): add satp hardware commit gate`
+    - `SatpCommitPlan`을 실제 CSR write 대상으로 넘기기 전 Sv39 mode와 변경 여부를 검증하는 gate를 추가
+    - hardware commit helper가 `csrw satp`와 `sfence.vma`를 한 경계로 묶도록 준비하고 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash

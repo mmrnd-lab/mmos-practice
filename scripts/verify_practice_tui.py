@@ -1222,6 +1222,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=enter_user prepares sscratch with the kernel trap frame stack before sret",
     ),
     ChapterSet(
+        key="ch72_satp_hardware_commit_gate",
+        label="Ch72 SATP Hardware Commit Gate",
+        commit_candidates=["93fdc81"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch72 satp hardware commit gate",
+                    "[chapter] ch71 enter user sscratch prepare",
+                    "[chapter] ch70 trap entry asm stack switch",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=satp commit plan is accepted by the hardware CSR write gate",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
