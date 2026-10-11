@@ -74,6 +74,11 @@ class AppState:
     current_action: str = "idle"
     current_cmd: str = ""
     log_lines: Deque[str] = field(default_factory=lambda: deque(maxlen=800))
+    log_follow: bool = True
+    log_anchor: int = 0
+    log_search: str = ""
+    search_hits: List[int] = field(default_factory=list)
+    search_pos: int = -1
     results: List[StepResult] = field(default_factory=list)
     status_line: str = "Ready"
 
@@ -233,6 +238,109 @@ def fit_line(text: str, width: int) -> str:
     return text[: width - 3] + "..."
 
 
+def append_log(state: AppState, line: str) -> None:
+    state.log_lines.append(line)
+    if state.log_search:
+        idx = len(state.log_lines) - 1
+        if state.log_search.lower() in line.lower():
+            state.search_hits.append(idx)
+            if state.search_pos < 0:
+                state.search_pos = 0
+    if state.log_follow:
+        state.log_anchor = max(0, len(state.log_lines) - 1)
+
+
+def rebuild_search_hits(state: AppState) -> None:
+    if not state.log_search:
+        state.search_hits = []
+        state.search_pos = -1
+        return
+    needle = state.log_search.lower()
+    lines = list(state.log_lines)
+    state.search_hits = [i for i, ln in enumerate(lines) if needle in ln.lower()]
+    state.search_pos = 0 if state.search_hits else -1
+
+
+def jump_search(state: AppState, direction: int, visible: int) -> None:
+    if not state.search_hits:
+        state.status_line = "No search match"
+        return
+
+    if state.search_pos < 0:
+        state.search_pos = 0 if direction >= 0 else len(state.search_hits) - 1
+    else:
+        n = len(state.search_hits)
+        state.search_pos = (state.search_pos + direction) % n
+
+    hit = state.search_hits[state.search_pos]
+    total = len(state.log_lines)
+    max_start = max(0, total - visible)
+    state.log_follow = False
+    state.log_anchor = max(0, min(max_start, hit - max(0, visible // 2)))
+    state.status_line = f"Search {state.search_pos + 1}/{len(state.search_hits)}: {state.log_search}"
+
+
+def prompt_input(stdscr: curses.window, prompt: str, initial: str = "") -> Optional[str]:
+    h, w = stdscr.getmaxyx()
+    y = max(0, h - 1)
+    x = 0
+    max_len = max(1, w - len(prompt) - 2)
+
+    old_nodelay = stdscr.nodelay(False)
+    try:
+        curses.curs_set(1)
+    except curses.error:
+        pass
+
+    curses.echo()
+    try:
+        stdscr.move(y, x)
+        stdscr.clrtoeol()
+        stdscr.addnstr(y, x, prompt, w - 1)
+        if initial:
+            stdscr.addnstr(y, len(prompt), initial[:max_len], max_len)
+            stdscr.move(y, min(w - 1, len(prompt) + len(initial[:max_len])))
+        stdscr.refresh()
+        raw = stdscr.getstr(y, len(prompt), max_len)
+        return raw.decode(errors="ignore")
+    except KeyboardInterrupt:
+        return None
+    finally:
+        curses.noecho()
+        try:
+            curses.curs_set(0)
+        except curses.error:
+            pass
+        stdscr.nodelay(old_nodelay)
+
+
+def adjust_log_scroll(state: AppState, delta: int, visible: int) -> None:
+    total = len(state.log_lines)
+    if total <= 0:
+        state.log_follow = True
+        state.log_anchor = 0
+        return
+
+    max_start = max(0, total - visible)
+    if state.log_follow:
+        state.log_anchor = max_start
+        state.log_follow = False
+
+    state.log_anchor = max(0, min(max_start, state.log_anchor + delta))
+    if state.log_anchor >= max_start:
+        state.log_follow = True
+
+
+def scroll_log_top(state: AppState) -> None:
+    state.log_follow = False
+    state.log_anchor = 0
+
+
+def scroll_log_bottom(state: AppState) -> None:
+    state.log_follow = True
+    state.log_anchor = max(0, len(state.log_lines) - 1)
+
+
 def run_streaming(
     host: str,
     shell_cmd: str,
@@ -244,7 +352,7 @@ def run_streaming(
     # Multiline ssh/bash payloads must be flattened; embedded newlines break box rendering.
     one_line_cmd = sanitize_log_line(raw_cmd.replace("\n", " | "))
     state.current_cmd = one_line_cmd
-    state.log_lines.append(f"$ {one_line_cmd}")
+    append_log(state, f"$ {one_line_cmd}")
     draw_ui(stdscr, state)
 
     proc = subprocess.Popen(
@@ -263,13 +371,25 @@ def run_streaming(
             state.stop_requested = True
             if proc.poll() is None:
                 proc.terminate()
-                state.log_lines.append("[stop requested] terminating current command...")
+                append_log(state, "[stop requested] terminating current command...")
+        elif ch in (curses.KEY_PPAGE,):
+            adjust_log_scroll(state, -8, max(1, stdscr.getmaxyx()[0] - 8))
+        elif ch in (curses.KEY_NPAGE,):
+            adjust_log_scroll(state, 8, max(1, stdscr.getmaxyx()[0] - 8))
+        elif ch in (curses.KEY_HOME, ord("g")):
+            scroll_log_top(state)
+        elif ch in (curses.KEY_END, ord("G")):
+            scroll_log_bottom(state)
+        elif ch == ord("n"):
+            jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
+        elif ch == ord("N"):
+            jump_search(state, -1, max(1, stdscr.getmaxyx()[0] - 8))
 
         line = proc.stdout.readline() if proc.stdout else ""
         if line:
             line = sanitize_log_line(line.rstrip("\n"))
             output_accum.append(line)
-            state.log_lines.append(line)
+            append_log(state, line)
 
         if proc.poll() is not None:
             if proc.stdout:
@@ -278,7 +398,7 @@ def run_streaming(
                     for raw in tail.splitlines():
                         line = sanitize_log_line(raw)
                         output_accum.append(line)
-                        state.log_lines.append(line)
+                        append_log(state, line)
             break
 
         draw_ui(stdscr, state)
@@ -487,7 +607,7 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
     logs = stdscr.derwin(bottom_h, w, header_h + top_h, 0)
 
     draw_box(header, "MMOS Practice Verifier")
-    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [S] stop  [Q] quit"
+    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
     header.addnstr(1, 2, hotkeys, w - 4)
 
     draw_box(left, "Chapter Sets")
@@ -517,11 +637,27 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
 
     if y < top_h - 2:
         right.addnstr(y, 2, f"Info: {state.status_line}", right_w - 4)
+    if y + 1 < top_h - 2:
+        if state.log_search:
+            hit_info = f"{state.search_pos + 1}/{len(state.search_hits)}" if state.search_hits and state.search_pos >= 0 else "0/0"
+            right.addnstr(y + 1, 2, f"Search: /{state.log_search} ({hit_info})", right_w - 4)
+        else:
+            right.addnstr(y + 1, 2, "Search: (none)", right_w - 4)
 
-    draw_box(logs, "Live Logs")
+    draw_box(logs, f"Live Logs ({'tail' if state.log_follow else 'scroll'})")
     log_h, log_w = logs.getmaxyx()
     visible = bottom_h - 2
-    tail = list(state.log_lines)[-visible:]
+    lines = list(state.log_lines)
+    total = len(lines)
+    max_start = max(0, total - visible)
+    if state.log_follow:
+        start = max_start
+        state.log_anchor = start
+    else:
+        state.log_anchor = max(0, min(max_start, state.log_anchor))
+        start = state.log_anchor
+
+    view = lines[start : start + visible]
     inner_w = max(1, log_w - 2)
 
     # Clear only the content area; never touch the right border column.
@@ -532,9 +668,15 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         except curses.error:
             pass
 
-    for i, ln in enumerate(tail):
+    current_hit = -1
+    if state.search_hits and state.search_pos >= 0:
+        current_hit = state.search_hits[state.search_pos]
+
+    for i, ln in enumerate(view):
+        abs_idx = start + i
+        attr = curses.A_REVERSE if abs_idx == current_hit else curses.A_NORMAL
         try:
-            logs.addnstr(1 + i, 1, fit_line(ln, inner_w), inner_w)
+            logs.addnstr(1 + i, 1, fit_line(ln, inner_w), inner_w, attr)
         except curses.error:
             pass
 
@@ -579,11 +721,38 @@ def main(stdscr: curses.window) -> int:
             state.status_line = f"Host switched to {HOSTS[state.host_idx]}"
         elif ch in (ord("r"), ord("R")):
             state.log_lines.clear()
+            state.log_follow = True
+            state.log_anchor = 0
+            rebuild_search_hits(state)
             state.results.clear()
             run_selected(stdscr, state, CHAPTERS)
         elif ch in (ord("s"), ord("S")):
             state.stop_requested = True
             state.status_line = "Nothing running"
+        elif ch in (curses.KEY_PPAGE,):
+            adjust_log_scroll(state, -8, max(1, stdscr.getmaxyx()[0] - 8))
+        elif ch in (curses.KEY_NPAGE,):
+            adjust_log_scroll(state, 8, max(1, stdscr.getmaxyx()[0] - 8))
+        elif ch in (curses.KEY_HOME, ord("g")):
+            scroll_log_top(state)
+        elif ch in (curses.KEY_END, ord("G")):
+            scroll_log_bottom(state)
+        elif ch == ord("/"):
+            query = prompt_input(stdscr, "Search (/): ", state.log_search)
+            if query is not None:
+                state.log_search = query.strip()
+                rebuild_search_hits(state)
+                if state.log_search and state.search_hits:
+                    jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
+                elif state.log_search:
+                    state.status_line = f"No match: {state.log_search}"
+                else:
+                    state.status_line = "Search cleared"
+                    state.log_follow = True
+        elif ch == ord("n"):
+            jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
+        elif ch == ord("N"):
+            jump_search(state, -1, max(1, stdscr.getmaxyx()[0] - 8))
 
         draw_ui(stdscr, state)
 

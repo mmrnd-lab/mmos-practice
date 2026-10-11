@@ -45,6 +45,10 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - `H`: 호스트 순환
 - `R`: 선택한 검증 실행
 - `S`: 실행 중지 요청
+- `PgUp`/`PgDn`: Live Logs 위/아래 스크롤
+- `Home`/`End`: Live Logs 맨 위/최신(tail) 이동
+- `/`: Live Logs 검색어 입력
+- `n` / `N`: 다음/이전 검색 결과로 이동
 - `Q`: 종료(실행 중이 아닐 때)
 
 환경변수(선택):
