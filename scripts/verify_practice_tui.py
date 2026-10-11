@@ -1940,6 +1940,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=trap-side execve resources build the current runtime context",
     ),
     ChapterSet(
+        key="ch115_execv_resource_store",
+        label="Ch115 Execv Resource Store",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch115 execv resource store",
+                    "[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve trap resource store builds the trap-side resources",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

@@ -408,6 +408,60 @@ pub struct ExecvTrapRuntimeResources<
     pub new_vm: crate::vm::VmSpace<MAX_AREAS>,
 }
 
+pub struct ExecvTrapResourceStore<
+    'v,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+    const MAX_AREAS: usize,
+> {
+    pub vfs: &'v crate::vfs::Vfs<'v>,
+    pub scratch: [u8; SCRATCH_BYTES],
+    pub stack_bytes: [u8; STACK_BYTES],
+    pub stack_top_va: usize,
+}
+
+impl<'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: usize>
+    ExecvTrapResourceStore<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS>
+{
+    pub const fn new(vfs: &'v crate::vfs::Vfs<'v>, stack_top_va: usize) -> Self {
+        Self {
+            vfs,
+            scratch: [0; SCRATCH_BYTES],
+            stack_bytes: [0; STACK_BYTES],
+            stack_top_va,
+        }
+    }
+
+    pub fn resources<
+        'a,
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_TASKS: usize,
+    >(
+        &'a mut self,
+        runtime: &'a mut crate::trap_runtime::ProcessTrapRuntime<
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_AREAS,
+            MAX_TASKS,
+        >,
+        user_bytes: &'a [u8],
+        user_base: usize,
+        new_vm: crate::vm::VmSpace<MAX_AREAS>,
+    ) -> ExecvTrapRuntimeResources<'a, 'v, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS> {
+        ExecvTrapRuntimeResources {
+            runtime,
+            user_bytes,
+            user_base,
+            vfs: self.vfs,
+            scratch: &mut self.scratch,
+            stack_bytes: &mut self.stack_bytes,
+            stack_top_va: self.stack_top_va,
+            new_vm,
+        }
+    }
+}
+
 impl<
         'a,
         'v,

@@ -132,7 +132,7 @@ mod tests {
         prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
         simulate_trap_entry_stack_swap,
         schedule_after_blocked_syscall, KernelTrapStackError, KernelTrapStackSwitch,
-        ExecvTrapRuntimeResources, TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
+        ExecvTrapResourceStore, TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
         TRAP_FRAME_SIZE,
     };
     use super::trap_runtime::{
@@ -1360,8 +1360,7 @@ mod tests {
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
-        let mut scratch = [0u8; 512];
-        let mut stack = [0u8; 256];
+        let mut resource_store = ExecvTrapResourceStore::<512, 256, 2>::new(&vfs, 0x4010_0000);
 
         let mut process_vm = VmSpace::<2>::new();
         process_vm
@@ -1386,16 +1385,12 @@ mod tests {
             &mut live_frame,
             SCAUSE_USER_ECALL,
             0,
-            ExecvTrapRuntimeResources {
-                runtime: &mut runtime,
-                user_bytes: &user_mem,
-                user_base: BASE,
-                vfs: &vfs,
-                scratch: &mut scratch,
-                stack_bytes: &mut stack,
-                stack_top_va: 0x4010_0000,
-                new_vm: VmSpace::<2>::new(),
-            },
+            resource_store.resources(
+                &mut runtime,
+                &user_mem,
+                BASE,
+                VmSpace::<2>::new(),
+            ),
         );
 
         assert_eq!(outcome, TrapOutcome::Resume);

@@ -2184,22 +2184,17 @@ fn run_execv_trap_resources_demo() {
     live_frame.set_a1(ARGV);
     live_frame.set_a2(0);
 
-    let mut scratch = [0u8; 512];
-    let mut stack = [0u8; 256];
+    let mut resource_store = trap::ExecvTrapResourceStore::<512, 256, 2>::new(&vfs, 0x4010_0000);
     let outcome = trap::handle_trap_with_execv_resources::<4, 64, 4, 2, 2, 5>(
         &mut live_frame,
         trap::SCAUSE_USER_ECALL,
         0,
-        trap::ExecvTrapRuntimeResources {
-            runtime: &mut runtime,
-            user_bytes: &user_mem,
-            user_base: BASE,
-            vfs: &vfs,
-            scratch: &mut scratch,
-            stack_bytes: &mut stack,
-            stack_top_va: 0x4010_0000,
-            new_vm: vm::VmSpace::<2>::new(),
-        },
+        resource_store.resources(
+            &mut runtime,
+            &user_mem,
+            BASE,
+            vm::VmSpace::<2>::new(),
+        ),
     );
 
     let Some(exec_frame) = runtime.task_frame(1) else {
@@ -2212,6 +2207,8 @@ fn run_execv_trap_resources_demo() {
     {
         console::puts("[chapter] ch114 execv trap resources\n");
         console::puts("[trap] execve resources routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch115 execv resource store\n");
+        console::puts("[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 
