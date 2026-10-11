@@ -93,8 +93,9 @@ mod tests {
         EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
     };
     use super::trap::{
-        handle_blocking_syscall_result, handle_syscall_result, handle_timer_tick_with_scheduler,
-        handle_trap, handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapFrame,
+        apply_schedule_decision, handle_blocking_syscall_result, handle_syscall_result,
+        handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome,
+        schedule_after_blocked_syscall, TrapFrame,
         TrapOutcome, SCAUSE_USER_ECALL,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
@@ -1041,6 +1042,36 @@ mod tests {
             }),
             None
         );
+    }
+
+
+    #[test]
+    fn switched_decision_restores_next_task_frame_into_dispatch_frame() {
+        let mut next_frame = TrapFrame::default();
+        next_frame.sepc = 0xb000;
+        next_frame.set_a0(0x44);
+        next_frame.set_sp(0xc000);
+
+        let mut scheduler = Scheduler::<2>::new();
+        scheduler.add_runnable(1, TrapFrame::default()).unwrap();
+        scheduler.add_runnable(2, next_frame).unwrap();
+        let _ = scheduler.on_tick();
+        scheduler.set_state(1, TaskState::Blocked);
+        let mut blocked_frame = TrapFrame::default();
+        blocked_frame.sepc = 0xa000;
+        let decision = schedule_after_blocked_syscall(&blocked_frame, &mut scheduler).unwrap();
+
+        let mut dispatch_frame = blocked_frame;
+        assert_eq!(
+            apply_schedule_decision(&mut dispatch_frame, &scheduler, decision),
+            Some(ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 2,
+            })
+        );
+        assert_eq!(dispatch_frame.sepc, 0xb000);
+        assert_eq!(dispatch_frame.a0(), 0x44);
+        assert_eq!(dispatch_frame.sp(), 0xc000);
     }
 
     #[test]

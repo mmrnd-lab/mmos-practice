@@ -12,6 +12,8 @@ mod serial;
 #[allow(dead_code)]
 mod serial_rx;
 mod console;
+#[allow(dead_code)]
+mod context_switch;
 mod char_device;
 #[allow(dead_code)]
 mod fd_table;
@@ -508,6 +510,36 @@ pub extern "C" fn rust_main() -> ! {
                 })
             {
                 console::puts("[chapter] ch53 idle wait for interrupt\n");
+            }
+            let mut next_frame = trap::TrapFrame::default();
+            next_frame.sepc = 0x8030_0000;
+            next_frame.set_a0(0x53);
+            let mut restore_scheduler = scheduler::Scheduler::<3>::new();
+            let _ = restore_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
+            let _ = restore_scheduler.add_runnable(next_tid, next_frame);
+            let _ = restore_scheduler.on_tick();
+            let _ = restore_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
+            let restore_decision = trap::schedule_after_blocked_syscall(
+                &blocked_frame,
+                &mut restore_scheduler,
+            );
+            let mut dispatch_frame = blocked_frame;
+            if restore_decision
+                .and_then(|decision| {
+                    trap::apply_schedule_decision(
+                        &mut dispatch_frame,
+                        &restore_scheduler,
+                        decision,
+                    )
+                })
+                == Some(scheduler::ScheduleDecision::Switched {
+                    prev_tid: input_tid,
+                    next_tid,
+                })
+                && dispatch_frame.sepc == 0x8030_0000
+                && dispatch_frame.a0() == 0x53
+            {
+                console::puts("[chapter] ch54 restore next task frame\n");
             }
         }
     }

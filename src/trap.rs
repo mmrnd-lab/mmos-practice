@@ -1,7 +1,7 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{scheduler::Scheduler, syscall};
+use crate::{context_switch, scheduler::{ScheduleDecision, Scheduler}, syscall};
 #[cfg(not(target_arch = "riscv64"))]
 use crate::{
     page_fault::{self, PageFaultResult},
@@ -235,8 +235,23 @@ pub fn handle_blocking_syscall_result(
 pub fn schedule_after_blocked_syscall<const N: usize>(
     frame: &TrapFrame,
     scheduler: &mut Scheduler<N>,
-) -> Option<crate::scheduler::ScheduleDecision> {
+) -> Option<ScheduleDecision> {
     scheduler.schedule_after_current_blocked(*frame)
+}
+
+pub fn apply_schedule_decision<const N: usize>(
+    frame: &mut TrapFrame,
+    scheduler: &Scheduler<N>,
+    decision: ScheduleDecision,
+) -> Option<ScheduleDecision> {
+    match decision {
+        ScheduleDecision::Switched { next_tid, .. } => {
+            let next_frame = scheduler.task_frame(next_tid)?;
+            context_switch::restore_context(frame, &next_frame);
+            Some(decision)
+        }
+        ScheduleDecision::Idle { .. } => Some(decision),
+    }
 }
 
 pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapOutcome {
