@@ -1110,7 +1110,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch66_user_address_relocation",
         label="Ch66 User Address Relocation",
-        commit_candidates=["1a3e73f"],
+        commit_candidates=["44729b3"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1129,7 +1129,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch67_satp_commit_preflight",
         label="Ch67 SATP Commit Preflight",
-        commit_candidates=["2fd531e"],
+        commit_candidates=["e74e921"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1148,7 +1148,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch68_kernel_trap_stack_switch",
         label="Ch68 Kernel Trap Stack Switch",
-        commit_candidates=["f5648b5"],
+        commit_candidates=["6885ba8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1167,7 +1167,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch69_trap_entry_scratch_swap",
         label="Ch69 Trap Entry Scratch Swap",
-        commit_candidates=["134607c"],
+        commit_candidates=["bbaeca1"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1186,7 +1186,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch70_trap_entry_asm_stack_switch",
         label="Ch70 Trap Entry Assembly Stack Switch",
-        commit_candidates=["4e94e61"],
+        commit_candidates=["0426b15"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1205,7 +1205,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch71_enter_user_sscratch_prepare",
         label="Ch71 Enter User SScratch Prepare",
-        commit_candidates=["ea0c462"],
+        commit_candidates=["2dba431"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1224,7 +1224,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch72_satp_hardware_commit_gate",
         label="Ch72 SATP Hardware Commit Gate",
-        commit_candidates=["9be3ee8"],
+        commit_candidates=["d346ae5"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1243,7 +1243,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch73_user_launch_csr_sequence",
         label="Ch73 User Launch CSR Sequence",
-        commit_candidates=["1c27e90"],
+        commit_candidates=["580124f"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1262,7 +1262,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch74_root_page_table_storage",
         label="Ch74 PMM-backed Root Frame",
-        commit_candidates=["d987d3a"],
+        commit_candidates=["1a6395e"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1281,7 +1281,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch75_rooted_user_launch_satp",
         label="Ch75 Rooted User Launch SATP",
-        commit_candidates=["64cb931"],
+        commit_candidates=["fcab164"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1300,7 +1300,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch76_process_root_satp_token",
         label="Ch76 Process Root SATP Token",
-        commit_candidates=["44a4943"],
+        commit_candidates=["f98b6ee"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1319,7 +1319,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch77_rooted_satp_commit_sequence",
         label="Ch77 Rooted SATP Commit Sequence",
-        commit_candidates=["9613fc0"],
+        commit_candidates=["24fcd33"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1338,7 +1338,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch78_kernel_satp_runtime_guard",
         label="Ch78 Kernel SATP Runtime Guard",
-        commit_candidates=["72f71cd"],
+        commit_candidates=["75bff0e"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1357,7 +1357,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch79_process_address_space_root",
         label="Ch79 Process Address Space Root Frame",
-        commit_candidates=["2c30f71"],
+        commit_candidates=["8ad5df6"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1376,7 +1376,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch80_pcb_address_space_handle",
         label="Ch80 PCB Address Space Handle",
-        commit_candidates=["0513640"],
+        commit_candidates=["3110a1f"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1395,7 +1395,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch81_satp_hardware_commit_probe",
         label="Ch81 SATP Hardware Commit Probe",
-        commit_candidates=["5fd41c4"],
+        commit_candidates=["5784d1e"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1414,7 +1414,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch82_user_frame_backed_image",
         label="Ch82 User Frame Backed Image",
-        commit_candidates=["2ac7753"],
+        commit_candidates=["74b9ec8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1433,7 +1433,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch83_user_frame_backed_page_mapping",
         label="Ch83 User Frame Backed Page Mapping",
-        commit_candidates=["697dde5"],
+        commit_candidates=["e7ce69e"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1452,7 +1452,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch84_user_frame_materialize",
         label="Ch84 User Frame Materialize",
-        commit_candidates=["fcf86c2"],
+        commit_candidates=["64fcc6a"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1471,7 +1471,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch85_persistent_satp_commit",
         label="Ch85 Persistent SATP Commit",
-        commit_candidates=["4f686d7"],
+        commit_candidates=["3ad6605"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1490,7 +1490,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch86_user_memory_access_gate",
         label="Ch86 User Memory Access Gate",
-        commit_candidates=["c671750"],
+        commit_candidates=["bc125fe"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -1505,6 +1505,25 @@ CHAPTERS: List[ChapterSet] = [
             ),
         ],
         note="runtime signature=supervisor opens a scoped SUM window after persistent satp commit",
+    ),
+    ChapterSet(
+        key="ch87_first_user_sret_syscall",
+        label="Ch87 First User SRET Syscall",
+        commit_candidates=["88a60ea"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch87 first user sret syscall",
+                    "[chapter] ch87 first user syscall trap",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=sret enters user code, write traps back, and init exits cleanly",
     ),
     ChapterSet(
         key="live_ch26_launch_handoff",

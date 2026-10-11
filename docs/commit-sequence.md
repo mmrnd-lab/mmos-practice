@@ -204,109 +204,115 @@
     - RISC-V `csrw satp`와 `sfence.vma` 순서를 갖는 하드웨어 경계 함수를 추가
 
 
-58. `1a3e73f` `feat(ch66): relocate user address space for kernel mapping`
+58. `44729b3` `feat(ch66): relocate user address space for kernel mapping`
     - kernel mapping 보존 조건을 설명하고 user init/linker/demo 주소를 `vpn2=1` 영역으로 재배치
     - user root에 supervisor-only/global kernel mapping을 함께 둘 수 있음을 검증
 
 
-59. `2fd531e` `feat(ch67): add satp commit preflight`
+59. `e74e921` `feat(ch67): add satp commit preflight`
     - user entry/stack mapping과 supervisor-only kernel mapping이 함께 준비되었는지 commit 전 조건을 확인
     - 실제 CSR write 전에 trap stack 전환이 남아 있음을 런타임 probe로 드러냄
 
 
-60. `f5648b5` `feat(ch68): prepare kernel trap stack switch`
+60. `6885ba8` `feat(ch68): prepare kernel trap stack switch`
     - trap entry가 사용할 kernel stack frame 위치를 계산하는 preflight helper를 추가
     - user sp 보존과 kernel trap frame 공간 예약 조건을 테스트와 런타임 probe로 검증
 
 
-61. `134607c` `feat(ch69): prepare trap entry scratch swap`
+61. `bbaeca1` `feat(ch69): prepare trap entry scratch swap`
     - trap entry가 kernel frame stack pointer를 찾을 수 있도록 `sscratch` 준비 계약을 추가
     - 첫 trap entry stack swap이 kernel stack을 활성화하고 user sp를 보존해야 함을 테스트와 런타임 probe로 검증
 
 
-62. `4e94e61` `feat(ch70): switch trap entry to kernel stack`
+62. `0426b15` `feat(ch70): switch trap entry to kernel stack`
     - RISC-V trap entry assembly의 첫 동작을 `csrrw sp, sscratch, sp` 기반 stack switch로 교체
     - trap return 직전에 `sscratch`를 kernel frame sp로 복구해 다음 user trap이 같은 계약으로 다시 진입할 수 있음을 검증
 
 
-63. `ea0c462` `feat(ch71): prepare sscratch before entering user`
+63. `2dba431` `feat(ch71): prepare sscratch before entering user`
     - `enter_user`가 `sret` 전에 `sscratch` CSR에 kernel trap frame 위치를 기록하도록 연결
     - user trap entry가 기대하는 scratch 값이 CPU 안에 준비되는 조건을 테스트와 런타임 probe로 검증
 
 
-64. `9be3ee8` `feat(ch72): add satp hardware commit gate`
+64. `d346ae5` `feat(ch72): add satp hardware commit gate`
     - `SatpCommitPlan`을 실제 CSR write 대상으로 넘기기 전 Sv39 mode와 변경 여부를 검증하는 gate를 추가
     - hardware commit helper가 `csrw satp`와 `sfence.vma`를 한 경계로 묶도록 준비하고 런타임 probe로 검증
 
 
-65. `1c27e90` `feat(ch73): prepare user launch csr sequence`
+65. `580124f` `feat(ch73): prepare user launch csr sequence`
     - user launch 직전 CSR 설정 순서를 `sscratch -> satp/sfence -> sepc/sp -> sret` 계약으로 묶는 sequence를 추가
     - trap stack 준비와 satp hardware commit gate가 같은 launch path에서 일관된 값을 사용하는지 테스트와 런타임 probe로 검증
 
 
-66. `d987d3a` `feat(ch74): bind satp to root page table storage`
+66. `1a6395e` `feat(ch74): bind satp to root page table storage`
     - PMM에서 받은 4KiB aligned root frame 주소를 `satp` PPN의 기준으로 사용
     - user VM plan을 root frame의 page table view에 설치해 placeholder root PPN 없이 `satp`를 만들 수 있음을 테스트와 런타임 probe로 검증
 
 
-67. `64cb931` `feat(ch75): bind user launch to root satp`
+67. `fcab164` `feat(ch75): bind user launch to root satp`
     - user launch CSR sequence가 PMM-backed root frame에서 나온 `satp`와 같은 값을 사용해야 한다는 계약을 추가
     - root frame 기반 `satp`와 launch sequence `satp`가 어긋나면 user 진입 경계로 넘기지 않도록 테스트와 런타임 probe로 검증
 
 
-68. `44a4943` `feat(ch76): rebind process token to root satp`
+68. `f98b6ee` `feat(ch76): rebind process token to root satp`
     - process table이 보관하는 address-space token을 PMM-backed root frame에서 나온 `satp`로 갱신하는 경로를 추가
     - scheduler가 고른 next task의 owner process를 따라 조회한 `satp`가 root frame 기반 값으로 바뀌는지 테스트와 런타임 probe로 검증
 
 
-69. `9613fc0` `feat(ch77): thread rooted satp through commit sequence`
+69. `24fcd33` `feat(ch77): thread rooted satp through commit sequence`
     - scheduler decision에서 얻은 PCB token을 active `satp` 갱신, commit plan, rooted launch sequence까지 같은 값으로 전달하는 helper를 추가
     - root frame 기반 `satp`가 commit 직전 sequence 전체에서 일관되게 유지되는지 테스트와 런타임 probe로 검증
 
 
-70. `72f71cd` `feat(ch78): guard kernel runtime under satp`
+70. `75bff0e` `feat(ch78): guard kernel runtime under satp`
     - `satp` 전환 직후에도 kernel code, kernel stack, trap entry가 새 root 아래에서 supervisor mapping으로 유지되는지 확인하는 guard를 추가
     - PMM-backed root frame의 page table view에 kernel mapping을 설치하고 kernel runtime guard를 테스트와 런타임 probe로 검증
 
 
-71. `2c30f71` `feat(ch79): introduce process address space root`
+71. `8ad5df6` `feat(ch79): introduce process address space root`
     - root frame 물리주소와 `satp` token을 함께 기록하는 `ProcessAddressSpace` 구조를 추가
     - root table 객체를 구조체 안에 복사해 들고 다니는 대신 process address space별 root frame handle을 기록함을 테스트와 런타임 probe로 검증
 
 
-72. `0513640` `feat(ch80): bind pcb to address space handle`
+72. `3110a1f` `feat(ch80): bind pcb to address space handle`
     - PCB에 `address_space_id` handle을 추가하고 `ProcessAddressSpaceTable`에서 실제 address-space metadata를 찾는 경로를 추가
     - scheduler의 address-space switch가 PCB에 복사된 `satp` 대신 address-space table에서 해석한 `satp`를 사용할 수 있음을 테스트와 런타임 probe로 검증
 
 
-73. `5fd41c4` `feat(ch81): probe satp hardware commit roundtrip`
+73. `5784d1e` `feat(ch81): probe satp hardware commit roundtrip`
     - address-space table에서 얻은 `satp`를 실제 CSR에 잠깐 쓰고 `sfence.vma` 뒤 bare `satp=0`으로 복구하는 probe를 추가
     - hardware commit probe 전에 새 root table에도 kernel identity mapping이 유지되는지 확인하고 테스트와 런타임 시그니처로 검증
 
 
-74. `2ac7753` `feat(ch82): plan user image on pmm frames`
+74. `74b9ec8` `feat(ch82): plan user image on pmm frames`
     - relocated user entry와 user stack이 낮은 identity 물리주소가 아니라 PMM이 할당한 실제 frame을 사용하도록 frame-backed image plan을 추가
     - 지속적인 `satp` 전환 전에 user code와 stack의 물리 backing을 분리해야 함을 테스트와 런타임 시그니처로 검증
 
 
-75. `697dde5` `feat(ch83): map user pages to pmm frames`
+75. `e7ce69e` `feat(ch83): map user pages to pmm frames`
     - frame-backed user image plan을 Sv39의 root -> L1 -> L0 table mapping으로 설치하는 helper를 추가
     - user code와 stack virtual page가 1GiB identity leaf가 아니라 PMM frame을 가리키는 4KiB leaf가 되었음을 테스트와 런타임 시그니처로 검증
 
 
-76. `fcf86c2` `feat(ch84): materialize user image into pmm frames`
+76. `64fcc6a` `feat(ch84): materialize user image into pmm frames`
     - frame-backed user image plan에 따라 ELF segment bytes와 초기 user stack bytes를 PMM-backed physical frame에 복사하는 helper를 추가
     - page table leaf가 가리키는 frame 안에 실제 실행 코드와 stack 내용이 채워졌음을 테스트와 런타임 시그니처로 검증
 
 
-77. `4f686d7` `feat(ch85): commit user satp persistently`
+77. `3ad6605` `feat(ch85): commit user satp persistently`
     - 이전 장들에서 준비한 root page table의 `satp`를 더 이상 bare `satp=0`으로 복구하지 않는 persistent commit 경로를 추가
     - commit 뒤에도 kernel identity mapping 아래에서 supervisor 코드가 계속 실행되고 chapter marker를 출력할 수 있음을 테스트와 런타임 시그니처로 검증
 
 
-78. `c671750` `feat(ch86): gate supervisor user memory access`
+78. `bc125fe` `feat(ch86): gate supervisor user memory access`
     - S-mode가 U page를 읽고 쓸 때만 `sstatus.SUM`을 여는 `user_access` gate를 추가
     - raw user pointer를 읽는 `write` syscall 경로가 user memory access gate 안에서만 user slice를 만들도록 보강
+
+
+79. `88a60ea` `feat(ch87): enter user and handle first syscall`
+    - persistent `satp`와 user memory access gate 이후 저장해 둔 user launch trap frame으로 `sret` 진입을 수행
+    - 같은 4KiB page 안에 놓인 text/rodata PT_LOAD segment가 같은 frame과 병합된 PTE flags를 공유하도록 보강
+    - user app의 첫 `write` syscall trap, user message 출력, `exit(0)`까지 QEMU runtime 시그니처로 검증
 
 
 ## Reproduce Example
