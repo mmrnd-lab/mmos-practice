@@ -98,12 +98,6 @@ pub extern "C" fn rust_main() -> ! {
         uart::puts("[mmos-practice] user init context prepared (SPP=U)\n");
     }
 
-    if let trap::TrapOutcome::Exit(code) = user_init::run_user_init_demo() {
-        if code == 0 {
-            uart::puts("[mmos-practice] user init demo exit=0\n");
-        }
-    }
-
     run_scheduler_runtime_demo();
     run_process_runtime_demo();
     uart::puts("[mmos-practice] trap/irq scaffold ready\n");

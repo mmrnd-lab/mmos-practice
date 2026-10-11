@@ -70,6 +70,8 @@ QEMU virtio-blk drive0
 
 `src/demo_user_init.rs`는 여전히 단위 테스트 fixture로 남겨 둔다.
 상위 VFS/ELF 로더를 빠르게 검증하기 위한 샘플 이미지 생성기이며, 런타임 주 경로는 실제 boot disk를 사용한다.
+HEAD 런타임에서는 12장 smoke test였던 `run_user_init_demo()`를 더 이상 호출하지 않는다.
+부팅 중 user app 실행은 `virtio-blk -> ext4 -> /sbin/init -> ELF load -> sret` 경로 하나로 확인한다.
 
 ## 브랜치 정책
 
