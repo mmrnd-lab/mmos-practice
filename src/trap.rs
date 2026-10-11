@@ -600,6 +600,17 @@ pub fn handle_execv_user_ecall_with_prepared_runtime<
     )
 }
 
+pub struct ExecvPreparedUserSource<'a> {
+    pub bytes: &'a [u8],
+    pub base: usize,
+}
+
+impl<'a> ExecvPreparedUserSource<'a> {
+    pub const fn new(bytes: &'a [u8], base: usize) -> Self {
+        Self { bytes, base }
+    }
+}
+
 pub struct ExecvPreparedEntryInput<'a, const MAX_AREAS: usize> {
     pub user_bytes: &'a [u8],
     pub user_base: usize,

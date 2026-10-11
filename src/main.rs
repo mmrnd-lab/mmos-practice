@@ -2188,7 +2188,8 @@ fn run_execv_trap_resources_demo() {
     let mut entry_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
         runtime, &vfs,
     );
-    let input = entry_store.entry_input(&user_mem, BASE, vm::VmSpace::<2>::new());
+    let user_source = trap::ExecvPreparedUserSource::new(&user_mem, BASE);
+    let input = entry_store.entry_input(user_source, vm::VmSpace::<2>::new());
 
     let outcome = trap::handle_execv_user_ecall_with_prepared_store::<
         4,
@@ -2243,6 +2244,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve prepared input routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch128 execv entry input boundary\n");
         console::puts("[trap] execve entry input boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch129 execv user source boundary\n");
+        console::puts("[trap] execve user source boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 

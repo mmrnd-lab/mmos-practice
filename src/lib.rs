@@ -1392,7 +1392,10 @@ mod tests {
             entry_store.with_prepared_runtime(|prepared| prepared.runtime().execv_stack_top_va()),
             Some(0x4010_0000)
         );
-        let input = entry_store.entry_input(&user_mem, BASE, VmSpace::<2>::new());
+        let user_source = crate::trap::ExecvPreparedUserSource::new(&user_mem, BASE);
+        assert_eq!(user_source.base, BASE);
+        assert_eq!(user_source.bytes.len(), user_mem.len());
+        let input = entry_store.entry_input(user_source, VmSpace::<2>::new());
         assert_eq!(input.user_base, BASE);
         assert_eq!(input.user_bytes.len(), user_mem.len());
 

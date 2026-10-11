@@ -2192,6 +2192,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry store constructs the execve input boundary",
     ),
     ChapterSet(
+        key="ch129_execv_user_source_boundary",
+        label="Ch129 Execv User Source Boundary",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch129 execv user source boundary",
+                    "[trap] execve user source boundary routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared entry input receives a named user copy source",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
