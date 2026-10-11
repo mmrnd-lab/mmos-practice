@@ -2185,16 +2185,14 @@ fn run_execv_trap_resources_demo() {
     live_frame.set_a2(0);
 
     let mut resource_store = trap::ExecvTrapResourceStore::<512, 256, 2>::new(&vfs, 0x4010_0000);
-    let outcome = trap::handle_trap_with_execv_resources::<4, 64, 4, 2, 2, 5>(
+    let outcome = runtime.dispatch_execv_trap::<4, 64, 512, 256>(
         &mut live_frame,
         trap::SCAUSE_USER_ECALL,
         0,
-        runtime.execv_resources(
-            &mut resource_store,
-            &user_mem,
-            BASE,
-            vm::VmSpace::<2>::new(),
-        ),
+        &mut resource_store,
+        &user_mem,
+        BASE,
+        vm::VmSpace::<2>::new(),
     );
 
     let Some(exec_frame) = runtime.task_frame(1) else {
@@ -2211,6 +2209,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch116 execv runtime resources\n");
         console::puts("[trap] execve runtime resources routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch117 execv runtime dispatch\n");
+        console::puts("[trap] execve runtime dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 

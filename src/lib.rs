@@ -1381,16 +1381,14 @@ mod tests {
         live_frame.set_a1(ARGV);
         live_frame.set_a2(0);
 
-        let outcome = handle_trap_with_execv_resources::<4, 64, 4, 2, 2, 5>(
+        let outcome = runtime.dispatch_execv_trap::<4, 64, 512, 256>(
             &mut live_frame,
             SCAUSE_USER_ECALL,
             0,
-            runtime.execv_resources(
-                &mut resource_store,
-                &user_mem,
-                BASE,
-                VmSpace::<2>::new(),
-            ),
+            &mut resource_store,
+            &user_mem,
+            BASE,
+            VmSpace::<2>::new(),
         );
 
         assert_eq!(outcome, TrapOutcome::Resume);
