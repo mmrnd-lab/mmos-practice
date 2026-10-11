@@ -20,6 +20,7 @@ const USER_STACK_BYTES: usize = 4096;
 const ELF_SCRATCH_BYTES: usize = 64 * 1024;
 
 static mut STATE: u8 = 0;
+static mut CHILD_EXIT_STATUS: i32 = 0;
 static mut FRAME_PLAN: Option<UserFrameBackedImagePlan> = None;
 static mut PARENT_FRAME: TrapFrame = TrapFrame {
     regs: [0; 32],
@@ -112,6 +113,7 @@ fn handle_child_exit(frame: &mut TrapFrame) -> TrapOutcome {
     }
     *frame = unsafe { core::ptr::read_volatile(core::ptr::addr_of!(PARENT_FRAME)) };
     unsafe {
+        core::ptr::write_volatile(core::ptr::addr_of_mut!(CHILD_EXIT_STATUS), code);
         core::ptr::write_volatile(core::ptr::addr_of_mut!(STATE), ZOMBIE);
     }
     console::puts("[init] child shell exited status=");
@@ -127,9 +129,12 @@ fn handle_wait4(frame: &mut TrapFrame) -> TrapOutcome {
         return TrapOutcome::Resume;
     }
     let status_ptr = frame.a1();
+    let exit_status = unsafe {
+        core::ptr::read_volatile(core::ptr::addr_of!(CHILD_EXIT_STATUS))
+    };
     if status_ptr != 0 {
         user_access::with_user_memory_access(|| unsafe {
-            (status_ptr as *mut i32).write(0);
+            (status_ptr as *mut i32).write(exit_status);
         });
     }
     frame.set_a0(CHILD_PID);

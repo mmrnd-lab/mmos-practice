@@ -3153,6 +3153,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=init clone, /bin/sh exec, interactive shell, exit, and parent wait/reap complete in QEMU",
     ),
     ChapterSet(
+        key="foundation_default_run",
+        label="Foundation Default Nographic Run",
+        commit_candidates=["foundation_default_run"],
+        steps=[
+            Step("test+build", "make test && make foundation-disk PROFILE=release"),
+            Step(
+                "run-default-nographic",
+                "{ sleep 3; printf 'exit\\n'; } | make run-nographic PROFILE=release RUN_SECONDS=8",
+                must_contain=(
+                    "[init-child] execve /bin/sh",
+                    "[shell] MMOS shell ready",
+                    "[init] reaped shell pid=2 status=0",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=the default run-nographic target attaches the complete Foundation image and preserves child exit status",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

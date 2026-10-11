@@ -296,7 +296,7 @@ else
 u-boot: u-boot-smode
 endif
 
-run-nographic: require-container $(BOOT_DISK)
+run-nographic: require-container $(FOUNDATION_DISK)
 	@echo "running QEMU (nographic) with $(KERNEL_ELF)"
 	@echo "tip: set RUN_SECONDS=<sec> to adjust runtime window"
 	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
@@ -305,7 +305,7 @@ run-nographic: require-container $(BOOT_DISK)
 		-nographic \
 		-bios default \
 		-kernel $(KERNEL_ELF) \
-		-drive file=$(BOOT_DISK),format=raw,id=drive0 \
+		-drive file=$(FOUNDATION_DISK),format=raw,id=drive0 \
 		-device virtio-blk-device,drive=drive0 \
 		-no-reboot \
 		-smp 1 \

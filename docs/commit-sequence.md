@@ -797,3 +797,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `make run-foundation`이 `help`, `echo hello foundation`, `exit` 입력을 QEMU console에 공급하고 실제 `/bin/sh` ELF의 대화형 builtin 경로를 검증
     - QEMU runtime marker에서 `[init] spawned shell pid=2`, `[init-child] execve /bin/sh`, `[shell] MMOS shell ready`, `[chapter] ch111 init child shell wait`, `[init] reaped shell pid=2 status=0`, `[user-init] exit=0` 확인
     - 이 checkpoint는 Foundation의 bounded single-address-space handoff이며, 독립 주소공간을 동시에 유지하는 일반 fork/COW 구현은 Volume 2 process/pager service 경계로 남김
+
+156. `TBD` `fix(runtime): boot foundation image by default`
+    - `make run-nographic`가 `/sbin/init`만 든 legacy `drive0.img` 대신 `/sbin/init`, `/bin/sh`, user libc가 함께 든 `foundation.img`를 기본 drive로 연결
+    - child exit code를 lifecycle state에 보존하고 `wait4` status copyout으로 전달해 exec 실패가 성공 status로 보이지 않도록 수정
+    - user init은 reaped status가 nonzero이면 오류를 출력하고 같은 nonzero code로 종료
+    - `foundation_default_run` verifier가 기본 `run-nographic` 명령에서도 실제 `/bin/sh` 실행과 wait/reap, init `exit=0`을 확인

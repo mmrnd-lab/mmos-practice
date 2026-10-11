@@ -52,8 +52,13 @@ pub extern "C" fn main(argc: usize, argv: *const *const u8, envp: *const *const 
         let _ = libc::write(2, b"[init] wait4 failed\n");
         return 1;
     }
-    let _ = libc::write(1, b"[init] reaped shell pid=2 status=0\n");
-    0
+    if status == 0 {
+        let _ = libc::write(1, b"[init] reaped shell pid=2 status=0\n");
+        0
+    } else {
+        let _ = libc::write(2, b"[init] reaped shell pid=2 status=nonzero\n");
+        status
+    }
 }
 
 #[panic_handler]
