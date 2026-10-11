@@ -1528,7 +1528,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch90_process_exit_runtime",
         label="Ch90 Process Exit Runtime",
-        commit_candidates=["fd13d03"],
+        commit_candidates=["49e7539"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
