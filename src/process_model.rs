@@ -29,10 +29,11 @@ pub struct ProcessControlBlock<const MAX_CHILDREN: usize, const MAX_AREAS: usize
     pub exit_code: Option<i32>,
     pub state: ProcState,
     pub vm: VmSpace<MAX_AREAS>,
+    pub satp: usize,
 }
 
 impl<const MAX_CHILDREN: usize, const MAX_AREAS: usize> ProcessControlBlock<MAX_CHILDREN, MAX_AREAS> {
-    pub fn new(pid: usize, parent: Option<usize>, vm: VmSpace<MAX_AREAS>) -> Self {
+    pub fn new(pid: usize, parent: Option<usize>, vm: VmSpace<MAX_AREAS>, satp: usize) -> Self {
         Self {
             pid,
             parent,
@@ -40,6 +41,7 @@ impl<const MAX_CHILDREN: usize, const MAX_AREAS: usize> ProcessControlBlock<MAX_
             exit_code: None,
             state: ProcState::Alive,
             vm,
+            satp,
         }
     }
 
@@ -75,18 +77,16 @@ pub struct TaskControlBlock {
     pub tid: usize,
     pub owner_pid: usize,
     pub trapframe: TrapFrame,
-    pub satp: usize,
     pub sched_state: TaskState,
     pub runtime_ticks: u64,
 }
 
 impl TaskControlBlock {
-    pub fn new(tid: usize, owner_pid: usize, trapframe: TrapFrame, satp: usize) -> Self {
+    pub fn new(tid: usize, owner_pid: usize, trapframe: TrapFrame) -> Self {
         Self {
             tid,
             owner_pid,
             trapframe,
-            satp,
             sched_state: TaskState::Runnable,
             runtime_ticks: 0,
         }
@@ -114,17 +114,42 @@ impl<const MAX_PROCS: usize, const MAX_CHILDREN: usize, const MAX_AREAS: usize>
         parent: Option<usize>,
         vm: VmSpace<MAX_AREAS>,
     ) -> Result<usize, ProcError> {
+        self.create_process_with_satp(parent, vm, 0)
+    }
+
+    pub fn create_process_with_satp(
+        &mut self,
+        parent: Option<usize>,
+        vm: VmSpace<MAX_AREAS>,
+        satp: usize,
+    ) -> Result<usize, ProcError> {
         let mut idx = 0usize;
         while idx < MAX_PROCS {
             if self.slots[idx].is_none() {
                 let pid = self.next_pid;
                 self.next_pid = self.next_pid.wrapping_add(1);
-                self.slots[idx] = Some(ProcessControlBlock::new(pid, parent, vm));
+                self.slots[idx] = Some(ProcessControlBlock::new(pid, parent, vm, satp));
                 return Ok(pid);
             }
             idx += 1;
         }
         Err(ProcError::TableFull)
+    }
+
+    pub fn get(
+        &self,
+        pid: usize,
+    ) -> Result<&ProcessControlBlock<MAX_CHILDREN, MAX_AREAS>, ProcError> {
+        let mut idx = 0usize;
+        while idx < MAX_PROCS {
+            if let Some(pcb) = self.slots[idx].as_ref() {
+                if pcb.pid == pid {
+                    return Ok(pcb);
+                }
+            }
+            idx += 1;
+        }
+        Err(ProcError::MissingProcess)
     }
 
     pub fn get_mut(

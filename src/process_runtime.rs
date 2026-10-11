@@ -33,7 +33,6 @@ pub fn run_fork_exec_wait_demo() -> Result<ForkExecWaitDemo, ProcError> {
         child_tid,
         child_pid,
         TrapFrame::default(),
-        0,
     ))?;
 
     let exec_entry = 0x8040_1000usize;

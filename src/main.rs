@@ -59,6 +59,8 @@ mod user_copy;
 mod user_exec;
 mod user_init;
 mod user_launch;
+#[allow(dead_code)]
+mod user_process;
 mod user_stack;
 #[allow(dead_code)]
 mod user_vm;
@@ -222,7 +224,7 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
 
-    let task_owner = process_model::TaskControlBlock::new(1, 1, trap::TrapFrame::default(), 0);
+    let task_owner = process_model::TaskControlBlock::new(1, 1, trap::TrapFrame::default());
     let mut task_io_table = process_io::ProcessIoTable::<2, 8>::new();
     let _ = task_io_table.insert_stdio(1, console::device());
     let mut task_vm = vm::VmSpace::<2>::new();
@@ -265,7 +267,7 @@ pub extern "C" fn rust_main() -> ! {
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
         .unwrap_or(0);
     let runtime_task =
-        process_model::TaskControlBlock::new(2, runtime_pid, trap::TrapFrame::default(), 0);
+        process_model::TaskControlBlock::new(2, runtime_pid, trap::TrapFrame::default());
     let mut owned_vm = vm::VmSpace::<2>::new();
     let _ = owned_vm.map_anon(0x7000, 0x7020, sv39::PTE_R);
     let owned_user = user_copy::CheckedUserSlice::new(b"/dev/console\0owned", 0x7000, &owned_vm);
@@ -306,7 +308,7 @@ pub extern "C" fn rust_main() -> ! {
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
         .unwrap_or(0);
     let close_task =
-        process_model::TaskControlBlock::new(3, close_pid, trap::TrapFrame::default(), 0);
+        process_model::TaskControlBlock::new(3, close_pid, trap::TrapFrame::default());
     let mut close_vm = vm::VmSpace::<2>::new();
     let _ = close_vm.map_anon(0x8000, 0x8020, sv39::PTE_R);
     let close_user = user_copy::CheckedUserSlice::new(b"/dev/console\0closed", 0x8000, &close_vm);
@@ -349,7 +351,7 @@ pub extern "C" fn rust_main() -> ! {
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
         .unwrap_or(0);
     let read_task =
-        process_model::TaskControlBlock::new(4, read_pid, trap::TrapFrame::default(), 0);
+        process_model::TaskControlBlock::new(4, read_pid, trap::TrapFrame::default());
     let mut read_vm = vm::VmSpace::<2>::new();
     let _ = read_vm.map_anon(0x9000, 0x9020, sv39::PTE_W);
     let mut read_mem = [0u8; 32];
@@ -375,7 +377,7 @@ pub extern "C" fn rust_main() -> ! {
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::readback_device())
         .unwrap_or(0);
     let input_task =
-        process_model::TaskControlBlock::new(5, input_pid, trap::TrapFrame::default(), 0);
+        process_model::TaskControlBlock::new(5, input_pid, trap::TrapFrame::default());
     let input_tid = input_task.tid;
     let mut input_vm = vm::VmSpace::<2>::new();
     let _ = input_vm.map_anon(0xa000, 0xa020, sv39::PTE_W);
@@ -752,6 +754,27 @@ fn run_user_launch_demo() {
                     == Some(1)
             {
                 console::puts("[chapter] ch59 launch task global runtime\n");
+            }
+
+            let mut proc_table = process_model::ProcessTable::<2, 2, 4>::new();
+            let mut task_table = process_model::TaskTable::<2>::new();
+            let mut spawn_scheduler = scheduler::Scheduler::<2>::new();
+            if let Ok(created) = user_process::create_user_process_from_launch(
+                &mut proc_table,
+                &mut task_table,
+                &mut spawn_scheduler,
+                None,
+                vm::VmSpace::<4>::new(),
+                p,
+            ) {
+                if created.pid == 1
+                    && created.tid == 1
+                    && created.entry == loaded.entry
+                    && spawn_scheduler.task_state(created.tid)
+                        == Some(scheduler::TaskState::Runnable)
+                {
+                    console::puts("[chapter] ch61 user process creation path\n");
+                }
             }
             console::puts("[chapter] ch28 first user sret\n");
 

@@ -37,6 +37,7 @@ pub mod uart;
 pub mod user_exec;
 pub mod user_init;
 pub mod user_launch;
+pub mod user_process;
 pub mod user_stack;
 pub mod user_vm;
 pub mod virtio_blk;
@@ -111,6 +112,7 @@ mod tests {
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::user_launch::prepare_user_init_launch;
+    use super::user_process::create_user_process_from_launch;
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
     use super::vfs::Vfs;
@@ -524,7 +526,7 @@ mod tests {
             std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let mut table = ProcessIoTable::<2, 8>::new();
         table.insert_stdio(42, dev).unwrap();
-        let task = TaskControlBlock::new(7, 42, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(7, 42, TrapFrame::default());
 
         let current = table.current_for_task(&task).unwrap();
         assert_eq!(current.pid(), 42);
@@ -537,7 +539,7 @@ mod tests {
         let ns = DeviceNamespace::new(dev);
         let mut table = ProcessIoTable::<2, 8>::new();
         table.insert_stdio(1, dev).unwrap();
-        let task = TaskControlBlock::new(1, 1, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, 1, TrapFrame::default());
         let fd = table
             .current_for_task_mut(&task)
             .unwrap()
@@ -572,7 +574,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
 
         assert_eq!(pid, 1);
         assert_eq!(runtime.current_for_task(&task).unwrap().pid(), pid);
@@ -588,7 +590,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
         let fd = runtime
             .current_for_task_mut(&task)
             .unwrap()
@@ -638,7 +640,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
         let fd = runtime
             .current_for_task_mut(&task)
             .unwrap()
@@ -709,7 +711,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
         let current = runtime.current_for_task(&task).unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0x4000, 0x4010, PTE_W).unwrap();
@@ -739,7 +741,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
         let current = runtime.current_for_task(&task).unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0x5000, 0x5010, PTE_R).unwrap();
@@ -805,7 +807,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
         let current = runtime.current_for_task(&task).unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0x6000, 0x6020, PTE_W).unwrap();
@@ -839,7 +841,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
         let current = runtime.current_for_task(&task).unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0x7000, 0x7020, PTE_W).unwrap();
@@ -882,7 +884,7 @@ mod tests {
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
             .unwrap();
-        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let task = TaskControlBlock::new(7, pid, TrapFrame::default());
         let current = runtime.current_for_task(&task).unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0x8000, 0x8020, PTE_W).unwrap();
@@ -1625,7 +1627,7 @@ mod tests {
         let mut tasks = TaskTable::<4>::new();
         let mut tf = TrapFrame::default();
         tf.sepc = 0x8040_0000;
-        let tcb = TaskControlBlock::new(1, 10, tf, 0x12345);
+        let tcb = TaskControlBlock::new(1, 10, tf);
         tasks.add_task(tcb).unwrap();
 
         let slot = tasks.get_mut(1).unwrap();
@@ -1909,6 +1911,49 @@ mod tests {
         assert_eq!(installed.a2(), launch.envp_ptr);
 
         reset_global_trap_runtime();
+    }
+
+
+    #[test]
+    fn user_process_creation_registers_launch_context() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut stack = [0u8; 512];
+        let launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345,
+            &mut stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let created = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            launch,
+        )
+        .unwrap();
+
+        assert_eq!(created.pid, 1);
+        assert_eq!(created.tid, 1);
+        assert_eq!(created.entry, loaded.entry);
+        assert_eq!(created.stack_top, launch.sp);
+        assert_eq!(created.satp, launch.satp);
+        assert_eq!(proc_table.get_mut(created.pid).unwrap().pid, created.pid);
+        let task = task_table.get_mut(created.tid).unwrap();
+        assert_eq!(task.owner_pid, created.pid);
+        assert_eq!(task.trapframe.sepc, loaded.entry);
+        assert_eq!(task.trapframe.sp(), launch.sp);
+        assert_eq!(proc_table.get(created.pid).unwrap().satp, launch.satp);
+        assert_eq!(scheduler.task_state(created.tid), Some(TaskState::Runnable));
+        assert_eq!(scheduler.task_frame(created.tid).unwrap().sepc, loaded.entry);
     }
 
     #[test]
