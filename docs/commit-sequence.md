@@ -404,7 +404,7 @@
     - 성공한 current execve syscall은 기존 규칙대로 `0`을 반환하고 current task frame을 새 ELF entry와 initial stack pointer로 교체
     - QEMU runtime marker에서 `[chapter] ch108 current execv syscall runtime`, `[syscall] execve current tid=1 pid=1 ret=0 entry=0x40000000` 확인
 
-96. `TBD` `feat(ch109): route execve through current dispatch context`
+96. `67cac33` `feat(ch109): route execve through current dispatch context`
     - decoded `Syscall::Execv`와 execv runtime 재료를 `CurrentExecvDispatchContext`로 묶는 dispatch helper 추가
     - dispatch helper가 `Syscall::Execv` match arm에서 current execv syscall helper를 호출하고, 다른 syscall은 unsupported로 남김
     - 성공한 execve dispatch는 current task frame을 새 ELF entry와 initial stack pointer로 교체하고 `0`을 반환
