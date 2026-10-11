@@ -440,6 +440,12 @@
     - caller가 syscall context 구조를 직접 만들지 않고 trap-side resource bundle을 통해 execve ecall dispatch를 수행
     - QEMU runtime marker에서 `[chapter] ch114 execv trap resources`, `[trap] execve resources routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+102. `d45d8de` `feat(ch115): store execve trap resources`
+    - `ExecvTrapResourceStore`를 추가해 VFS 참조와 execve scratch/stack buffer, stack top을 trap-side 보관소로 묶음
+    - caller는 store에서 `ExecvTrapRuntimeResources`를 빌려 만들어 114장의 trap dispatch helper에 전달
+    - process runtime, user memory, new VM처럼 호출마다 달라지는 값은 호출 시점에 넘기고, 재사용 가능한 buffer와 VFS 경계는 store가 보관
+    - QEMU runtime marker에서 `[chapter] ch115 execv resource store`, `[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
