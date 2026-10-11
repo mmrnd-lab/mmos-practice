@@ -482,6 +482,12 @@
     - trap entry 경로가 나중에 사용할 준비 순서를 `runtime + VFS -> dispatch state -> dispatch()` 형태로 좁힘
     - QEMU runtime marker에서 `[chapter] ch121 execv prepared dispatch`, `[trap] execve prepared dispatch routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+109. `6fd856b` `feat(ch122): store execve dispatch state with runtime`
+    - `PreparedExecvTrapRuntime`을 추가해 process trap runtime과 execve dispatch state를 같은 holder 안에 보관
+    - caller는 별도 dispatch state 변수를 들지 않고 holder의 `dispatch_execv_trap()`으로 execve trap을 처리
+    - VFS lifetime을 전역으로 억지로 올리지 않으면서 trap entry 경로가 나중에 접근할 runtime holder 경계를 마련
+    - QEMU runtime marker에서 `[chapter] ch122 execv prepared runtime`, `[trap] execve prepared runtime routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
