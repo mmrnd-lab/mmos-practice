@@ -35,6 +35,21 @@ ANSI_OSC_RE = re.compile(r"\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)")
 ANSI_ESC_RE = re.compile(r"\x1B[@-Z\\-_]")
 
 
+@dataclass(frozen=True)
+class UiTheme:
+    header: int = 0
+    panel_title: int = 0
+    selected_item: int = 0
+    running_state: int = 0
+    idle_state: int = 0
+    pass_text: int = 0
+    fail_text: int = 0
+    warn_text: int = 0
+    skip_text: int = 0
+    info_text: int = 0
+    search_hit: int = 0
+
+
 @dataclass
 class Step:
     name: str
@@ -81,6 +96,8 @@ class AppState:
     search_pos: int = -1
     results: List[StepResult] = field(default_factory=list)
     status_line: str = "Ready"
+    resolved_commits: dict[str, str] = field(default_factory=dict)
+    theme: UiTheme = field(default_factory=UiTheme)
 
 
 CHAPTERS: List[ChapterSet] = [
@@ -416,12 +433,116 @@ def commit_exists(host: str, repo: str, commit: str, state: AppState, stdscr: cu
 
 
 def resolve_commit(host: str, repo: str, chapter: ChapterSet, state: AppState, stdscr: curses.window) -> Optional[str]:
+    cached = state.resolved_commits.get(chapter.key)
+    if cached:
+        return cached
+
     for cand in chapter.commit_candidates:
         state.current_action = f"resolving commit for {chapter.label}: {cand}"
         draw_ui(stdscr, state)
         if commit_exists(host, repo, cand, state, stdscr):
+            state.resolved_commits[chapter.key] = cand
             return cand
     return None
+
+
+def prev_chapter_commit(
+    host: str,
+    repo: str,
+    chapter_idx: int,
+    state: AppState,
+    stdscr: curses.window,
+) -> Optional[str]:
+    if chapter_idx <= 0:
+        return None
+    prev = CHAPTERS[chapter_idx - 1]
+    return resolve_commit(host, repo, prev, state, stdscr)
+
+
+def run_inspect_command(
+    host: str,
+    repo: str,
+    chapter: ChapterSet,
+    chapter_idx: int,
+    mode: str,
+    state: AppState,
+    stdscr: curses.window,
+) -> None:
+    commit = resolve_commit(host, repo, chapter, state, stdscr)
+    if not commit:
+        state.status_line = f"Cannot resolve commit for {chapter.label}"
+        return
+
+    prev = prev_chapter_commit(host, repo, chapter_idx, state, stdscr)
+    range_note = f"{prev}..{commit}" if prev else commit
+    append_log(state, "")
+    append_log(state, f"===== Inspect {chapter.label} ({mode}) =====")
+    append_log(state, f"commit: {commit}")
+    if prev:
+        append_log(state, f"range : {prev}..{commit}")
+    else:
+        append_log(state, "range : (first chapter baseline)")
+
+    if mode == "history":
+        if prev:
+            inspect_cmd = textwrap.dedent(
+                f"""
+                set -e
+                cd {shlex.quote(repo)}
+                echo '[chapter commit]'
+                git show --no-patch --decorate --pretty=fuller {shlex.quote(commit)}
+                echo
+                echo '[commits between previous chapter and current]'
+                git log --oneline --decorate --reverse {shlex.quote(prev)}..{shlex.quote(commit)}
+                """
+            ).strip()
+        else:
+            inspect_cmd = textwrap.dedent(
+                f"""
+                set -e
+                cd {shlex.quote(repo)}
+                echo '[chapter commit]'
+                git show --no-patch --decorate --pretty=fuller {shlex.quote(commit)}
+                echo
+                echo '[nearby history around chapter commit]'
+                git log --oneline --decorate -n 20 {shlex.quote(commit)}
+                """
+            ).strip()
+    else:
+        if prev:
+            inspect_cmd = textwrap.dedent(
+                f"""
+                set -e
+                cd {shlex.quote(repo)}
+                echo '[range changed files]'
+                git diff --name-status {shlex.quote(prev)}..{shlex.quote(commit)}
+                echo
+                echo '[range diff stat]'
+                git diff --stat {shlex.quote(prev)}..{shlex.quote(commit)}
+                echo
+                echo '[chapter commit patch]'
+                git show --patch --stat --find-renames --color=never {shlex.quote(commit)}
+                """
+            ).strip()
+        else:
+            inspect_cmd = textwrap.dedent(
+                f"""
+                set -e
+                cd {shlex.quote(repo)}
+                echo '[chapter commit changed files]'
+                git show --name-status --format= {shlex.quote(commit)}
+                echo
+                echo '[chapter commit patch]'
+                git show --patch --stat --find-renames --color=never {shlex.quote(commit)}
+                """
+            ).strip()
+
+    state.current_action = f"inspect {mode}: {chapter.label} [{range_note}]"
+    rc, _ = run_streaming(host, inspect_cmd, state, stdscr)
+    if rc == 0:
+        state.status_line = f"Inspect {mode} complete: {chapter.label}"
+    else:
+        state.status_line = f"Inspect {mode} failed (rc={rc}): {chapter.label}"
 
 
 def wrap_checkout_command(repo: str, commit: str, inner_cmd: str) -> str:
@@ -468,6 +589,7 @@ def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[Chap
     state.running = True
     state.stop_requested = False
     state.status_line = f"Running {len(selected)} chapter set(s) on {host}: {repo}"
+    state.resolved_commits.clear()
 
     for chapter in selected:
         if state.stop_requested:
@@ -561,6 +683,40 @@ def draw_box(win: curses.window, title: str) -> None:
             pass
 
 
+def init_theme() -> UiTheme:
+    if not curses.has_colors():
+        return UiTheme()
+
+    curses.start_color()
+    if hasattr(curses, "use_default_colors"):
+        curses.use_default_colors()
+
+    # Keep pair ids explicit and stable.
+    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_CYAN)     # header
+    curses.init_pair(2, curses.COLOR_CYAN, -1)                     # panel title
+    curses.init_pair(3, curses.COLOR_BLACK, curses.COLOR_YELLOW)   # selected list item
+    curses.init_pair(4, curses.COLOR_GREEN, -1)                    # running state / pass
+    curses.init_pair(5, curses.COLOR_WHITE, -1)                    # idle / info
+    curses.init_pair(6, curses.COLOR_RED, -1)                      # fail
+    curses.init_pair(7, curses.COLOR_YELLOW, -1)                   # warn
+    curses.init_pair(8, curses.COLOR_MAGENTA, -1)                  # skip
+    curses.init_pair(9, curses.COLOR_BLUE, curses.COLOR_WHITE)     # search hit
+
+    return UiTheme(
+        header=curses.color_pair(1) | curses.A_BOLD,
+        panel_title=curses.color_pair(2) | curses.A_BOLD,
+        selected_item=curses.color_pair(3) | curses.A_BOLD,
+        running_state=curses.color_pair(4) | curses.A_BOLD,
+        idle_state=curses.color_pair(5),
+        pass_text=curses.color_pair(4) | curses.A_BOLD,
+        fail_text=curses.color_pair(6) | curses.A_BOLD,
+        warn_text=curses.color_pair(7) | curses.A_BOLD,
+        skip_text=curses.color_pair(8) | curses.A_BOLD,
+        info_text=curses.color_pair(5),
+        search_hit=curses.color_pair(9) | curses.A_BOLD,
+    )
+
+
 def render_wrapped(win: curses.window, y: int, x: int, text: str, width: int, max_lines: int) -> int:
     lines = textwrap.wrap(text, width=max(8, width)) or [""]
     used = 0
@@ -607,10 +763,15 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
     logs = stdscr.derwin(bottom_h, w, header_h + top_h, 0)
 
     draw_box(header, "MMOS Practice Verifier")
-    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
+    try:
+        header.bkgd(" ", state.theme.header)
+    except curses.error:
+        pass
+    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [L] history  [D] changes  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
     header.addnstr(1, 2, hotkeys, w - 4)
 
     draw_box(left, "Chapter Sets")
+    left.addnstr(0, 2, " Chapter Sets ", left_w - 4, state.theme.panel_title)
     max_items = top_h - 2
     start = 0
     if state.selected_idx >= max_items:
@@ -621,22 +782,37 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         mark = "x" if state.checked[idx] else " "
         cursor = ">" if idx == state.selected_idx else " "
         line = f"{cursor} [{mark}] {ch.label}"
-        attr = curses.A_REVERSE if idx == state.selected_idx else curses.A_NORMAL
+        attr = state.theme.selected_item if idx == state.selected_idx else curses.A_NORMAL
         left.addnstr(1 + row, 1, line, left_w - 2, attr)
 
     draw_box(right, "Run Status")
+    right.addnstr(0, 2, " Run Status ", right_w - 4, state.theme.panel_title)
     p, f, wcnt, s = summarize_results(state.results)
+    selected = CHAPTERS[state.selected_idx]
+    cached = state.resolved_commits.get(selected.key, "(not resolved)")
     right.addnstr(1, 2, f"Host: {host}", right_w - 4)
     right.addnstr(2, 2, f"Repo: {repo}", right_w - 4)
-    right.addnstr(3, 2, f"State: {'RUNNING' if state.running else 'IDLE'}", right_w - 4)
-    right.addnstr(4, 2, f"Summary: PASS={p} FAIL={f} WARN={wcnt} SKIP={s}", right_w - 4)
+    right.addnstr(
+        3,
+        2,
+        f"State: {'RUNNING' if state.running else 'IDLE'}",
+        right_w - 4,
+        state.theme.running_state if state.running else state.theme.idle_state,
+    )
+    right.addnstr(4, 2, "Summary:", right_w - 4)
+    right.addnstr(4, 11, f"PASS={p}", right_w - 13, state.theme.pass_text)
+    right.addnstr(4, 20, f"FAIL={f}", right_w - 22, state.theme.fail_text)
+    right.addnstr(4, 29, f"WARN={wcnt}", right_w - 31, state.theme.warn_text)
+    right.addnstr(4, 40, f"SKIP={s}", right_w - 42, state.theme.skip_text)
+    right.addnstr(5, 2, f"Selected: {selected.label}", right_w - 4)
+    right.addnstr(6, 2, f"Commit: {cached}", right_w - 4)
 
-    y = 6
+    y = 8
     y += render_wrapped(right, y, 2, f"Action: {state.current_action}", right_w - 4, 2)
     y += render_wrapped(right, y, 2, f"Cmd: {state.current_cmd}", right_w - 4, 4)
 
     if y < top_h - 2:
-        right.addnstr(y, 2, f"Info: {state.status_line}", right_w - 4)
+        right.addnstr(y, 2, f"Info: {state.status_line}", right_w - 4, state.theme.info_text)
     if y + 1 < top_h - 2:
         if state.log_search:
             hit_info = f"{state.search_pos + 1}/{len(state.search_hits)}" if state.search_hits and state.search_pos >= 0 else "0/0"
@@ -646,6 +822,13 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
 
     draw_box(logs, f"Live Logs ({'tail' if state.log_follow else 'scroll'})")
     log_h, log_w = logs.getmaxyx()
+    logs.addnstr(
+        0,
+        2,
+        f" Live Logs ({'tail' if state.log_follow else 'scroll'}) ",
+        max(1, log_w - 4),
+        state.theme.panel_title,
+    )
     visible = bottom_h - 2
     lines = list(state.log_lines)
     total = len(lines)
@@ -674,7 +857,7 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
 
     for i, ln in enumerate(view):
         abs_idx = start + i
-        attr = curses.A_REVERSE if abs_idx == current_hit else curses.A_NORMAL
+        attr = state.theme.search_hit if abs_idx == current_hit else curses.A_NORMAL
         try:
             logs.addnstr(1 + i, 1, fit_line(ln, inner_w), inner_w, attr)
         except curses.error:
@@ -689,6 +872,7 @@ def main(stdscr: curses.window) -> int:
     stdscr.keypad(True)
 
     state = AppState(checked=[False] * len(CHAPTERS))
+    state.theme = init_theme()
     draw_ui(stdscr, state)
 
     while True:
@@ -725,7 +909,34 @@ def main(stdscr: curses.window) -> int:
             state.log_anchor = 0
             rebuild_search_hits(state)
             state.results.clear()
+            state.resolved_commits.clear()
             run_selected(stdscr, state, CHAPTERS)
+        elif ch in (ord("l"), ord("L")):
+            state.log_follow = True
+            chapter = CHAPTERS[state.selected_idx]
+            run_inspect_command(
+                HOSTS[state.host_idx],
+                repo_path_for_host(HOSTS[state.host_idx]),
+                chapter,
+                state.selected_idx,
+                "history",
+                state,
+                stdscr,
+            )
+            rebuild_search_hits(state)
+        elif ch in (ord("d"), ord("D")):
+            state.log_follow = True
+            chapter = CHAPTERS[state.selected_idx]
+            run_inspect_command(
+                HOSTS[state.host_idx],
+                repo_path_for_host(HOSTS[state.host_idx]),
+                chapter,
+                state.selected_idx,
+                "changes",
+                state,
+                stdscr,
+            )
+            rebuild_search_hits(state)
         elif ch in (ord("s"), ord("S")):
             state.stop_requested = True
             state.status_line = "Nothing running"

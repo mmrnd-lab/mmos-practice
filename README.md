@@ -33,6 +33,7 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - 대상 호스트 선택: `localhost` / `` / ``
 - 챕터별 검증 세트 독립 선택/실행
 - 실행 명령, 중간 로그, 최종 결과를 분할 화면에서 실시간 갱신
+- 선택한 챕터 기준 `git history`/`changes(diff)`를 TUI에서 바로 조회
 - 각 검증 명령은 `podman run ... mmos-practice:latest` 컨테이너 내부에서 실행
 - 이미지가 없으면 자동 빌드, 펌웨어 서브모듈이 없으면 `./scripts/init-submodules.sh` 자동 실행
 
@@ -44,6 +45,8 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - `C`: 전체 해제
 - `H`: 호스트 순환
 - `R`: 선택한 검증 실행
+- `L`: 선택한 챕터의 git history 조회
+- `D`: 선택한 챕터의 changes(diff/patch) 조회
 - `S`: 실행 중지 요청
 - `PgUp`/`PgDn`: Live Logs 위/아래 스크롤
 - `Home`/`End`: Live Logs 맨 위/최신(tail) 이동
