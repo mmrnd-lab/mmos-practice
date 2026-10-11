@@ -75,15 +75,16 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_open_path, handle_process_open_path, handle_process_open_user_path,
-        handle_process_write, handle_process_write_user_buf, handle_syscall, open_mode_from_flags,
-        Syscall, SyscallResult, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
+        decode_syscall, handle_open_path, handle_process_open_checked_user_path,
+        handle_process_open_path, handle_process_open_user_path, handle_process_write,
+        handle_process_write_checked_user_buf, handle_process_write_user_buf, handle_syscall,
+        open_mode_from_flags, Syscall, SyscallResult, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
         TrapOutcome, SCAUSE_USER_ECALL,
     };
-    use super::user_copy::{UserCopyError, UserSlice};
+    use super::user_copy::{CheckedUserSlice, UserCopyError, UserSlice};
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
         UserRegionMut,
@@ -349,6 +350,66 @@ mod tests {
             SyscallResult::Continue(15)
         );
         assert_eq!(dev.written(), b"hello from user".to_vec());
+    }
+
+    #[test]
+    fn vm_space_allows_read_ranges_by_area_permissions() {
+        let mut vm = VmSpace::<4>::new();
+        vm.map_anon(0x4000, 0x4010, PTE_R).unwrap();
+        vm.map_anon(0x5000, 0x5010, PTE_W).unwrap();
+
+        assert!(vm.allows_range(0x4000, 16, FaultAccess::Read));
+        assert!(!vm.allows_range(0x4008, 16, FaultAccess::Read));
+        assert!(!vm.allows_range(0x5000, 1, FaultAccess::Read));
+        assert!(vm.allows_range(0x5000, 1, FaultAccess::Write));
+    }
+
+    #[test]
+    fn checked_user_copy_requires_vm_read_permission() {
+        let mut vm = VmSpace::<4>::new();
+        vm.map_anon(0x7000, 0x7010, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"/dev/console\0", 0x7000, &vm);
+        let mut path = [0u8; 32];
+
+        assert_eq!(user.copyin_cstr(0x7000, &mut path), Ok("/dev/console"));
+        assert_eq!(user.copyin_bytes(0x7000, 20, &mut [0u8; 32]), Err(UserCopyError::Permission));
+    }
+
+    #[test]
+    fn checked_user_copy_rejects_write_only_vm_area() {
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x8000, 0x8010, PTE_W).unwrap();
+        let user = CheckedUserSlice::new(b"abc\0", 0x8000, &vm);
+        assert_eq!(user.copyin_cstr(0x8000, &mut [0u8; 8]), Err(UserCopyError::Permission));
+    }
+
+    #[test]
+    fn syscall_checked_copyin_opens_and_writes_user_buffers() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut vm = VmSpace::<4>::new();
+        vm.map_anon(0x9000, 0x9020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"/dev/console\0hello", 0x9000, &vm);
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+        let mut path_scratch = [0u8; 32];
+        let mut write_scratch = [0u8; 16];
+
+        let fd = match handle_process_open_checked_user_path(
+            &mut io,
+            &ns,
+            &user,
+            0x9000,
+            1,
+            &mut path_scratch,
+        ) {
+            SyscallResult::Continue(fd) => fd as usize,
+            other => panic!("unexpected open result: {:?}", other),
+        };
+        assert_eq!(
+            handle_process_write_checked_user_buf(&io, &user, fd, 0x900d, 5, &mut write_scratch),
+            SyscallResult::Continue(5)
+        );
+        assert_eq!(dev.written(), b"hello".to_vec());
     }
 
     #[test]

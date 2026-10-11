@@ -79,4 +79,15 @@ impl<const MAX_AREAS: usize> VmSpace<MAX_AREAS> {
         }
         None
     }
+
+    pub fn allows_range(&self, start: usize, len: usize, access: FaultAccess) -> bool {
+        if len == 0 {
+            return true;
+        }
+        let Some(end) = start.checked_add(len) else {
+            return false;
+        };
+        let last = end - 1;
+        self.resolve_fault(start, access).is_some() && self.resolve_fault(last, access).is_some()
+    }
 }

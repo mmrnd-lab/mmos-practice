@@ -141,6 +141,23 @@ pub extern "C" fn rust_main() -> ! {
             console::puts("[chapter] ch37 user copyin\n");
         }
     }
+    let mut user_vm = vm::VmSpace::<2>::new();
+    let _ = user_vm.map_anon(0x4000, 0x4010, sv39::PTE_R);
+    let checked_user = user_copy::CheckedUserSlice::new(b"/dev/console\0", 0x4000, &user_vm);
+    let mut checked_io = process_io::ProcessIoContext::<8>::with_stdio(console::device());
+    let mut checked_scratch = [0u8; 32];
+    if let syscall::SyscallResult::Continue(fd) = syscall::handle_process_open_checked_user_path(
+        &mut checked_io,
+        &dev_ns,
+        &checked_user,
+        0x4000,
+        1,
+        &mut checked_scratch,
+    ) {
+        if fd >= 3 {
+            console::puts("[chapter] ch38 vm checked copyin\n");
+        }
+    }
 
     let mut boot_tf = trap::TrapFrame::default();
     boot_tf.set_sp(0x8050_0000);

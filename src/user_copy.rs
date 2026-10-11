@@ -1,11 +1,14 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::vm::{FaultAccess, VmSpace};
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserCopyError {
     BadAddress,
     BufferTooSmall,
     MissingNul,
+    Permission,
 }
 
 pub struct UserSlice<'a> {
@@ -60,6 +63,63 @@ impl<'a> UserSlice<'a> {
                 return core::str::from_utf8(&out[..copied]).map_err(|_| UserCopyError::BadAddress);
             }
             out[copied] = byte;
+            copied += 1;
+        }
+        Err(UserCopyError::MissingNul)
+    }
+}
+
+
+pub struct CheckedUserSlice<'a, const MAX_AREAS: usize> {
+    user: UserSlice<'a>,
+    vm: &'a VmSpace<MAX_AREAS>,
+}
+
+impl<'a, const MAX_AREAS: usize> CheckedUserSlice<'a, MAX_AREAS> {
+    pub const fn new(bytes: &'a [u8], base: usize, vm: &'a VmSpace<MAX_AREAS>) -> Self {
+        Self {
+            user: UserSlice::new(bytes, base),
+            vm,
+        }
+    }
+
+    fn check_read(&self, ptr: usize, len: usize) -> Result<(), UserCopyError> {
+        if self.vm.allows_range(ptr, len, FaultAccess::Read) {
+            Ok(())
+        } else {
+            Err(UserCopyError::Permission)
+        }
+    }
+
+    pub fn copyin_bytes(
+        &self,
+        ptr: usize,
+        len: usize,
+        out: &mut [u8],
+    ) -> Result<usize, UserCopyError> {
+        self.check_read(ptr, len)?;
+        self.user.copyin_bytes(ptr, len, out)
+    }
+
+    pub fn copyin_cstr<'b>(
+        &self,
+        ptr: usize,
+        out: &'b mut [u8],
+    ) -> Result<&'b str, UserCopyError> {
+        if out.is_empty() {
+            return Err(UserCopyError::BufferTooSmall);
+        }
+
+        let mut copied = 0usize;
+        while copied < out.len() {
+            self.check_read(ptr + copied, 1)?;
+            let mut byte = [0u8; 1];
+            self.user.copyin(ptr + copied, &mut byte)?;
+            if byte[0] == 0 {
+                return core::str::from_utf8(&out[..copied])
+                    .map_err(|_| UserCopyError::BadAddress);
+            }
+            out[copied] = byte[0];
             copied += 1;
         }
         Err(UserCopyError::MissingNul)
