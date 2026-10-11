@@ -22,6 +22,7 @@ pub mod page_fault;
 pub mod page_frame_allocator;
 pub mod pmm;
 pub mod process_model;
+pub mod process_io;
 pub mod process_runtime;
 pub mod sbi;
 pub mod scheduler;
@@ -65,6 +66,7 @@ mod tests {
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
+    use super::process_io::ProcessIoContext;
     use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
@@ -72,8 +74,9 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_open_path, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
-        SYS_EXIT, SYS_OPENAT, SYS_WRITE,
+        decode_syscall, handle_open_path, handle_process_open_path, handle_process_write,
+        handle_syscall, open_mode_from_flags, Syscall, SyscallResult, SYS_EXIT, SYS_OPENAT,
+        SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
@@ -262,6 +265,36 @@ mod tests {
             SyscallResult::Continue(-1)
         );
         assert_eq!(open_mode_from_flags(3), None);
+    }
+
+    #[test]
+    fn process_io_context_keeps_open_fd_for_later_write() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+
+        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        assert_eq!(fd, 3);
+        assert_eq!(io.write_fd(fd, b"persistent-fd"), Ok(13));
+        assert_eq!(dev.written(), b"persistent-fd".to_vec());
+    }
+
+    #[test]
+    fn syscall_helpers_use_process_io_context() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+
+        let fd = match handle_process_open_path(&mut io, &ns, "/dev/console", 1) {
+            SyscallResult::Continue(fd) => fd as usize,
+            other => panic!("unexpected open result: {:?}", other),
+        };
+        assert_eq!(fd, 3);
+        assert_eq!(
+            handle_process_write(&io, fd, b"through-process"),
+            SyscallResult::Continue(15)
+        );
+        assert_eq!(dev.written(), b"through-process".to_vec());
     }
 
     #[test]

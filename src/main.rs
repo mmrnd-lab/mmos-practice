@@ -32,6 +32,8 @@ mod pmm;
 #[allow(dead_code)]
 mod process_model;
 #[allow(dead_code)]
+mod process_io;
+#[allow(dead_code)]
 mod process_runtime;
 mod sbi;
 #[allow(dead_code)]
@@ -56,6 +58,16 @@ mod vm;
 mod vfs;
 
 use core::panic::PanicInfo;
+
+trait SyscallResultExt {
+    fn is_ok_continue_zero(self) -> bool;
+}
+
+impl SyscallResultExt for syscall::SyscallResult {
+    fn is_ok_continue_zero(self) -> bool {
+        matches!(self, syscall::SyscallResult::Continue(0))
+    }
+}
 
 #[cfg(target_arch = "riscv64")]
 core::arch::global_asm!(
@@ -102,6 +114,14 @@ pub extern "C" fn rust_main() -> ! {
     {
         if fd >= 3 {
             console::puts("[chapter] ch35 open syscall path\n");
+        }
+    }
+    let mut current_io = process_io::ProcessIoContext::<8>::with_stdio(console::device());
+    if let syscall::SyscallResult::Continue(fd) =
+        syscall::handle_process_open_path(&mut current_io, &dev_ns, "/dev/console", 1)
+    {
+        if syscall::handle_process_write(&current_io, fd as usize, b"").is_ok_continue_zero() {
+            console::puts("[chapter] ch36 process fd context\n");
         }
     }
 

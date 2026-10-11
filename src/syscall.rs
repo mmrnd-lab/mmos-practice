@@ -72,6 +72,29 @@ pub fn handle_open_path<const N: usize>(
     }
 }
 
+pub fn handle_process_open_path<const N: usize>(
+    io: &mut crate::process_io::ProcessIoContext<N>,
+    ns: &crate::devfs::DeviceNamespace<'_>,
+    path: &str,
+    flags: usize,
+) -> SyscallResult {
+    match open_mode_from_flags(flags).and_then(|mode| io.open_path(ns, path, mode).ok()) {
+        Some(fd) => SyscallResult::Continue(fd as isize),
+        None => SyscallResult::Continue(-1),
+    }
+}
+
+pub fn handle_process_write<const N: usize>(
+    io: &crate::process_io::ProcessIoContext<N>,
+    fd: usize,
+    bytes: &[u8],
+) -> SyscallResult {
+    match io.write_fd(fd, bytes) {
+        Ok(written) => SyscallResult::Continue(written as isize),
+        Err(_) => SyscallResult::Continue(-1),
+    }
+}
+
 #[cfg(target_arch = "riscv64")]
 fn handle_write(fd: usize, ptr: usize, len: usize) -> SyscallResult {
     if len == 0 {
