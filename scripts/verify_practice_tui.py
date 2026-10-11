@@ -274,6 +274,15 @@ CHAPTERS: List[ChapterSet] = [
             Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
         ],
     ),
+    ChapterSet(
+        key="ch20_page_fault_pmm",
+        label="Ch20 Page Fault + PMM",
+        commit_candidates=["6775657"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+        ],
+    ),
 ]
 
 

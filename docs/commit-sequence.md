@@ -31,6 +31,9 @@
 13. `7fdd138` `feat(vm): build sv39 user vm plan for init exec image`
     - init ELF/stack이 차지하는 영역을 Sv39 root table(vpn2, 1GiB leaf)로 구성
     - `satp` 값까지 함께 계산해 U-mode 진입 직전 상태를 검증
+14. `6775657` `feat(mm): add vm areas, page fault path, and frame manager`
+    - 사용자 VM area(`VmSpace`)와 접근권한 기반 fault 해석 추가
+    - page fault 경로에서 frame alloc/reuse(`PageFrameManager`) 계획 생성
 
 ## Reproduce Example
 
@@ -48,6 +51,6 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
 
 ## Recommended Next Commit Topics
 
-- 실제 `sret` 진입 루틴 추가
-- 사용자 주소공간 코드/스택 매핑을 page table과 결합
+- page fault 결과를 실제 page table install + `sfence.vma` 경로에 결합
+- 실제 `sret` 진입 루틴 추가(TrapFrame + satp + stvec 연동)
 - 사용자 버퍼 검증을 포함한 `write` syscall 확장
