@@ -56,7 +56,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-stdin-probe stdin-probe-disk user-shell shell-disk foundation-disk foundation-image-layout user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-stdin-probe run-shell run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-stdin-probe stdin-probe-disk user-shell shell-disk foundation-disk foundation-image-layout user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-stdin-probe run-shell run-foundation run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -334,6 +334,20 @@ run-shell: require-container $(SHELL_DISK)
 		-bios default \
 		-kernel $(KERNEL_ELF) \
 		-drive file=$(SHELL_DISK),format=raw,id=drive0 \
+		-device virtio-blk-device,drive=drive0 \
+		-no-reboot \
+		-smp 1 \
+		-m 512M || test $$? -eq 124
+
+run-foundation: require-container $(FOUNDATION_DISK)
+	@echo "running init -> child -> shell -> wait lifecycle"
+	@{ sleep 2; printf 'help\necho hello foundation\nexit\n'; } | timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		$(QEMU_VIRTIO_MODERN) \
+		-machine virt \
+		-nographic \
+		-bios default \
+		-kernel $(KERNEL_ELF) \
+		-drive file=$(FOUNDATION_DISK),format=raw,id=drive0 \
 		-device virtio-blk-device,drive=drive0 \
 		-no-reboot \
 		-smp 1 \

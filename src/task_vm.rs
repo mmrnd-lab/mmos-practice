@@ -1,13 +1,13 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
+use crate::sv39::SATP_MODE_SV39;
+use crate::trap::{KernelTrapStackError, TrapEntryScratch, TrapFrame};
+use crate::user_vm::{AddressSpaceTableError, ProcessAddressSpaceTable};
 use crate::{
     process_model::{ProcError, ProcessTable, TaskTable},
     scheduler::ScheduleDecision,
 };
-use crate::sv39::SATP_MODE_SV39;
-use crate::trap::{KernelTrapStackError, TrapEntryScratch, TrapFrame};
-use crate::user_vm::{AddressSpaceTableError, ProcessAddressSpaceTable};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AddressSpaceSwitch {
@@ -77,7 +77,6 @@ fn address_space_error_to_proc_error(error: AddressSpaceTableError) -> ProcError
     }
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AppliedAddressSpaceSwitch {
     pub prev_tid: usize,
@@ -96,7 +95,6 @@ pub fn apply_address_space_switch(
         active_satp: switch.next_satp,
     }
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SatpCommitPlan {
@@ -209,19 +207,28 @@ pub struct RootedSatpCommitSequence {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserLaunchCsrError {
     Scratch(KernelTrapStackError),
-    UserSpMismatch { frame_sp: usize, scratch_user_sp: usize },
+    UserSpMismatch {
+        frame_sp: usize,
+        scratch_user_sp: usize,
+    },
     Satp(SatpHardwareCommitError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootedUserLaunchCsrError {
     Sequence(UserLaunchCsrError),
-    SatpMismatch { root_satp: usize, sequence_satp: usize },
+    SatpMismatch {
+        root_satp: usize,
+        sequence_satp: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RootedSatpCommitError {
-    SwitchSatpMismatch { switch_satp: usize, root_satp: usize },
+    SwitchSatpMismatch {
+        switch_satp: usize,
+        root_satp: usize,
+    },
     Rooted(RootedUserLaunchCsrError),
 }
 

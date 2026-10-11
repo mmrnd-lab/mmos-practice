@@ -3130,6 +3130,29 @@ CHAPTERS: List[ChapterSet] = [
         note="artifact signature=one boot filesystem retains init and installs shell at /bin/sh",
     ),
     ChapterSet(
+        key="ch111_init_child_shell_wait",
+        label="Ch111 Init Child Shell Wait",
+        commit_candidates=["ch111_init_child_shell_wait"],
+        steps=[
+            Step("test+build", "make test && make foundation-disk PROFILE=release"),
+            Step(
+                "run-foundation",
+                "make run-foundation PROFILE=release RUN_SECONDS=10",
+                must_contain=(
+                    "[init] spawned shell pid=2",
+                    "[init-child] execve /bin/sh",
+                    "[shell] MMOS shell ready",
+                    "hello foundation",
+                    "[init] child shell exited status=0",
+                    "[chapter] ch111 init child shell wait",
+                    "[init] reaped shell pid=2 status=0",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=init clone, /bin/sh exec, interactive shell, exit, and parent wait/reap complete in QEMU",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
@@ -3956,7 +3979,7 @@ def source_go_file(state: AppState, delta: int) -> None:
 
 def wrap_checkout_command(repo: str, commit: str, inner_cmd: str) -> str:
     container_cmd = (
-        "podman run --rm "
+        "podman run --rm --network=slirp4netns --userns=keep-id "
         "-v \"$PWD\":/workspace/mmos-practice "
         "-w /workspace/mmos-practice "
         "mmos-practice:latest "

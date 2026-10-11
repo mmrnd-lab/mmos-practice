@@ -56,7 +56,11 @@ impl<'a> VfsNode<'a> {
         }
     }
 
-    pub const fn block(path: &'static str, name: &'static str, device: &'a dyn BlockDevice) -> Self {
+    pub const fn block(
+        path: &'static str,
+        name: &'static str,
+        device: &'a dyn BlockDevice,
+    ) -> Self {
         Self {
             path,
             name,

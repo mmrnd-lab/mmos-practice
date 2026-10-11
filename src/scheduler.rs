@@ -229,7 +229,9 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
             }
         }
 
-        let next = self.find_next_runnable((cur + 1) % MAX_TASKS).unwrap_or(cur);
+        let next = self
+            .find_next_runnable((cur + 1) % MAX_TASKS)
+            .unwrap_or(cur);
         let prev_tid = self.slots[cur].map(|task| task.tid)?;
         let next_tid = self.slots[next].map(|task| task.tid)?;
 

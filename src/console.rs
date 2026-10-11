@@ -4,8 +4,8 @@
 use core::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::char_device::{CharError, CharacterDevice};
-use crate::serial::{SerialDevice, UART0_BASE};
 use crate::device::{Device, DeviceKind};
+use crate::serial::{SerialDevice, UART0_BASE};
 
 static SERIAL0: SerialDevice = SerialDevice::new("ttyS0", UART0_BASE);
 
@@ -24,7 +24,6 @@ pub fn put_bytes(bytes: &[u8]) {
 pub fn puts(s: &str) {
     put_bytes(s.as_bytes());
 }
-
 
 pub struct BufferedConsoleDevice {
     name: &'static str,

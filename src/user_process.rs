@@ -55,11 +55,7 @@ pub fn create_user_process_from_launch<
     }
 
     let tid = pid;
-    task_table.add_task(TaskControlBlock::new(
-        tid,
-        pid,
-        launch.trapframe,
-    ))?;
+    task_table.add_task(TaskControlBlock::new(tid, pid, launch.trapframe))?;
     scheduler.add_runnable(tid, launch.trapframe)?;
 
     Ok(CreatedUserProcess {

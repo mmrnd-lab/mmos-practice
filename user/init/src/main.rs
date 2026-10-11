@@ -31,6 +31,28 @@ pub extern "C" fn main(argc: usize, argv: *const *const u8, envp: *const *const 
     let _ = libc::write(1, msg);
     let _ = unsafe { libc::write_env_value(1, envp, b"PATH\0".as_ptr()) };
     let _ = libc::write(1, b"\n");
+
+    let child = libc::clone_process();
+    if child < 0 {
+        let _ = libc::write(2, b"[init] clone failed\n");
+        return 1;
+    }
+    if child == 0 {
+        let shell_path = b"/bin/sh\0";
+        let shell_argv = [shell_path.as_ptr(), core::ptr::null()];
+        let shell_envp = [b"PATH=/bin\0".as_ptr(), core::ptr::null()];
+        let _ = libc::execve(shell_path, &shell_argv, &shell_envp);
+        let _ = libc::write(2, b"[init-child] execve /bin/sh failed\n");
+        return 127;
+    }
+
+    let mut status = -1i32;
+    let reaped = libc::wait4(child, &mut status);
+    if reaped != child {
+        let _ = libc::write(2, b"[init] wait4 failed\n");
+        return 1;
+    }
+    let _ = libc::write(1, b"[init] reaped shell pid=2 status=0\n");
     0
 }
 

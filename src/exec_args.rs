@@ -74,11 +74,7 @@ impl<const MAX_ARGS: usize, const ARG_BYTES: usize> ExecvArgBlock<MAX_ARGS, ARG_
     }
 }
 
-pub fn copyin_execv_args<
-    const A: usize,
-    const MAX_ARGS: usize,
-    const ARG_BYTES: usize,
->(
+pub fn copyin_execv_args<const A: usize, const MAX_ARGS: usize, const ARG_BYTES: usize>(
     user: &CheckedUserSlice<'_, A>,
     path_ptr: usize,
     argv_ptr: usize,
@@ -151,8 +147,16 @@ pub fn copyin_execv_args<
         path_len,
         argc: block.argc,
         envc: block.envc,
-        first_arg_len: if block.argc == 0 { 0 } else { block.arg_lens[0] },
-        first_env_len: if block.envc == 0 { 0 } else { block.env_lens[0] },
+        first_arg_len: if block.argc == 0 {
+            0
+        } else {
+            block.arg_lens[0]
+        },
+        first_env_len: if block.envc == 0 {
+            0
+        } else {
+            block.env_lens[0]
+        },
     })
 }
 
@@ -248,11 +252,7 @@ fn push_cstr_bytes(
     Ok(stack_top_va - (stack_bytes.len() - start))
 }
 
-fn write_word(
-    stack_bytes: &mut [u8],
-    off: &mut usize,
-    value: usize,
-) -> Result<(), ExecvArgError> {
+fn write_word(stack_bytes: &mut [u8], off: &mut usize, value: usize) -> Result<(), ExecvArgError> {
     let word = core::mem::size_of::<usize>();
     if *off + word > stack_bytes.len() {
         return Err(ExecvArgError::Stack(UserStackError::StackOverflow));

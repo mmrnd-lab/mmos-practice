@@ -61,14 +61,42 @@ const O_RDWR: usize = 2;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Syscall {
-    OpenAt { dirfd: usize, path_ptr: usize, flags: usize, mode: usize },
-    Close { fd: usize },
-    Read { fd: usize, ptr: usize, len: usize },
-    Write { fd: usize, ptr: usize, len: usize },
-    Exit { code: i32 },
-    Clone { flags: usize, stack_ptr: usize },
-    Execv { path_ptr: usize, argv_ptr: usize, envp_ptr: usize },
-    Wait4 { pid: isize, status_ptr: usize, options: usize },
+    OpenAt {
+        dirfd: usize,
+        path_ptr: usize,
+        flags: usize,
+        mode: usize,
+    },
+    Close {
+        fd: usize,
+    },
+    Read {
+        fd: usize,
+        ptr: usize,
+        len: usize,
+    },
+    Write {
+        fd: usize,
+        ptr: usize,
+        len: usize,
+    },
+    Exit {
+        code: i32,
+    },
+    Clone {
+        flags: usize,
+        stack_ptr: usize,
+    },
+    Execv {
+        path_ptr: usize,
+        argv_ptr: usize,
+        envp_ptr: usize,
+    },
+    Wait4 {
+        pid: isize,
+        status_ptr: usize,
+        options: usize,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -288,7 +316,6 @@ fn handle_write(fd: usize, _ptr: usize, len: usize) -> SyscallResult {
     }
 }
 
-
 pub fn handle_process_open_checked_user_path<const N: usize, const A: usize>(
     io: &mut crate::process_io::ProcessIoContext<N>,
     ns: &crate::devfs::DeviceNamespace<'_>,
@@ -347,14 +374,12 @@ pub fn handle_current_process_write_checked_user_syscall<const N: usize, const A
     handle_process_write_checked_user_syscall(current.io(), user, fd, ptr, len, scratch)
 }
 
-
 pub fn handle_current_process_close<const N: usize>(
     current: &mut crate::process_io::CurrentProcessIoContext<N>,
     fd: usize,
 ) -> SyscallResult {
     handle_process_close(current.io_mut(), fd)
 }
-
 
 pub fn handle_current_process_read_checked_user_syscall<const N: usize, const A: usize>(
     current: &crate::process_io::CurrentProcessIoContext<N>,
@@ -381,7 +406,6 @@ pub fn handle_current_process_read_checked_user_syscall<const N: usize, const A:
         Err(error) => errno_result(user_copy_errno(error)),
     }
 }
-
 
 pub fn handle_current_process_blocking_read_checked_user_syscall<
     const N: usize,
@@ -679,7 +703,17 @@ pub fn handle_current_process_execv_checked_user_syscall<
         MAX_AREAS,
         MAX_TASKS,
     >(
-        runtime, tid, user, path_ptr, argv_ptr, envp_ptr, vfs, scratch, stack_bytes, stack_top_va, new_vm,
+        runtime,
+        tid,
+        user,
+        path_ptr,
+        argv_ptr,
+        envp_ptr,
+        vfs,
+        scratch,
+        stack_bytes,
+        stack_top_va,
+        new_vm,
     )
 }
 
@@ -727,28 +761,30 @@ pub fn dispatch_current_execv_syscall<
     >,
 ) -> SyscallResult {
     match syscall {
-        Syscall::Execv { path_ptr, argv_ptr, envp_ptr } => {
-            handle_current_process_execv_checked_user_syscall::<
-                USER_AREAS,
-                MAX_ARGS,
-                ARG_BYTES,
-                MAX_PROCS,
-                MAX_CHILDREN,
-                MAX_AREAS,
-                MAX_TASKS,
-            >(
-                ctx.runtime,
-                ctx.user,
-                path_ptr,
-                argv_ptr,
-                envp_ptr,
-                ctx.vfs,
-                ctx.scratch,
-                ctx.stack_bytes,
-                ctx.stack_top_va,
-                ctx.new_vm,
-            )
-        }
+        Syscall::Execv {
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+        } => handle_current_process_execv_checked_user_syscall::<
+            USER_AREAS,
+            MAX_ARGS,
+            ARG_BYTES,
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_AREAS,
+            MAX_TASKS,
+        >(
+            ctx.runtime,
+            ctx.user,
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+            ctx.vfs,
+            ctx.scratch,
+            ctx.stack_bytes,
+            ctx.stack_top_va,
+            ctx.new_vm,
+        ),
         _ => SyscallResult::Unsupported,
     }
 }
@@ -785,14 +821,7 @@ pub fn dispatch_current_execv_syscall_from_runtime<
     const MAX_TASKS: usize,
 >(
     syscall: Syscall,
-    ctx: CurrentExecvRuntimeContext<
-        '_,
-        '_,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    >,
+    ctx: CurrentExecvRuntimeContext<'_, '_, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
 ) -> SyscallResult {
     let user_vm = match ctx.runtime.current_process_vm() {
         Ok(vm) => vm,
@@ -805,28 +834,30 @@ pub fn dispatch_current_execv_syscall_from_runtime<
     );
 
     match syscall {
-        Syscall::Execv { path_ptr, argv_ptr, envp_ptr } => {
-            handle_current_process_execv_checked_user_syscall::<
-                MAX_AREAS,
-                MAX_ARGS,
-                ARG_BYTES,
-                MAX_PROCS,
-                MAX_CHILDREN,
-                MAX_AREAS,
-                MAX_TASKS,
-            >(
-                ctx.runtime,
-                &user,
-                path_ptr,
-                argv_ptr,
-                envp_ptr,
-                ctx.vfs,
-                ctx.scratch,
-                ctx.stack_bytes,
-                ctx.stack_top_va,
-                ctx.new_vm,
-            )
-        }
+        Syscall::Execv {
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+        } => handle_current_process_execv_checked_user_syscall::<
+            MAX_AREAS,
+            MAX_ARGS,
+            ARG_BYTES,
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_AREAS,
+            MAX_TASKS,
+        >(
+            ctx.runtime,
+            &user,
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+            ctx.vfs,
+            ctx.scratch,
+            ctx.stack_bytes,
+            ctx.stack_top_va,
+            ctx.new_vm,
+        ),
         _ => SyscallResult::Unsupported,
     }
 }
@@ -840,14 +871,7 @@ pub fn dispatch_current_execv_frame_from_runtime<
     const MAX_TASKS: usize,
 >(
     frame: &crate::trap::TrapFrame,
-    ctx: CurrentExecvRuntimeContext<
-        '_,
-        '_,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    >,
+    ctx: CurrentExecvRuntimeContext<'_, '_, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
 ) -> SyscallResult {
     let Some(syscall) = decode_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()) else {
         return SyscallResult::Unsupported;
@@ -928,7 +952,11 @@ pub fn dispatch_current_execv_shared_object_syscall_from_runtime<
     };
 
     match syscall {
-        Syscall::Execv { path_ptr, argv_ptr, envp_ptr } => {
+        Syscall::Execv {
+            path_ptr,
+            argv_ptr,
+            envp_ptr,
+        } => {
             match crate::exec_flow::apply_execv_with_shared_object_dependency_from_user_args::<
                 MAX_AREAS,
                 MAX_ARGS,

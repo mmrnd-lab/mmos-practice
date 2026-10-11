@@ -35,7 +35,9 @@ pub struct ProcessControlBlock<const MAX_CHILDREN: usize, const MAX_AREAS: usize
     pub satp: usize,
 }
 
-impl<const MAX_CHILDREN: usize, const MAX_AREAS: usize> ProcessControlBlock<MAX_CHILDREN, MAX_AREAS> {
+impl<const MAX_CHILDREN: usize, const MAX_AREAS: usize>
+    ProcessControlBlock<MAX_CHILDREN, MAX_AREAS>
+{
     pub fn new(pid: usize, parent: Option<usize>, vm: VmSpace<MAX_AREAS>, satp: usize) -> Self {
         Self {
             pid,

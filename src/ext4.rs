@@ -63,7 +63,11 @@ impl Superblock {
             return Err(FsError::BadSuperblock);
         }
 
-        let inode_size = if sb.inode_size == 0 { 128 } else { sb.inode_size } as usize;
+        let inode_size = if sb.inode_size == 0 {
+            128
+        } else {
+            sb.inode_size
+        } as usize;
         if inode_size > MAX_INODE_SIZE {
             return Err(FsError::Unsupported);
         }
@@ -81,7 +85,11 @@ impl Superblock {
     }
 
     pub fn inode_size_bytes(&self) -> usize {
-        if self.inode_size == 0 { 128 } else { self.inode_size as usize }
+        if self.inode_size == 0 {
+            128
+        } else {
+            self.inode_size as usize
+        }
     }
 }
 
@@ -95,7 +103,9 @@ impl GroupDescriptor {
         if buf.len() < GROUP_DESC_SIZE {
             return Err(FsError::Corrupt);
         }
-        Ok(Self { inode_table_block: le32(buf, 8) })
+        Ok(Self {
+            inode_table_block: le32(buf, 8),
+        })
     }
 }
 
@@ -128,10 +138,18 @@ impl Inode {
         })
     }
 
-    pub fn number(&self) -> u32 { self.number }
-    pub fn size(&self) -> usize { self.size_lo as usize }
-    pub fn is_dir(&self) -> bool { self.mode & EXT_S_IFDIR == EXT_S_IFDIR }
-    pub fn is_regular_file(&self) -> bool { self.mode & EXT_S_IFREG == EXT_S_IFREG }
+    pub fn number(&self) -> u32 {
+        self.number
+    }
+    pub fn size(&self) -> usize {
+        self.size_lo as usize
+    }
+    pub fn is_dir(&self) -> bool {
+        self.mode & EXT_S_IFDIR == EXT_S_IFDIR
+    }
+    pub fn is_regular_file(&self) -> bool {
+        self.mode & EXT_S_IFREG == EXT_S_IFREG
+    }
 }
 
 pub struct Ext4Fs<'a> {
@@ -147,8 +165,12 @@ impl<'a> Ext4Fs<'a> {
         Ok(Self { dev, superblock })
     }
 
-    pub fn superblock(&self) -> &Superblock { &self.superblock }
-    pub fn root_inode(&self) -> Result<Inode, FsError> { self.inode_by_number(ROOT_INODE_NUMBER) }
+    pub fn superblock(&self) -> &Superblock {
+        &self.superblock
+    }
+    pub fn root_inode(&self) -> Result<Inode, FsError> {
+        self.inode_by_number(ROOT_INODE_NUMBER)
+    }
 
     pub fn inode_by_number(&self, number: u32) -> Result<Inode, FsError> {
         if number == 0 {
@@ -204,7 +226,10 @@ impl<'a> Ext4Fs<'a> {
                 let rec_len = le16(&block, offset + 4) as usize;
                 let name_len = block[offset + 6] as usize;
 
-                if rec_len < 8 || offset + rec_len > block_limit || name_len > rec_len.saturating_sub(8) {
+                if rec_len < 8
+                    || offset + rec_len > block_limit
+                    || name_len > rec_len.saturating_sub(8)
+                {
                     return Err(FsError::Corrupt);
                 }
 
@@ -260,7 +285,11 @@ impl<'a> Ext4Fs<'a> {
     }
 
     fn group_descriptor(&self, group: u32) -> Result<GroupDescriptor, FsError> {
-        let table_offset = if self.superblock.block_size() == 1024 { 2 * 1024u64 } else { self.superblock.block_size() as u64 };
+        let table_offset = if self.superblock.block_size() == 1024 {
+            2 * 1024u64
+        } else {
+            self.superblock.block_size() as u64
+        };
         let offset = table_offset + group as u64 * GROUP_DESC_SIZE as u64;
         let mut buf = [0u8; GROUP_DESC_SIZE];
         read_bytes(self.dev, offset, &mut buf)?;
@@ -279,5 +308,10 @@ fn le16(buf: &[u8], offset: usize) -> u16 {
 }
 
 fn le32(buf: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes([buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]])
+    u32::from_le_bytes([
+        buf[offset],
+        buf[offset + 1],
+        buf[offset + 2],
+        buf[offset + 3],
+    ])
 }

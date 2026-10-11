@@ -1,9 +1,7 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::exec_args::{
-    copyin_execv_args, materialize_execv_stack, ExecvArgBlock, ExecvArgError,
-};
+use crate::exec_args::{copyin_execv_args, materialize_execv_stack, ExecvArgBlock, ExecvArgError};
 use crate::exec_path::{
     load_exec_image_from_args, load_exec_image_with_shared_object_dependency_from_args,
     ExecPathError,

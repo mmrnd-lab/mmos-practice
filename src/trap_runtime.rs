@@ -6,8 +6,8 @@ use core::cell::UnsafeCell;
 use crate::{
     irq_guard::IrqGuard,
     process_model::{
-        reap_exited_process, wait_reap_zombie_child, ProcError, ProcessReapRuntime,
-        ProcessTable, ProcessWaitReapRuntime, TaskControlBlock, TaskTable,
+        reap_exited_process, wait_reap_zombie_child, ProcError, ProcessReapRuntime, ProcessTable,
+        ProcessWaitReapRuntime, TaskControlBlock, TaskTable,
     },
     scheduler::{SchedError, ScheduleDecision, Scheduler, TaskState},
     trap::{
@@ -112,12 +112,7 @@ pub struct ExecvTrapDispatchState<
     const STACK_BYTES: usize,
     const MAX_AREAS: usize,
 > {
-    store: crate::trap::ExecvTrapResourceStore<
-        'v,
-        SCRATCH_BYTES,
-        STACK_BYTES,
-        MAX_AREAS,
-    >,
+    store: crate::trap::ExecvTrapResourceStore<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS>,
 }
 
 impl<'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: usize>
@@ -146,12 +141,7 @@ impl<'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: 
         user_base: usize,
         new_vm: VmSpace<MAX_AREAS>,
     ) -> TrapOutcome {
-        runtime.dispatch_execv_trap::<
-            MAX_ARGS,
-            ARG_BYTES,
-            SCRATCH_BYTES,
-            STACK_BYTES,
-        >(
+        runtime.dispatch_execv_trap::<MAX_ARGS, ARG_BYTES, SCRATCH_BYTES, STACK_BYTES>(
             frame,
             scause,
             stval,
@@ -235,10 +225,7 @@ impl<
         user_source: crate::trap::ExecvPreparedUserSource<'u>,
         replacement_vm: crate::trap::ExecvPreparedReplacementVm<MAX_AREAS>,
     ) -> crate::trap::ExecvPreparedEntryRecipe<'u, MAX_AREAS> {
-        crate::trap::ExecvPreparedEntryRecipe::new(
-            user_source,
-            replacement_vm,
-        )
+        crate::trap::ExecvPreparedEntryRecipe::new(user_source, replacement_vm)
     }
 
     pub const fn entry_input<'u>(
@@ -315,11 +302,7 @@ impl<
         }
     }
 
-    pub fn dispatch_execv_trap<
-        'a,
-        const MAX_ARGS: usize,
-        const ARG_BYTES: usize,
-    >(
+    pub fn dispatch_execv_trap<'a, const MAX_ARGS: usize, const ARG_BYTES: usize>(
         &'a mut self,
         frame: &mut TrapFrame,
         scause: usize,
@@ -328,28 +311,19 @@ impl<
         user_base: usize,
         new_vm: VmSpace<MAX_AREAS>,
     ) -> TrapOutcome {
-        self.execv_dispatch.dispatch::<
-            MAX_ARGS,
-            ARG_BYTES,
-            MAX_PROCS,
-            MAX_CHILDREN,
-            MAX_TASKS,
-        >(
-            &mut self.runtime,
-            frame,
-            scause,
-            stval,
-            user_bytes,
-            user_base,
-            new_vm,
-        )
+        self.execv_dispatch
+            .dispatch::<MAX_ARGS, ARG_BYTES, MAX_PROCS, MAX_CHILDREN, MAX_TASKS>(
+                &mut self.runtime,
+                frame,
+                scause,
+                stval,
+                user_bytes,
+                user_base,
+                new_vm,
+            )
     }
 
-    pub fn dispatch_execv_user_ecall<
-        'a,
-        const MAX_ARGS: usize,
-        const ARG_BYTES: usize,
-    >(
+    pub fn dispatch_execv_user_ecall<'a, const MAX_ARGS: usize, const ARG_BYTES: usize>(
         &'a mut self,
         frame: &mut TrapFrame,
         user_bytes: &'a [u8],
@@ -520,10 +494,9 @@ impl<
         self.execv_stack_top_va
     }
 
-    pub const fn execv_dispatch_plan<
-        const SCRATCH_BYTES: usize,
-        const STACK_BYTES: usize,
-    >(&self) -> ExecvTrapDispatchPlan<SCRATCH_BYTES, STACK_BYTES, MAX_AREAS> {
+    pub const fn execv_dispatch_plan<const SCRATCH_BYTES: usize, const STACK_BYTES: usize>(
+        &self,
+    ) -> ExecvTrapDispatchPlan<SCRATCH_BYTES, STACK_BYTES, MAX_AREAS> {
         ExecvTrapDispatchPlan::new(self.execv_stack_top_va)
     }
 
@@ -620,12 +593,7 @@ impl<
         let _ = self.scheduler.on_tick();
     }
 
-    pub fn execv_resources<
-        'a,
-        'v,
-        const SCRATCH_BYTES: usize,
-        const STACK_BYTES: usize,
-    >(
+    pub fn execv_resources<'a, 'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize>(
         &'a mut self,
         store: &'a mut crate::trap::ExecvTrapResourceStore<
             'v,
@@ -636,14 +604,8 @@ impl<
         user_bytes: &'a [u8],
         user_base: usize,
         new_vm: VmSpace<MAX_AREAS>,
-    ) -> crate::trap::ExecvTrapRuntimeResources<
-        'a,
-        'v,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    > {
+    ) -> crate::trap::ExecvTrapRuntimeResources<'a, 'v, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>
+    {
         store.resources(self, user_bytes, user_base, new_vm)
     }
 
@@ -790,7 +752,6 @@ impl<
         self.scheduler.current_tid()
     }
 }
-
 
 pub const GLOBAL_TRAP_RUNTIME_TASKS: usize = 4;
 

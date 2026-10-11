@@ -790,3 +790,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - user init은 raw `envp[0]` 출력에 더해 CRT helper로 `PATH` 값을 조회해 `/bin`을 출력
     - `make user-crt-env-lookup` 타깃과 verifier가 helper symbol과 runtime output을 확인
     - QEMU runtime marker에서 `[chapter] ch171 user crt env lookup`, `[user-init] getenv PATH=/bin` 확인
+
+155. `TBD` `feat(ch111): run init child shell wait lifecycle`
+    - user libc에 `clone`, `execve`, `wait4` syscall wrapper를 추가하고 `/sbin/init`이 child에서 `/bin/sh`를 실행한 뒤 부모에서 회수
+    - 단일 hart Foundation 경로는 child exec 전에 부모 trap frame과 사용자 stack frame을 보존하고, shell 종료 뒤 디스크의 `/sbin/init` ELF와 부모 stack을 같은 사용자 mapping에 복원
+    - `make run-foundation`이 `help`, `echo hello foundation`, `exit` 입력을 QEMU console에 공급하고 실제 `/bin/sh` ELF의 대화형 builtin 경로를 검증
+    - QEMU runtime marker에서 `[init] spawned shell pid=2`, `[init-child] execve /bin/sh`, `[shell] MMOS shell ready`, `[chapter] ch111 init child shell wait`, `[init] reaped shell pid=2 status=0`, `[user-init] exit=0` 확인
+    - 이 checkpoint는 Foundation의 bounded single-address-space handoff이며, 독립 주소공간을 동시에 유지하는 일반 fork/COW 구현은 Volume 2 process/pager service 경계로 남김

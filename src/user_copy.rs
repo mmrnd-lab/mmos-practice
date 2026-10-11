@@ -22,7 +22,9 @@ impl<'a> UserSlice<'a> {
     }
 
     fn range(&self, ptr: usize, len: usize) -> Result<&'a [u8], UserCopyError> {
-        let start = ptr.checked_sub(self.base).ok_or(UserCopyError::BadAddress)?;
+        let start = ptr
+            .checked_sub(self.base)
+            .ok_or(UserCopyError::BadAddress)?;
         let end = start.checked_add(len).ok_or(UserCopyError::BadAddress)?;
         self.bytes.get(start..end).ok_or(UserCopyError::BadAddress)
     }
@@ -47,11 +49,7 @@ impl<'a> UserSlice<'a> {
         Ok(len)
     }
 
-    pub fn copyin_cstr<'b>(
-        &self,
-        ptr: usize,
-        out: &'b mut [u8],
-    ) -> Result<&'b str, UserCopyError> {
+    pub fn copyin_cstr<'b>(&self, ptr: usize, out: &'b mut [u8]) -> Result<&'b str, UserCopyError> {
         if out.is_empty() {
             return Err(UserCopyError::BufferTooSmall);
         }
@@ -68,7 +66,6 @@ impl<'a> UserSlice<'a> {
         Err(UserCopyError::MissingNul)
     }
 }
-
 
 pub struct CheckedUserSlice<'a, const MAX_AREAS: usize> {
     user: UserSlice<'a>,
@@ -101,11 +98,7 @@ impl<'a, const MAX_AREAS: usize> CheckedUserSlice<'a, MAX_AREAS> {
         self.user.copyin_bytes(ptr, len, out)
     }
 
-    pub fn copyin_cstr<'b>(
-        &self,
-        ptr: usize,
-        out: &'b mut [u8],
-    ) -> Result<&'b str, UserCopyError> {
+    pub fn copyin_cstr<'b>(&self, ptr: usize, out: &'b mut [u8]) -> Result<&'b str, UserCopyError> {
         if out.is_empty() {
             return Err(UserCopyError::BufferTooSmall);
         }
@@ -116,8 +109,7 @@ impl<'a, const MAX_AREAS: usize> CheckedUserSlice<'a, MAX_AREAS> {
             let mut byte = [0u8; 1];
             self.user.copyin(ptr + copied, &mut byte)?;
             if byte[0] == 0 {
-                return core::str::from_utf8(&out[..copied])
-                    .map_err(|_| UserCopyError::BadAddress);
+                return core::str::from_utf8(&out[..copied]).map_err(|_| UserCopyError::BadAddress);
             }
             out[copied] = byte[0];
             copied += 1;
@@ -125,7 +117,6 @@ impl<'a, const MAX_AREAS: usize> CheckedUserSlice<'a, MAX_AREAS> {
         Err(UserCopyError::MissingNul)
     }
 }
-
 
 pub struct UserSliceMut<'a> {
     bytes: &'a mut [u8],
@@ -138,9 +129,13 @@ impl<'a> UserSliceMut<'a> {
     }
 
     fn range_mut(&mut self, ptr: usize, len: usize) -> Result<&mut [u8], UserCopyError> {
-        let start = ptr.checked_sub(self.base).ok_or(UserCopyError::BadAddress)?;
+        let start = ptr
+            .checked_sub(self.base)
+            .ok_or(UserCopyError::BadAddress)?;
         let end = start.checked_add(len).ok_or(UserCopyError::BadAddress)?;
-        self.bytes.get_mut(start..end).ok_or(UserCopyError::BadAddress)
+        self.bytes
+            .get_mut(start..end)
+            .ok_or(UserCopyError::BadAddress)
     }
 
     pub fn copyout_bytes(&mut self, ptr: usize, src: &[u8]) -> Result<usize, UserCopyError> {

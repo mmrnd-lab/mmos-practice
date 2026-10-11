@@ -109,14 +109,15 @@ impl<const MAX_FDS: usize> CurrentProcessIoContext<MAX_FDS> {
     }
 }
 
-
 pub struct ProcessIoTable<const MAX_PROCS: usize, const MAX_FDS: usize> {
     slots: [Option<CurrentProcessIoContext<MAX_FDS>>; MAX_PROCS],
 }
 
 impl<const MAX_PROCS: usize, const MAX_FDS: usize> ProcessIoTable<MAX_PROCS, MAX_FDS> {
     pub const fn new() -> Self {
-        Self { slots: [None; MAX_PROCS] }
+        Self {
+            slots: [None; MAX_PROCS],
+        }
     }
 
     pub fn insert(&mut self, io: CurrentProcessIoContext<MAX_FDS>) -> Result<(), ProcError> {
@@ -186,7 +187,6 @@ impl<const MAX_PROCS: usize, const MAX_FDS: usize> ProcessIoTable<MAX_PROCS, MAX
         self.get_mut(task.owner_pid)
     }
 }
-
 
 pub struct ProcessIoRuntime<
     const MAX_PROCS: usize,

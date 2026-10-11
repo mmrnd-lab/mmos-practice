@@ -229,7 +229,11 @@ pub fn parse_elf_header(bytes: &[u8]) -> Result<ElfHeader, ElfError> {
     })
 }
 
-pub fn parse_program_header(bytes: &[u8], hdr: &ElfHeader, index: usize) -> Result<ProgramHeader, ElfError> {
+pub fn parse_program_header(
+    bytes: &[u8],
+    hdr: &ElfHeader,
+    index: usize,
+) -> Result<ProgramHeader, ElfError> {
     if index >= hdr.phnum as usize {
         return Err(ElfError::BadProgramHeader);
     }
@@ -351,7 +355,10 @@ pub fn write_relocation_apply(
     image: &mut [u8],
     apply: SharedObjectRelocationApply,
 ) -> Result<(), ElfError> {
-    let end = apply.target_offset.checked_add(8).ok_or(ElfError::RelocationTargetOutOfRange)?;
+    let end = apply
+        .target_offset
+        .checked_add(8)
+        .ok_or(ElfError::RelocationTargetOutOfRange)?;
     let target = image
         .get_mut(apply.target_offset..end)
         .ok_or(ElfError::RelocationTargetOutOfRange)?;
@@ -410,7 +417,9 @@ pub fn calculate_relative_relocation_plan(
     Ok(applies)
 }
 
-pub fn collect_shared_object_relocations(bytes: &[u8]) -> Result<SharedObjectRelocationPlan, ElfError> {
+pub fn collect_shared_object_relocations(
+    bytes: &[u8],
+) -> Result<SharedObjectRelocationPlan, ElfError> {
     let info = inspect_shared_object_dynamic(bytes)?;
     if info.rela_entry_size != RELA_ENTRY_SIZE {
         return Err(ElfError::BadRelocationEntry);
@@ -425,7 +434,9 @@ pub fn collect_shared_object_relocations(bytes: &[u8]) -> Result<SharedObjectRel
     let rela_addr = info.rela_addr.ok_or(ElfError::BadRelocationEntry)?;
     let rela_offset = file_offset_for_vaddr(bytes, rela_addr).ok_or(ElfError::SegmentOutOfRange)?;
     let rela_end = rela_offset + info.rela_size;
-    let entries = bytes.get(rela_offset..rela_end).ok_or(ElfError::SegmentOutOfRange)?;
+    let entries = bytes
+        .get(rela_offset..rela_end)
+        .ok_or(ElfError::SegmentOutOfRange)?;
     let mut plan = SharedObjectRelocationPlan {
         candidates: [None; MAX_RELOCATION_CANDIDATES],
         candidate_count: 0,
@@ -551,7 +562,12 @@ fn le16(buf: &[u8], offset: usize) -> u16 {
 }
 
 fn le32(buf: &[u8], offset: usize) -> u32 {
-    u32::from_le_bytes([buf[offset], buf[offset + 1], buf[offset + 2], buf[offset + 3]])
+    u32::from_le_bytes([
+        buf[offset],
+        buf[offset + 1],
+        buf[offset + 2],
+        buf[offset + 3],
+    ])
 }
 
 fn le64(buf: &[u8], offset: usize) -> u64 {

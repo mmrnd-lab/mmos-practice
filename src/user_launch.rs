@@ -49,7 +49,8 @@ pub fn prepare_user_init_launch<const MAX_ARGS: usize, const MAX_ENVS: usize>(
     let mut trapframe = TrapFrame::default();
     install_exec_context(&mut trapframe, &image);
 
-    let stack = build_initial_user_stack::<MAX_ARGS, MAX_ENVS>(stack_bytes, loaded.stack_top, argv, envp)?;
+    let stack =
+        build_initial_user_stack::<MAX_ARGS, MAX_ENVS>(stack_bytes, loaded.stack_top, argv, envp)?;
     trapframe.set_sp(stack.sp);
     trapframe.set_a0(stack.argc);
     trapframe.set_a1(stack.argv_ptr);

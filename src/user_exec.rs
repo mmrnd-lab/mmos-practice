@@ -27,7 +27,6 @@ pub struct UserRegionMut<'a> {
     pub bytes: &'a mut [u8],
 }
 
-
 #[derive(Debug)]
 pub struct FrameRegionMut<'a> {
     pub frame_pa: usize,
@@ -134,11 +133,14 @@ pub fn materialize_frame_backed_user_image(
     while idx < plan.segment_count {
         let frame_plan = plan.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
         let seg = loaded.segments[idx].ok_or(FrameBackedMaterializeError::MalformedImage)?;
-        let region_idx = find_frame_region(regions, frame_plan.frame_pa)
-            .ok_or(FrameBackedMaterializeError::MissingSegmentFrame(frame_plan.frame_pa))?;
+        let region_idx = find_frame_region(regions, frame_plan.frame_pa).ok_or(
+            FrameBackedMaterializeError::MissingSegmentFrame(frame_plan.frame_pa),
+        )?;
         let page_offset = frame_plan.vaddr & (crate::sv39::PAGE_SIZE - 1);
         if regions[region_idx].bytes.len() < page_offset + frame_plan.mem_size {
-            return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(frame_plan.frame_pa));
+            return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(
+                frame_plan.frame_pa,
+            ));
         }
 
         if !frame_seen_before(plan, idx, frame_plan.frame_pa) {
@@ -173,7 +175,9 @@ pub unsafe fn materialize_frame_backed_user_image_to_frames(
         };
         let page_offset = frame_plan.vaddr & (crate::sv39::PAGE_SIZE - 1);
         if dst.len() < page_offset + frame_plan.mem_size {
-            return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(frame_plan.frame_pa));
+            return Err(FrameBackedMaterializeError::SegmentFrameTooSmall(
+                frame_plan.frame_pa,
+            ));
         }
         if !frame_seen_before(plan, idx, frame_plan.frame_pa) {
             dst.fill(0);

@@ -7,8 +7,8 @@ use crate::elf_loader::{
 };
 use crate::ext4::FsError;
 use crate::sv39::{
-    make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_G, PTE_R,
-    PTE_U, PTE_V, PTE_W, PTE_X, PT_ENTRIES,
+    make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_G, PTE_R, PTE_U, PTE_V,
+    PTE_W, PTE_X, PT_ENTRIES,
 };
 use crate::vfs::Vfs;
 
@@ -49,7 +49,6 @@ pub struct UserVmRootInstall {
     pub satp: usize,
     pub mapped_regions: usize,
 }
-
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct UserSegmentFramePlan {
@@ -555,7 +554,9 @@ pub fn load_shared_object_from_vfs_in_tables<const FREE_CAP: usize>(
     l0: &mut RootPageTable,
     l0_frame_pa: usize,
 ) -> Result<SharedObjectLoadPipeline, SharedObjectPathLoadError> {
-    let used = vfs.read_all(path, scratch).map_err(SharedObjectPathLoadError::Fs)?;
+    let used = vfs
+        .read_all(path, scratch)
+        .map_err(SharedObjectPathLoadError::Fs)?;
     load_shared_object_pipeline_in_tables(
         &mut scratch[..used],
         preferred_base,
@@ -599,8 +600,12 @@ pub fn install_frame_backed_user_mapping<const FREE_CAP: usize>(
     plan: &UserFrameBackedImagePlan,
     pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
 ) -> Result<UserFrameBackedMappingInstall, UserFrameBackedMappingError> {
-    let l1_frame_pa = pmm.alloc().ok_or(UserFrameBackedMappingError::OutOfFrames)?;
-    let l0_frame_pa = pmm.alloc().ok_or(UserFrameBackedMappingError::OutOfFrames)?;
+    let l1_frame_pa = pmm
+        .alloc()
+        .ok_or(UserFrameBackedMappingError::OutOfFrames)?;
+    let l0_frame_pa = pmm
+        .alloc()
+        .ok_or(UserFrameBackedMappingError::OutOfFrames)?;
     let l1 = unsafe { root_page_table_from_identity_frame_mut(l1_frame_pa) };
     let l0 = unsafe { root_page_table_from_identity_frame_mut(l0_frame_pa) };
     install_frame_backed_user_mapping_in_tables(root, l1, l1_frame_pa, l0, l0_frame_pa, plan)
@@ -656,7 +661,12 @@ pub fn build_user_vm_plan(
     }
 
     let stack_addr = loaded.stack_top.saturating_sub(1);
-    add_region(&mut pairs, &mut count, stack_addr >> GIB_SHIFT, PTE_U | crate::sv39::PTE_R | crate::sv39::PTE_W | PTE_A | PTE_D)?;
+    add_region(
+        &mut pairs,
+        &mut count,
+        stack_addr >> GIB_SHIFT,
+        PTE_U | crate::sv39::PTE_R | crate::sv39::PTE_W | PTE_A | PTE_D,
+    )?;
 
     Ok(UserVmPlan {
         root_frame_pa,
@@ -785,9 +795,13 @@ pub fn is_leaf_user_mapping(entry: crate::sv39::PageTableEntry) -> bool {
     (f & (PTE_V | PTE_U)) == (PTE_V | PTE_U)
 }
 
-
 pub fn install_kernel_identity_mapping(root: &mut RootPageTable) -> Result<(), KernelMapError> {
-    install_supervisor_identity_leaf(root, KERNEL_IDENTITY_VPN2, KERNEL_IDENTITY_PPN, KERNEL_IDENTITY_FLAGS)?;
+    install_supervisor_identity_leaf(
+        root,
+        KERNEL_IDENTITY_VPN2,
+        KERNEL_IDENTITY_PPN,
+        KERNEL_IDENTITY_FLAGS,
+    )?;
     install_supervisor_identity_leaf(root, KERNEL_MMIO_VPN2, KERNEL_MMIO_PPN, KERNEL_MMIO_FLAGS)?;
     Ok(())
 }

@@ -56,20 +56,32 @@ pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
     write_le32(code, 0x10, encode_addi(17, 0, 56));
     write_le32(code, 0x14, 0x0000_0073); // ecall
     write_le32(code, 0x18, encode_auipc(11, 0));
-    write_le32(code, 0x1c, encode_addi(11, 11, (PATH_OFF - (SEG_OFF + 0x18)) as i32));
+    write_le32(
+        code,
+        0x1c,
+        encode_addi(11, 11, (PATH_OFF - (SEG_OFF + 0x18)) as i32),
+    );
     write_le32(code, 0x20, encode_addi(10, 0, -100));
     write_le32(code, 0x24, encode_addi(12, 0, 1));
     write_le32(code, 0x28, encode_addi(17, 0, 56));
     write_le32(code, 0x2c, 0x0000_0073); // ecall
     write_le32(code, 0x30, encode_auipc(11, 0));
-    write_le32(code, 0x34, encode_addi(11, 11, (PATH_OFF - (SEG_OFF + 0x30)) as i32));
+    write_le32(
+        code,
+        0x34,
+        encode_addi(11, 11, (PATH_OFF - (SEG_OFF + 0x30)) as i32),
+    );
     write_le32(code, 0x38, encode_addi(10, 0, -100));
     write_le32(code, 0x3c, encode_addi(12, 0, 1));
     write_le32(code, 0x40, encode_addi(17, 0, 56));
     write_le32(code, 0x44, 0x0000_0073); // ecall
-    // a1 = &MSG (PC-relative, avoids RV64 sign-extension pitfalls)
+                                         // a1 = &MSG (PC-relative, avoids RV64 sign-extension pitfalls)
     write_le32(code, 0x48, encode_auipc(11, 0));
-    write_le32(code, 0x4c, encode_addi(11, 11, (MSG_OFF - (SEG_OFF + 0x48)) as i32));
+    write_le32(
+        code,
+        0x4c,
+        encode_addi(11, 11, (MSG_OFF - (SEG_OFF + 0x48)) as i32),
+    );
     // write(1, msg, msg_len)
     write_le32(code, 0x50, encode_addi(10, 0, 1));
     write_le32(code, 0x54, encode_addi(12, 0, MSG.len() as i32));
@@ -179,7 +191,14 @@ fn write_lib_dir(image: &mut [u8]) {
     let block = &mut image[13 * 1024..14 * 1024];
     write_dir_entry(block, 0, 14, 12, b".", 2);
     write_dir_entry(block, 12, 2, 12, b"..", 2);
-    write_dir_entry(block, 24, 15, (1024 - 24) as u16, b"libmmos_user_libc.so", 1);
+    write_dir_entry(
+        block,
+        24,
+        15,
+        (1024 - 24) as u16,
+        b"libmmos_user_libc.so",
+        1,
+    );
 }
 
 fn write_dir_entry(

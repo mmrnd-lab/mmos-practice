@@ -38,7 +38,6 @@ pub struct TrapFrame {
     pub sstatus: usize,
 }
 
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct KernelTrapStackSwitch {
     pub user_sp: usize,
@@ -98,8 +97,7 @@ pub fn prepare_trap_entry_scratch(
     kernel_stack_top: usize,
     kernel_stack_bottom: usize,
 ) -> Result<TrapEntryScratch, KernelTrapStackError> {
-    let switch =
-        prepare_kernel_trap_stack_switch(user_sp, kernel_stack_top, kernel_stack_bottom)?;
+    let switch = prepare_kernel_trap_stack_switch(user_sp, kernel_stack_top, kernel_stack_bottom)?;
 
     Ok(TrapEntryScratch {
         sscratch: switch.kernel_frame_sp,
@@ -125,7 +123,11 @@ pub fn simulate_trap_entry_return_scratch(scratch: TrapEntryScratch) -> TrapEntr
 pub fn prepare_enter_user_scratch(
     frame: &TrapFrame,
 ) -> Result<TrapEntryScratch, KernelTrapStackError> {
-    prepare_trap_entry_scratch(frame.sp(), kernel_trap_stack_top(), kernel_trap_stack_bottom())
+    prepare_trap_entry_scratch(
+        frame.sp(),
+        kernel_trap_stack_top(),
+        kernel_trap_stack_bottom(),
+    )
 }
 
 impl TrapFrame {
@@ -430,14 +432,7 @@ pub fn handle_current_execv_frame_from_runtime<
     const MAX_TASKS: usize,
 >(
     frame: &mut TrapFrame,
-    ctx: syscall::CurrentExecvRuntimeContext<
-        '_,
-        '_,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    >,
+    ctx: syscall::CurrentExecvRuntimeContext<'_, '_, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
 ) -> TrapOutcome {
     let result = syscall::dispatch_current_execv_frame_from_runtime::<
         MAX_ARGS,
@@ -538,14 +533,8 @@ impl<
 {
     pub fn into_current_context(
         self,
-    ) -> syscall::CurrentExecvRuntimeContext<
-        'a,
-        'v,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    > {
+    ) -> syscall::CurrentExecvRuntimeContext<'a, 'v, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>
+    {
         syscall::CurrentExecvRuntimeContext {
             runtime: self.runtime,
             user_bytes: self.user_bytes,
@@ -570,14 +559,7 @@ pub fn handle_trap_with_execv_resources<
     frame: &mut TrapFrame,
     scause: usize,
     stval: usize,
-    resources: ExecvTrapRuntimeResources<
-        '_,
-        '_,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    >,
+    resources: ExecvTrapRuntimeResources<'_, '_, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
 ) -> TrapOutcome {
     handle_trap_with_current_execv_runtime::<
         MAX_ARGS,
@@ -600,19 +582,10 @@ pub fn handle_trap_with_current_execv_runtime<
     frame: &mut TrapFrame,
     scause: usize,
     _stval: usize,
-    ctx: syscall::CurrentExecvRuntimeContext<
-        '_,
-        '_,
-        MAX_PROCS,
-        MAX_CHILDREN,
-        MAX_AREAS,
-        MAX_TASKS,
-    >,
+    ctx: syscall::CurrentExecvRuntimeContext<'_, '_, MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
 ) -> TrapOutcome {
     match scause {
-        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL
-            if frame.a7() == syscall::SYS_EXECVE =>
-        {
+        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL if frame.a7() == syscall::SYS_EXECVE => {
             handle_current_execv_frame_from_runtime::<
                 MAX_ARGS,
                 ARG_BYTES,
@@ -657,12 +630,7 @@ pub fn handle_execv_user_ecall_with_prepared_runtime<
     user_base: usize,
     new_vm: crate::vm::VmSpace<MAX_AREAS>,
 ) -> TrapOutcome {
-    prepared.dispatch_execv_user_ecall::<MAX_ARGS, ARG_BYTES>(
-        frame,
-        user_bytes,
-        user_base,
-        new_vm,
-    )
+    prepared.dispatch_execv_user_ecall::<MAX_ARGS, ARG_BYTES>(frame, user_bytes, user_base, new_vm)
 }
 
 pub struct ExecvPreparedUserSource<'a> {
@@ -828,15 +796,17 @@ pub fn handle_prepared_process_syscall_entry<
     exec_replacement_vm: ExecvPreparedReplacementVm<MAX_AREAS>,
 ) -> TrapDispatchResult {
     match frame.a7() {
-        syscall::SYS_CLONE => trap_outcome_without_scheduler(handle_current_clone_frame_from_runtime(
-            frame,
-            runtime,
-            clone_child_tid,
-            clone_child_vm,
-        )),
+        syscall::SYS_CLONE => {
+            trap_outcome_without_scheduler(handle_current_clone_frame_from_runtime(
+                frame,
+                runtime,
+                clone_child_tid,
+                clone_child_vm,
+            ))
+        }
         syscall::SYS_WAIT4 => handle_current_wait4_frame_from_runtime(frame, runtime, wait_user),
-        syscall::SYS_EXECVE => trap_outcome_without_scheduler(
-            handle_execv_user_ecall_with_prepared_entry::<
+        syscall::SYS_EXECVE => {
+            trap_outcome_without_scheduler(handle_execv_user_ecall_with_prepared_entry::<
                 MAX_ARGS,
                 ARG_BYTES,
                 MAX_PROCS,
@@ -845,8 +815,13 @@ pub fn handle_prepared_process_syscall_entry<
                 MAX_TASKS,
                 SCRATCH_BYTES,
                 STACK_BYTES,
-            >(frame, exec_store, exec_user_source, exec_replacement_vm),
-        ),
+            >(
+                frame,
+                exec_store,
+                exec_user_source,
+                exec_replacement_vm,
+            ))
+        }
         _ => trap_outcome_without_scheduler(handle_syscall_result(
             frame,
             syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
@@ -1068,11 +1043,9 @@ pub fn dispatch_trap_outcome_with_global_runtime(
     outcome: TrapOutcome,
 ) -> TrapDispatchResult {
     match outcome {
-        TrapOutcome::Schedule => {
-            crate::trap_runtime::with_global_trap_runtime(|runtime| {
-                runtime.dispatch_schedule(frame)
-            })
-        }
+        TrapOutcome::Schedule => crate::trap_runtime::with_global_trap_runtime(|runtime| {
+            runtime.dispatch_schedule(frame)
+        }),
         TrapOutcome::Resume => TrapDispatchResult::Resumed,
         TrapOutcome::Exit(code) => TrapDispatchResult::Exit(code),
         TrapOutcome::Fatal(cause) => TrapDispatchResult::Fatal(cause),
@@ -1115,7 +1088,8 @@ pub fn dispatch_exit_outcome_with_process_runtime<
 
 pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapOutcome {
     match scause {
-        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL => handle_syscall_result(
+        SCAUSE_USER_ECALL => handle_user_ecall(frame),
+        SCAUSE_SUPERVISOR_ECALL => handle_syscall_result(
             frame,
             syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
         ),
@@ -1125,11 +1099,32 @@ pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapO
 }
 
 #[cfg(target_arch = "riscv64")]
+fn handle_user_ecall(frame: &mut TrapFrame) -> TrapOutcome {
+    match crate::foundation_lifecycle::handle_user_syscall(frame) {
+        Some(outcome) => outcome,
+        None => handle_syscall_result(
+            frame,
+            syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
+        ),
+    }
+}
+
+#[cfg(not(target_arch = "riscv64"))]
+fn handle_user_ecall(frame: &mut TrapFrame) -> TrapOutcome {
+    handle_syscall_result(
+        frame,
+        syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
+    )
+}
+
+#[cfg(target_arch = "riscv64")]
 #[unsafe(no_mangle)]
 extern "C" fn rust_trap_dispatch(frame: *mut TrapFrame, scause: usize, stval: usize) {
     let frame = unsafe { &mut *frame };
     if scause == SCAUSE_USER_ECALL
-        && !unsafe { core::ptr::read_volatile(core::ptr::addr_of!(FIRST_USER_SYSCALL_TRAP_REPORTED)) }
+        && !unsafe {
+            core::ptr::read_volatile(core::ptr::addr_of!(FIRST_USER_SYSCALL_TRAP_REPORTED))
+        }
     {
         unsafe {
             core::ptr::write_volatile(

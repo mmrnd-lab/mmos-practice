@@ -7,16 +7,16 @@ const SYS_OPENAT: usize = 56;
 const SYS_READ: usize = 63;
 const SYS_WRITE: usize = 64;
 const SYS_EXIT: usize = 93;
+const SYS_CLONE: usize = 220;
+const SYS_EXECVE: usize = 221;
+const SYS_WAIT4: usize = 260;
 const AT_FDCWD: usize = (-100isize) as usize;
 const O_RDONLY: usize = 0;
 const O_WRONLY: usize = 1;
 const STARTUP_CSTR_MAX: usize = 256;
 
-pub type MainFn = unsafe extern "C" fn(
-    argc: usize,
-    argv: *const *const u8,
-    envp: *const *const u8,
-) -> i32;
+pub type MainFn =
+    unsafe extern "C" fn(argc: usize, argv: *const *const u8, envp: *const *const u8) -> i32;
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn __mmos_libc_start_main(
@@ -67,6 +67,23 @@ pub fn write(fd: usize, bytes: &[u8]) -> isize {
 
 pub fn read(fd: usize, bytes: &mut [u8]) -> isize {
     syscall3(SYS_READ, fd, bytes.as_mut_ptr() as usize, bytes.len()) as isize
+}
+
+pub fn clone_process() -> isize {
+    syscall3(SYS_CLONE, 0, 0, 0) as isize
+}
+
+pub fn execve(path: &[u8], argv: &[*const u8], envp: &[*const u8]) -> isize {
+    syscall3(
+        SYS_EXECVE,
+        path.as_ptr() as usize,
+        argv.as_ptr() as usize,
+        envp.as_ptr() as usize,
+    ) as isize
+}
+
+pub fn wait4(pid: isize, status: &mut i32) -> isize {
+    syscall3(SYS_WAIT4, pid as usize, status as *mut i32 as usize, 0) as isize
 }
 
 #[unsafe(no_mangle)]

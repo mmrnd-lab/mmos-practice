@@ -4,49 +4,51 @@
 
 
 pub mod block;
-pub mod ramdisk;
 pub mod block_io;
 pub mod char_device;
-pub mod serial;
-pub mod serial_rx;
 pub mod console;
 pub mod context_switch;
 pub mod demo_user_init;
-pub mod device;
 pub mod devfs;
+pub mod device;
 pub mod elf_loader;
-pub mod ext4;
 pub mod exec_args;
-pub mod exec_path;
 pub mod exec_flow;
+pub mod exec_path;
+pub mod ext4;
 pub mod fd_table;
-pub mod irq_guard;
+#[cfg(target_arch = "riscv64")]
+pub mod foundation_lifecycle;
 pub mod idle;
+pub mod irq_guard;
 pub mod kheap;
 pub mod page_fault;
 pub mod page_frame_allocator;
 pub mod pmm;
-pub mod process_model;
 pub mod process_io;
+pub mod process_model;
 pub mod process_runtime;
+pub mod ramdisk;
 pub mod sbi;
 pub mod scheduler;
+pub mod serial;
+pub mod serial_rx;
 pub mod sv39;
 pub mod syscall;
 pub mod task_vm;
 pub mod trap;
 pub mod trap_runtime;
-pub mod user_copy;
 pub mod uart;
 pub mod user_access;
+pub mod user_copy;
 pub mod user_exec;
 pub mod user_init;
 pub mod user_launch;
 pub mod user_process;
 pub mod user_stack;
 pub mod user_vm;
-pub mod virtio_blk;
 pub mod vfs;
+pub mod virtio_blk;
 pub mod vm;
 pub mod wait_queue;
 
@@ -59,34 +61,33 @@ pub fn align_up(value: usize, align: usize) -> usize {
 mod tests {
     use super::align_up;
     use super::block::{BlockDevice, BlockError};
-    use super::ramdisk::RamDisk;
     use super::block_io::read_bytes;
     use super::char_device::{CharError, CharacterDevice};
     use super::console;
     use super::context_switch::switch_context;
-    use super::device::{Device, DeviceKind};
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
+    use super::device::{Device, DeviceKind};
     use super::elf_loader::{
         calculate_relative_relocation, calculate_relative_relocation_plan,
         collect_shared_object_relocations, inspect_shared_object_dynamic, load_init_from_vfs,
-        load_user_elf, materialize_shared_object_relocations, parse_elf_header, SharedObjectRelocationApply,
-        SharedObjectRelocationCandidate,
-        pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load,
-        plan_shared_object_mappings,
-        write_relocation_apply, write_relocation_apply_plan, ElfError,
-        ElfFileType,
+        load_user_elf, materialize_shared_object_relocations, parse_elf_header, pflags_to_pte,
+        plan_shared_object_from_vfs, plan_shared_object_load, plan_shared_object_mappings,
+        write_relocation_apply, write_relocation_apply_plan, ElfError, ElfFileType,
+        SharedObjectRelocationApply, SharedObjectRelocationCandidate,
     };
-    use super::ext4::{Ext4Fs, FsError};
     use super::exec_args::{
         copyin_execv_args, materialize_execv_stack, ExecvArgBlock, ExecvArgError,
-    };
-    use super::exec_path::{
-        load_exec_image_from_args, load_exec_image_with_shared_object_dependency_from_args,
     };
     use super::exec_flow::{
         apply_execv_from_user_args, apply_execv_with_shared_object_dependency_from_user_args,
     };
-    use super::fd_table::{stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode};
+    use super::exec_path::{
+        load_exec_image_from_args, load_exec_image_with_shared_object_dependency_from_args,
+    };
+    use super::ext4::{Ext4Fs, FsError};
+    use super::fd_table::{
+        stdio_table, stdio_table_with_capacity, FileDescriptorTable, FileError, OpenFile, OpenMode,
+    };
     use super::idle::{idle_action_for_schedule_decision, IdleAction};
     use super::kheap::init_kheap;
     use super::page_fault::{
@@ -94,104 +95,104 @@ mod tests {
     };
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
-    use super::process_model::{
-        exit_process_from_task, exit_process_from_task_with_scheduler, ProcError, ProcState,
-        reap_exited_process, wait_reap_zombie_child, ProcessTable, ProcessWaitReapRuntime,
-        TaskControlBlock, TaskTable,
-    };
     use super::process_io::{
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
     };
+    use super::process_model::{
+        exit_process_from_task, exit_process_from_task_with_scheduler, reap_exited_process,
+        wait_reap_zombie_child, ProcError, ProcState, ProcessTable, ProcessWaitReapRuntime,
+        TaskControlBlock, TaskTable,
+    };
     use super::process_runtime::run_fork_exec_wait_demo;
+    use super::ramdisk::RamDisk;
     use super::scheduler::{ScheduleDecision, Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
     use super::serial_rx::{wake_reader_on_rx_event, SerialRxEvent};
     use super::sv39::{
-        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_G, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
+        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_G, PTE_R, PTE_U, PTE_V, PTE_W,
+        PTE_X,
+    };
+    use super::syscall::{
+        decode_syscall, dispatch_current_clone_frame_from_runtime,
+        dispatch_current_execv_frame_from_runtime,
+        dispatch_current_execv_shared_object_frame_from_runtime, dispatch_current_execv_syscall,
+        dispatch_current_execv_syscall_from_runtime, dispatch_current_wait4_frame_from_runtime,
+        handle_current_process_blocking_read_checked_user_syscall,
+        handle_current_process_clone_syscall, handle_current_process_close,
+        handle_current_process_execv_checked_user_syscall,
+        handle_current_process_read_checked_user_syscall,
+        handle_current_process_write_checked_user_syscall, handle_open_path,
+        handle_process_execv_checked_user_syscall, handle_process_execv_syscall,
+        handle_process_fork_syscall, handle_process_open_checked_user_path,
+        handle_process_open_path, handle_process_open_user_path,
+        handle_process_wait4_checked_user_syscall, handle_process_write,
+        handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
+        handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
+        BlockingReadResult, CurrentExecvDispatchContext, CurrentExecvRuntimeContext,
+        CurrentExecvSharedObjectRuntimeContext, Syscall, SyscallResult, Wait4DispatchResult,
+        EACCES, EAGAIN, EBADF, ECHILD, EFAULT, EIO, SYS_CLONE, SYS_CLOSE, SYS_EXECVE, SYS_EXIT,
+        SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
     };
     use super::task_vm::{
         address_space_switch_for_decision, address_space_switch_for_decision_with_spaces,
-        apply_address_space_switch, commit_satp_hardware,
-        prepare_rooted_satp_commit_sequence, prepare_rooted_user_launch_csr_sequence,
-        prepare_satp_commit, prepare_satp_hardware_commit,
+        apply_address_space_switch, commit_satp_hardware, prepare_rooted_satp_commit_sequence,
+        prepare_rooted_user_launch_csr_sequence, prepare_satp_commit, prepare_satp_hardware_commit,
         prepare_user_launch_csr_sequence, probe_satp_hardware_commit_roundtrip,
         SatpHardwareCommitError,
     };
-    use super::syscall::{
-        dispatch_current_execv_frame_from_runtime,
-        dispatch_current_execv_shared_object_frame_from_runtime, dispatch_current_execv_syscall,
-        dispatch_current_execv_syscall_from_runtime,
-        dispatch_current_clone_frame_from_runtime, dispatch_current_wait4_frame_from_runtime, decode_syscall,
-        handle_current_process_blocking_read_checked_user_syscall,
-        handle_current_process_close, handle_current_process_read_checked_user_syscall,
-        handle_current_process_write_checked_user_syscall,
-        handle_current_process_clone_syscall, handle_current_process_execv_checked_user_syscall,
-        handle_process_execv_checked_user_syscall, BlockingReadResult, CurrentExecvDispatchContext,
-        CurrentExecvRuntimeContext, CurrentExecvSharedObjectRuntimeContext,
-        handle_process_execv_syscall, handle_process_fork_syscall,
-        handle_process_wait4_checked_user_syscall,
-        handle_open_path, handle_process_open_checked_user_path,
-        handle_process_open_path, handle_process_open_user_path, handle_process_write,
-        handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
-        handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
-        Syscall, SyscallResult, Wait4DispatchResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, EIO, SYS_CLOSE, SYS_EXIT, SYS_CLONE, SYS_EXECVE,
-        SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
-    };
     use super::trap::{
-        apply_schedule_decision, dispatch_trap_outcome,
-        dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome_with_global_runtime,
-        handle_blocking_syscall_result, handle_current_execv_frame_from_runtime,
-        handle_current_clone_frame_from_runtime, handle_current_wait4_frame_from_runtime, handle_syscall_result,
-        handle_timer_tick_with_scheduler, handle_trap,
-        handle_trap_with_current_execv_runtime, handle_trap_with_execv_resources,
-        handle_execv_user_ecall_with_prepared_entry, handle_prepared_process_syscall_entry,
-        handle_prepared_process_syscall_entry_with_current_io,
-        ProcessSyscallIoResources,
-        handle_user_page_fault_outcome, prepare_enter_user_scratch,
-        prepare_kernel_trap_stack_switch,
-        prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
-        simulate_trap_entry_stack_swap,
-        schedule_after_blocked_syscall, KernelTrapStackError, KernelTrapStackSwitch,
-        ExecvTrapResourceStore, TrapDispatchResult, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
-        TRAP_FRAME_SIZE,
+        apply_schedule_decision, dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome,
+        dispatch_trap_outcome_with_global_runtime, handle_blocking_syscall_result,
+        handle_current_clone_frame_from_runtime, handle_current_execv_frame_from_runtime,
+        handle_current_wait4_frame_from_runtime, handle_execv_user_ecall_with_prepared_entry,
+        handle_prepared_process_syscall_entry,
+        handle_prepared_process_syscall_entry_with_current_io, handle_syscall_result,
+        handle_timer_tick_with_scheduler, handle_trap, handle_trap_with_current_execv_runtime,
+        handle_trap_with_execv_resources, handle_user_page_fault_outcome,
+        prepare_enter_user_scratch, prepare_kernel_trap_stack_switch, prepare_trap_entry_scratch,
+        schedule_after_blocked_syscall, simulate_trap_entry_return_scratch,
+        simulate_trap_entry_stack_swap, ExecvTrapResourceStore, KernelTrapStackError,
+        KernelTrapStackSwitch, ProcessSyscallIoResources, TrapDispatchResult, TrapFrame,
+        TrapOutcome, SCAUSE_USER_ECALL, TRAP_FRAME_SIZE,
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
-        with_global_trap_runtime, ExecvTrapDispatchState, PreparedExecvEntryStore, PreparedExecvTrapRuntime,
-        ProcessSharedObjectRuntime, ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
-    };
-    use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
-    use super::user_exec::{
-        install_exec_context, load_init_exec_image, materialize_frame_backed_user_image,
-        materialize_segments, ExecError, FrameBackedMaterializeError, FrameRegionMut,
-        SegmentPlacement, UserExecImage, UserRegionMut,
+        with_global_trap_runtime, ExecvTrapDispatchState, PreparedExecvEntryStore,
+        PreparedExecvTrapRuntime, ProcessSharedObjectRuntime, ProcessTrapRuntime,
+        ProcessWaitSyscallRuntime, TrapRuntime,
     };
     use super::user_access::{
         enable_user_memory_access_status, restore_user_memory_access_status,
         user_access_window_from_status, user_memory_access_enabled, SSTATUS_SUM,
+    };
+    use super::user_copy::{
+        CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut,
+    };
+    use super::user_exec::{
+        install_exec_context, load_init_exec_image, materialize_frame_backed_user_image,
+        materialize_segments, ExecError, FrameBackedMaterializeError, FrameRegionMut,
+        SegmentPlacement, UserExecImage, UserRegionMut,
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::user_launch::prepare_user_init_launch;
     use super::user_process::create_user_process_from_launch;
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{
-        build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
+        build_user_vm_plan, guard_kernel_runtime_after_satp,
         install_frame_backed_shared_object_mapping_in_tables,
-        install_frame_backed_user_mapping_in_tables, install_user_vm_plan_in_root,
-        is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
-        load_shared_object_dependency_in_tables, load_shared_object_pipeline_in_tables,
-        load_shared_object_from_vfs_in_tables,
-        plan_frame_backed_shared_object, plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
-        KernelRuntimeSatpGuard,
-        KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
-        SatpCommitPreflight, SatpCommitPreflightError, SharedObjectFramePlanError,
-        SharedObjectDependency, USER_LIBC_SHARED_OBJECT_DEPENDENCY,
-        UserFrameBackedImageError,
+        install_frame_backed_user_mapping_in_tables, install_kernel_identity_mapping,
+        install_user_vm_plan_in_root, is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
+        load_shared_object_dependency_in_tables, load_shared_object_from_vfs_in_tables,
+        load_shared_object_pipeline_in_tables, plan_frame_backed_shared_object,
+        plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
+        KernelRuntimeSatpGuard, KernelRuntimeSatpGuardError, ProcessAddressSpace,
+        ProcessAddressSpaceTable, SatpCommitPreflight, SatpCommitPreflightError,
+        SharedObjectDependency, SharedObjectFramePlanError, UserFrameBackedImageError,
+        USER_LIBC_SHARED_OBJECT_DEPENDENCY,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
     use super::wait_queue::WaitQueue;
-
 
     struct MockCharDevice {
         input: std::cell::RefCell<std::vec::Vec<u8>>,
@@ -248,7 +249,8 @@ mod tests {
 
     #[test]
     fn fd_table_preopens_stdio_to_console_slots() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"in")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"in")));
         let table = stdio_table(dev);
 
         assert!(table.get(0).is_ok());
@@ -263,7 +265,8 @@ mod tests {
 
     #[test]
     fn fd_table_allocates_lowest_free_descriptor() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let mut table = FileDescriptorTable::<4>::new();
 
         assert_eq!(table.allocate(OpenFile::write_only_character(dev)), Ok(0));
@@ -274,11 +277,15 @@ mod tests {
 
     #[test]
     fn dev_namespace_resolves_root_dev_and_console() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
 
         assert_eq!(ns.lookup_path("/").unwrap().kind(), VfsNodeKind::Directory);
-        assert_eq!(ns.lookup_path("/dev").unwrap().kind(), VfsNodeKind::Directory);
+        assert_eq!(
+            ns.lookup_path("/dev").unwrap().kind(),
+            VfsNodeKind::Directory
+        );
         let console = ns.lookup_path("/dev/console").unwrap();
         assert_eq!(console.path(), "/dev/console");
         assert_eq!(console.name(), "console");
@@ -291,20 +298,35 @@ mod tests {
 
     #[test]
     fn dev_namespace_rejects_bad_or_nested_device_paths() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
 
-        assert_eq!(ns.lookup_path("dev/console").err(), Some(VfsLookupError::BadPath));
-        assert_eq!(ns.lookup_path("/missing").err(), Some(VfsLookupError::NotFound));
-        assert_eq!(ns.lookup_path("/dev/console/extra").err(), Some(VfsLookupError::NotDirectory));
-        assert_eq!(ns.lookup_path("/dev/vda").err(), Some(VfsLookupError::NotFound));
+        assert_eq!(
+            ns.lookup_path("dev/console").err(),
+            Some(VfsLookupError::BadPath)
+        );
+        assert_eq!(
+            ns.lookup_path("/missing").err(),
+            Some(VfsLookupError::NotFound)
+        );
+        assert_eq!(
+            ns.lookup_path("/dev/console/extra").err(),
+            Some(VfsLookupError::NotDirectory)
+        );
+        assert_eq!(
+            ns.lookup_path("/dev/vda").err(),
+            Some(VfsLookupError::NotFound)
+        );
     }
 
     #[test]
     fn dev_namespace_can_expose_raw_block_node() {
-        let ch: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ch: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let image: &'static [u8; 1024] = std::boxed::Box::leak(std::boxed::Box::new([0u8; 1024]));
-        let blk: &'static RamDisk = std::boxed::Box::leak(std::boxed::Box::new(RamDisk::new("ramblk0", image, 512)));
+        let blk: &'static RamDisk =
+            std::boxed::Box::leak(std::boxed::Box::new(RamDisk::new("ramblk0", image, 512)));
         let ns = DeviceNamespace::with_block0(ch, blk);
 
         let node = ns.lookup_path("/dev/vda").unwrap();
@@ -318,7 +340,8 @@ mod tests {
 
     #[test]
     fn fd_table_can_open_console_device_node() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let node = ns.lookup_path("/dev/console").unwrap();
         let file = OpenFile::from_vfs_node(node, OpenMode::WriteOnly).unwrap();
@@ -329,11 +352,14 @@ mod tests {
 
     #[test]
     fn fd_table_open_path_allocates_console_fd() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut table = stdio_table_with_capacity::<8>(dev);
 
-        let fd = table.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = table
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         assert_eq!(fd, 3);
         assert_eq!(table.write(fd, b"opened"), Ok(6));
         assert_eq!(dev.written(), b"opened".to_vec());
@@ -341,7 +367,8 @@ mod tests {
 
     #[test]
     fn syscall_open_path_returns_allocated_fd() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut table = stdio_table_with_capacity::<8>(dev);
 
@@ -355,7 +382,8 @@ mod tests {
 
     #[test]
     fn syscall_open_path_rejects_missing_or_unsupported_nodes() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut table = stdio_table(dev);
 
@@ -368,11 +396,14 @@ mod tests {
 
     #[test]
     fn process_io_context_keeps_open_fd_for_later_write() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut io = ProcessIoContext::<8>::with_stdio(dev);
 
-        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = io
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         assert_eq!(fd, 3);
         assert_eq!(io.write_fd(fd, b"persistent-fd"), Ok(13));
         assert_eq!(dev.written(), b"persistent-fd".to_vec());
@@ -380,7 +411,8 @@ mod tests {
 
     #[test]
     fn syscall_helpers_use_process_io_context() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut io = ProcessIoContext::<8>::with_stdio(dev);
 
@@ -411,14 +443,24 @@ mod tests {
     fn user_copy_rejects_bad_ranges_and_missing_nul() {
         let user = UserSlice::new(b"abc", 0x8000);
         let mut buf = [0u8; 4];
-        assert_eq!(user.copyin_bytes(0x8000, 4, &mut buf), Err(UserCopyError::BadAddress));
-        assert_eq!(user.copyin_cstr(0x8000, &mut buf), Err(UserCopyError::BadAddress));
-        assert_eq!(user.copyin_cstr(0x8000, &mut [0u8; 3]), Err(UserCopyError::MissingNul));
+        assert_eq!(
+            user.copyin_bytes(0x8000, 4, &mut buf),
+            Err(UserCopyError::BadAddress)
+        );
+        assert_eq!(
+            user.copyin_cstr(0x8000, &mut buf),
+            Err(UserCopyError::BadAddress)
+        );
+        assert_eq!(
+            user.copyin_cstr(0x8000, &mut [0u8; 3]),
+            Err(UserCopyError::MissingNul)
+        );
     }
 
     #[test]
     fn syscall_open_uses_copyin_path_before_fd_allocation() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let user = UserSlice::new(b"/dev/console\0", 0x5000);
         let mut io = ProcessIoContext::<8>::with_stdio(dev);
@@ -448,10 +490,13 @@ mod tests {
 
     #[test]
     fn syscall_write_uses_copyin_buffer_before_device_write() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let mut io = ProcessIoContext::<8>::with_stdio(dev);
         let ns = DeviceNamespace::new(dev);
-        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = io
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         let user = UserSlice::new(b"hello from user", 0x6000);
         let mut scratch = [0u8; 32];
 
@@ -482,7 +527,10 @@ mod tests {
         let mut path = [0u8; 32];
 
         assert_eq!(user.copyin_cstr(0x7000, &mut path), Ok("/dev/console"));
-        assert_eq!(user.copyin_bytes(0x7000, 20, &mut [0u8; 32]), Err(UserCopyError::Permission));
+        assert_eq!(
+            user.copyin_bytes(0x7000, 20, &mut [0u8; 32]),
+            Err(UserCopyError::Permission)
+        );
     }
 
     #[test]
@@ -490,12 +538,16 @@ mod tests {
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0x8000, 0x8010, PTE_W).unwrap();
         let user = CheckedUserSlice::new(b"abc\0", 0x8000, &vm);
-        assert_eq!(user.copyin_cstr(0x8000, &mut [0u8; 8]), Err(UserCopyError::Permission));
+        assert_eq!(
+            user.copyin_cstr(0x8000, &mut [0u8; 8]),
+            Err(UserCopyError::Permission)
+        );
     }
 
     #[test]
     fn syscall_checked_copyin_opens_and_writes_user_buffers() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut vm = VmSpace::<4>::new();
         vm.map_anon(0x9000, 0x9020, PTE_R).unwrap();
@@ -522,13 +574,15 @@ mod tests {
         assert_eq!(dev.written(), b"hello".to_vec());
     }
 
-
     #[test]
     fn fd_write_syscall_uses_checked_copyin_and_process_fd_table() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut io = ProcessIoContext::<8>::with_stdio(dev);
-        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = io
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0xa000, 0xa020, PTE_R).unwrap();
         let user = CheckedUserSlice::new(b"fd-syscall", 0xa000, &vm);
@@ -543,10 +597,13 @@ mod tests {
 
     #[test]
     fn fd_write_syscall_maps_fd_and_user_errors_to_errno() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut io = ProcessIoContext::<8>::with_stdio(dev);
-        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = io
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0xb000, 0xb010, PTE_R).unwrap();
         let user = CheckedUserSlice::new(b"errno", 0xb000, &vm);
@@ -567,15 +624,17 @@ mod tests {
         assert_eq!(dev.written(), std::vec::Vec::<u8>::new());
     }
 
-
     #[test]
     fn current_process_io_context_keeps_pid_and_fd_state() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut current = CurrentProcessIoContext::<8>::with_stdio(42, dev);
 
         assert_eq!(current.pid(), 42);
-        let fd = current.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = current
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         assert_eq!(fd, 3);
         assert_eq!(current.write_fd(fd, b"current-io"), Ok(10));
         assert_eq!(dev.written(), b"current-io".to_vec());
@@ -583,10 +642,13 @@ mod tests {
 
     #[test]
     fn current_process_write_syscall_uses_current_io_context() {
-        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut current = CurrentProcessIoContext::<8>::with_stdio(1, dev);
-        let fd = current.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = current
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
         let mut vm = VmSpace::<2>::new();
         vm.map_anon(0xc000, 0xc020, PTE_R).unwrap();
         let user = CheckedUserSlice::new(b"from-current", 0xc000, &vm);
@@ -605,7 +667,6 @@ mod tests {
         );
         assert_eq!(dev.written(), b"from-current".to_vec());
     }
-
 
     #[test]
     fn process_io_table_resolves_current_io_from_task_owner() {
@@ -651,7 +712,6 @@ mod tests {
         );
         assert_eq!(dev.written(), b"task-owned".to_vec());
     }
-
 
     #[test]
     fn process_io_runtime_creates_process_with_stdio() {
@@ -778,19 +838,23 @@ mod tests {
         assert_eq!(dev.written(), b"owned-io".to_vec());
     }
 
-
     #[test]
     fn fd_table_close_releases_slot_and_reuses_lowest_fd() {
         let dev: &'static MockCharDevice =
             std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
         let ns = DeviceNamespace::new(dev);
         let mut table = stdio_table_with_capacity::<8>(dev);
-        let fd = table.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let fd = table
+            .open_path(&ns, "/dev/console", OpenMode::WriteOnly)
+            .unwrap();
 
         assert_eq!(fd, 3);
         assert_eq!(table.close(fd), Ok(()));
         assert_eq!(table.write(fd, b"closed"), Err(FileError::BadFd));
-        assert_eq!(table.open_path(&ns, "/dev/console", OpenMode::WriteOnly), Ok(fd));
+        assert_eq!(
+            table.open_path(&ns, "/dev/console", OpenMode::WriteOnly),
+            Ok(fd)
+        );
     }
 
     #[test]
@@ -814,8 +878,14 @@ mod tests {
         let mut scratch = [0u8; 16];
         let current = runtime.current_for_task_mut(&task).unwrap();
 
-        assert_eq!(handle_current_process_close(current, fd), SyscallResult::Continue(0));
-        assert_eq!(handle_current_process_close(current, fd), SyscallResult::Continue(-EBADF));
+        assert_eq!(
+            handle_current_process_close(current, fd),
+            SyscallResult::Continue(0)
+        );
+        assert_eq!(
+            handle_current_process_close(current, fd),
+            SyscallResult::Continue(-EBADF)
+        );
         assert_eq!(
             handle_current_process_write_checked_user_syscall(
                 current,
@@ -832,9 +902,11 @@ mod tests {
 
     #[test]
     fn syscall_decodes_close_number() {
-        assert_eq!(decode_syscall(SYS_CLOSE, 3, 0, 0), Some(Syscall::Close { fd: 3 }));
+        assert_eq!(
+            decode_syscall(SYS_CLOSE, 3, 0, 0),
+            Some(Syscall::Close { fd: 3 })
+        );
     }
-
 
     #[test]
     fn user_copyout_writes_bytes_to_user_buffer() {
@@ -846,7 +918,10 @@ mod tests {
         assert_eq!(bytes, [0, 0, b'a', b'b', b'c', 0, 0, 0]);
 
         let mut user = UserSliceMut::new(&mut bytes, 0x1000);
-        assert_eq!(user.copyout_bytes(0x1006, b"abc"), Err(UserCopyError::BadAddress));
+        assert_eq!(
+            user.copyout_bytes(0x1006, b"abc"),
+            Err(UserCopyError::BadAddress)
+        );
     }
 
     #[test]
@@ -862,9 +937,11 @@ mod tests {
         let mut ro_vm = VmSpace::<2>::new();
         ro_vm.map_anon(0x3000, 0x3008, PTE_R).unwrap();
         let mut ro_user = CheckedUserSliceMut::new(&mut bytes, 0x3000, &ro_vm);
-        assert_eq!(ro_user.copyout_bytes(0x3000, b"x"), Err(UserCopyError::Permission));
+        assert_eq!(
+            ro_user.copyout_bytes(0x3000, b"x"),
+            Err(UserCopyError::Permission)
+        );
     }
-
 
     #[test]
     fn execv_args_copyin_reads_path_argv_and_materializes_stack() {
@@ -883,14 +960,22 @@ mod tests {
         write_cstr_at(&mut user_mem, ENV0 - BASE, b"PATH=/bin");
         write_cstr_at(&mut user_mem, ENV1 - BASE, b"TERM=vt100");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), ARG1);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            ARG1,
+        );
         write_usize_at(
             &mut user_mem,
             ARGV - BASE + 2 * core::mem::size_of::<usize>(),
             0,
         );
         write_usize_at(&mut user_mem, ENVP - BASE, ENV0);
-        write_usize_at(&mut user_mem, ENVP - BASE + core::mem::size_of::<usize>(), ENV1);
+        write_usize_at(
+            &mut user_mem,
+            ENVP - BASE + core::mem::size_of::<usize>(),
+            ENV1,
+        );
         write_usize_at(
             &mut user_mem,
             ENVP - BASE + 2 * core::mem::size_of::<usize>(),
@@ -964,7 +1049,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let mut vm = VmSpace::<1>::new();
         vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
@@ -999,7 +1088,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let mut vm = VmSpace::<1>::new();
         vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
@@ -1021,8 +1114,7 @@ mod tests {
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let mut exec_scratch = [0u8; 512];
         let mut shared_scratch = [0u8; 1024];
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
@@ -1048,7 +1140,10 @@ mod tests {
         assert_eq!(report.exec.path_len, 10);
         assert_eq!(report.exec.argc, 1);
         assert_eq!(report.dependency_path, "/lib/libmmos_user_libc.so");
-        assert_eq!(report.dependency_base, USER_LIBC_SHARED_OBJECT_DEPENDENCY.preferred_base);
+        assert_eq!(
+            report.dependency_base,
+            USER_LIBC_SHARED_OBJECT_DEPENDENCY.preferred_base
+        );
         assert_eq!(report.dependency_entry, shared.entry_vaddr);
         assert_eq!(report.dependency_mapped_pages, 1);
         assert!(is_leaf_user_mapping(shared_entry));
@@ -1064,10 +1159,16 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let mut user_vm = VmSpace::<1>::new();
-        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        user_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
         let image = build_test_ext4_image();
@@ -1077,13 +1178,13 @@ mod tests {
         let mut stack = [0u8; 256];
 
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let mut child_frame = TrapFrame::default();
@@ -1116,7 +1217,10 @@ mod tests {
         assert_eq!(report.segment_count, 1);
         assert_eq!(report.pid, fork.child_pid);
         assert_eq!(report.tid, fork.child_tid);
-        assert_eq!(handle_process_execv_syscall(exec), SyscallResult::Continue(0));
+        assert_eq!(
+            handle_process_execv_syscall(exec),
+            SyscallResult::Continue(0)
+        );
 
         let frame = runtime.task_frame(fork.child_tid).unwrap();
         assert_eq!(frame.sepc, 0x4000_0000);
@@ -1133,10 +1237,16 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let mut user_vm = VmSpace::<1>::new();
-        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        user_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
         let init = build_test_init_elf();
@@ -1156,13 +1266,13 @@ mod tests {
         let mut stack = [0u8; 256];
 
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let mut child_frame = TrapFrame::default();
@@ -1171,36 +1281,34 @@ mod tests {
         let fork = runtime
             .fork_current_process(2, child_frame, VmSpace::<2>::new())
             .unwrap();
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
 
-        let (exec, report) = apply_execv_with_shared_object_dependency_from_user_args::<
-            1, 4, 64, 4, 2, 2, 5, 2,
-        >(
-            &mut runtime,
-            fork.child_tid,
-            &user,
-            PATH,
-            ARGV,
-            0,
-            &vfs,
-            &mut exec_scratch,
-            &mut shared_scratch,
-            &mut stack,
-            0x4010_0000,
-            VmSpace::<2>::new(),
-            USER_LIBC_SHARED_OBJECT_DEPENDENCY,
-            &mut pmm,
-            &mut root,
-            &mut l1,
-            0x9100_2000,
-            &mut l0,
-            0x9100_3000,
-        )
-        .unwrap();
+        let (exec, report) =
+            apply_execv_with_shared_object_dependency_from_user_args::<1, 4, 64, 4, 2, 2, 5, 2>(
+                &mut runtime,
+                fork.child_tid,
+                &user,
+                PATH,
+                ARGV,
+                0,
+                &vfs,
+                &mut exec_scratch,
+                &mut shared_scratch,
+                &mut stack,
+                0x4010_0000,
+                VmSpace::<2>::new(),
+                USER_LIBC_SHARED_OBJECT_DEPENDENCY,
+                &mut pmm,
+                &mut root,
+                &mut l1,
+                0x9100_2000,
+                &mut l0,
+                0x9100_3000,
+            )
+            .unwrap();
 
         let shared_object = exec.shared_object.unwrap();
         assert_eq!(report.entry, 0x4000_0000);
@@ -1222,7 +1330,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let decoded = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
         assert_eq!(
@@ -1235,7 +1347,9 @@ mod tests {
         );
 
         let mut user_vm = VmSpace::<1>::new();
-        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        user_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
         let image = build_test_ext4_image();
@@ -1245,13 +1359,13 @@ mod tests {
         let mut stack = [0u8; 256];
 
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let mut child_frame = TrapFrame::default();
@@ -1299,7 +1413,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let decoded = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
         let Syscall::Execv {
@@ -1312,7 +1430,9 @@ mod tests {
         };
 
         let mut user_vm = VmSpace::<1>::new();
-        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        user_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
         let image = build_test_ext4_image();
@@ -1322,9 +1442,7 @@ mod tests {
         let mut stack = [0u8; 256];
 
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let mut frame = TrapFrame::default();
         frame.sepc = 0x4000_1000;
         frame.set_sp(0x4010_1000);
@@ -1362,11 +1480,17 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let syscall = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
         let mut user_vm = VmSpace::<1>::new();
-        user_vm.map_anon(BASE, BASE + user_mem.len(), PTE_R).unwrap();
+        user_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
         let user = CheckedUserSlice::new(&user_mem, BASE, &user_vm);
 
         let image = build_test_ext4_image();
@@ -1376,9 +1500,7 @@ mod tests {
         let mut stack = [0u8; 256];
 
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let mut frame = TrapFrame::default();
         frame.sepc = 0x4000_1000;
         frame.set_sp(0x4010_1000);
@@ -1415,7 +1537,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let syscall = decode_syscall(SYS_EXECVE, PATH, ARGV, 0).unwrap();
         let image = build_test_ext4_image();
@@ -1467,7 +1593,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -1523,7 +1653,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let init = build_test_init_elf();
         let mut shared_object = build_test_dynamic_metadata_elf();
@@ -1558,8 +1692,7 @@ mod tests {
         syscall_frame.set_a0(PATH);
         syscall_frame.set_a1(ARGV);
         syscall_frame.set_a2(0);
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
@@ -1603,7 +1736,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -1629,8 +1766,7 @@ mod tests {
         syscall_frame.set_a0(PATH);
         syscall_frame.set_a1(ARGV);
         syscall_frame.set_a2(0);
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
@@ -1672,7 +1808,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -1731,7 +1871,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -1792,7 +1936,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -1801,8 +1949,7 @@ mod tests {
         process_vm
             .map_anon(BASE, BASE + user_mem.len(), PTE_R)
             .unwrap();
-        let mut runtime =
-            ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
         assert_eq!(runtime.execv_stack_top_va(), 0x4010_0000);
         let execv_plan = runtime.execv_dispatch_plan::<512, 256>();
         assert_eq!(execv_plan.stack_top_va, 0x4010_0000);
@@ -1821,9 +1968,8 @@ mod tests {
         live_frame.set_a1(ARGV);
         live_frame.set_a2(0);
 
-        let mut entry_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            runtime, &vfs,
-        );
+        let mut entry_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(runtime, &vfs);
         assert_eq!(
             entry_store.with_prepared_runtime(|prepared| prepared.runtime().execv_stack_top_va()),
             Some(0x4010_0000)
@@ -1846,11 +1992,7 @@ mod tests {
             5,
             512,
             256,
-        >(
-            &mut live_frame,
-            &mut entry_store,
-            input,
-        );
+        >(&mut live_frame, &mut entry_store, input);
 
         assert_eq!(outcome, TrapOutcome::Resume);
         assert_eq!(live_frame.a0(), 0);
@@ -1870,7 +2012,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
 
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
@@ -1879,8 +2025,7 @@ mod tests {
         process_vm
             .map_anon(BASE, BASE + user_mem.len(), PTE_R)
             .unwrap();
-        let mut runtime =
-            ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
         let pid = runtime.create_process(None, process_vm).unwrap();
         let mut task_frame = TrapFrame::default();
         task_frame.sepc = 0x4000_1000;
@@ -1895,22 +2040,12 @@ mod tests {
         live_frame.set_a1(ARGV);
         live_frame.set_a2(0);
 
-        let mut entry_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            runtime, &vfs,
-        );
+        let mut entry_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(runtime, &vfs);
         let user_source = crate::trap::ExecvPreparedUserSource::new(&user_mem, BASE);
         let replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
 
-        let outcome = handle_execv_user_ecall_with_prepared_entry::<
-            4,
-            64,
-            4,
-            2,
-            2,
-            5,
-            512,
-            256,
-        >(
+        let outcome = handle_execv_user_ecall_with_prepared_entry::<4, 64, 4, 2, 2, 5, 512, 256>(
             &mut live_frame,
             &mut entry_store,
             user_source,
@@ -1949,10 +2084,8 @@ mod tests {
         let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
         let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
         let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            dummy_exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(dummy_exec_runtime, &exec_vfs);
         let exec_user_mem = [0u8; 16];
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
@@ -1998,10 +2131,8 @@ mod tests {
         let mut wait_bytes = [0u8; 4];
         let mut wait_user = CheckedUserSliceMut::new(&mut wait_bytes, 0x6000, &wait_vm);
         let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            dummy_exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(dummy_exec_runtime, &exec_vfs);
         let exec_user_mem = [0u8; 16];
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
@@ -2031,7 +2162,11 @@ mod tests {
         write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
         write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
         write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
-        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        write_usize_at(
+            &mut user_mem,
+            ARGV - BASE + core::mem::size_of::<usize>(),
+            0,
+        );
         let mut process_vm = VmSpace::<2>::new();
         process_vm
             .map_anon(BASE, BASE + user_mem.len(), PTE_R)
@@ -2043,10 +2178,8 @@ mod tests {
         task_frame.sepc = 0x4000_2000;
         exec_runtime.add_runnable_task(1, pid, task_frame).unwrap();
         exec_runtime.start_first_task();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(exec_runtime, &exec_vfs);
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&user_mem, BASE);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
         let mut entry_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
@@ -2105,10 +2238,8 @@ mod tests {
         let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
         let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
         let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            dummy_exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(dummy_exec_runtime, &exec_vfs);
         let exec_user_mem = [0u8; 16];
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
@@ -2123,7 +2254,19 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2,
+                2,
+                2,
+                2,
+                8,
+                4,
+                64,
+                4,
+                2,
+                2,
+                5,
+                512,
+                256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -2177,10 +2320,8 @@ mod tests {
         let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
         let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
         let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            dummy_exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(dummy_exec_runtime, &exec_vfs);
         let exec_user_mem = [0u8; 16];
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
@@ -2195,7 +2336,19 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2,
+                2,
+                2,
+                2,
+                8,
+                4,
+                64,
+                4,
+                2,
+                2,
+                5,
+                512,
+                256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -2249,10 +2402,8 @@ mod tests {
         let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
         let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
         let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            dummy_exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(dummy_exec_runtime, &exec_vfs);
         let exec_user_mem = [0u8; 16];
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
@@ -2265,7 +2416,19 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2,
+                2,
+                2,
+                2,
+                8,
+                4,
+                64,
+                4,
+                2,
+                2,
+                5,
+                512,
+                256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -2333,10 +2496,8 @@ mod tests {
         let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
         let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
         let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-            dummy_exec_runtime,
-            &exec_vfs,
-        );
+        let mut exec_store =
+            PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(dummy_exec_runtime, &exec_vfs);
         let exec_user_mem = [0u8; 16];
         let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
         let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
@@ -2351,7 +2512,19 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2,
+                2,
+                2,
+                2,
+                8,
+                4,
+                64,
+                4,
+                2,
+                2,
+                5,
+                512,
+                256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -2563,10 +2736,13 @@ mod tests {
     fn syscall_decodes_read_number() {
         assert_eq!(
             decode_syscall(SYS_READ, 3, 0x1000, 4),
-            Some(Syscall::Read { fd: 3, ptr: 0x1000, len: 4 })
+            Some(Syscall::Read {
+                fd: 3,
+                ptr: 0x1000,
+                len: 4
+            })
         );
     }
-
 
     #[test]
     fn buffered_console_device_reads_seed_bytes() {
@@ -2615,14 +2791,11 @@ mod tests {
         assert_eq!(&user_bytes[..7], b"runtime");
     }
 
-
     #[test]
     fn wouldblock_maps_to_eagain_for_nonblocking_read() {
-        let dev: &'static console::BufferedConsoleDevice =
-            std::boxed::Box::leak(std::boxed::Box::new(console::BufferedConsoleDevice::new(
-                "test-console",
-                b"xy",
-            )));
+        let dev: &'static console::BufferedConsoleDevice = std::boxed::Box::leak(
+            std::boxed::Box::new(console::BufferedConsoleDevice::new("test-console", b"xy")),
+        );
         let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
@@ -2661,11 +2834,9 @@ mod tests {
 
     #[test]
     fn blocking_read_wouldblock_parks_task_on_wait_queue() {
-        let dev: &'static console::BufferedConsoleDevice =
-            std::boxed::Box::leak(std::boxed::Box::new(console::BufferedConsoleDevice::new(
-                "test-console",
-                b"z",
-            )));
+        let dev: &'static console::BufferedConsoleDevice = std::boxed::Box::leak(
+            std::boxed::Box::new(console::BufferedConsoleDevice::new("test-console", b"z")),
+        );
         let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
         let pid = runtime
             .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
@@ -2678,7 +2849,9 @@ mod tests {
         let mut user = CheckedUserSliceMut::new(&mut user_bytes, 0x8000, &vm);
         let mut scratch = [0u8; 8];
         let mut scheduler = Scheduler::<2>::new();
-        scheduler.add_runnable(task.tid, TrapFrame::default()).unwrap();
+        scheduler
+            .add_runnable(task.tid, TrapFrame::default())
+            .unwrap();
         let _ = scheduler.on_tick();
         let mut waiters = WaitQueue::<2>::new();
 
@@ -2802,7 +2975,6 @@ mod tests {
         assert_eq!(saved.a0(), 0x1234);
     }
 
-
     #[test]
     fn scheduler_handoff_enters_idle_when_no_runnable_task_exists() {
         let mut scheduler = Scheduler::<2>::new();
@@ -2822,7 +2994,6 @@ mod tests {
         assert_eq!(scheduler.task_frame(1).unwrap().sepc, 0xa000);
     }
 
-
     #[test]
     fn idle_decision_maps_to_wait_for_interrupt_action() {
         assert_eq!(
@@ -2837,7 +3008,6 @@ mod tests {
             None
         );
     }
-
 
     #[test]
     fn switched_decision_restores_next_task_frame_into_dispatch_frame() {
@@ -2867,7 +3037,6 @@ mod tests {
         assert_eq!(dispatch_frame.a0(), 0x44);
         assert_eq!(dispatch_frame.sp(), 0xc000);
     }
-
 
     #[test]
     fn trap_schedule_outcome_dispatches_to_next_task_frame() {
@@ -2915,7 +3084,6 @@ mod tests {
         assert_eq!(scheduler.task_frame(7).unwrap().sepc, 0xe000);
     }
 
-
     #[test]
     fn trap_runtime_owns_scheduler_state_for_schedule_dispatch() {
         let mut next_frame = TrapFrame::default();
@@ -2940,7 +3108,6 @@ mod tests {
         assert_eq!(dispatch_frame.a0(), 0x55);
         assert_eq!(dispatch_frame.sp(), 0x10000);
     }
-
 
     #[test]
     fn global_trap_runtime_dispatches_schedule_state() {
@@ -2972,7 +3139,6 @@ mod tests {
         reset_global_trap_runtime();
     }
 
-
     #[test]
     fn trap_dispatch_uses_global_runtime_for_schedule_outcome() {
         reset_global_trap_runtime();
@@ -2991,10 +3157,8 @@ mod tests {
 
         let mut dispatch_frame = TrapFrame::default();
         dispatch_frame.sepc = 0x12000;
-        let result = dispatch_trap_outcome_with_global_runtime(
-            &mut dispatch_frame,
-            TrapOutcome::Schedule,
-        );
+        let result =
+            dispatch_trap_outcome_with_global_runtime(&mut dispatch_frame, TrapOutcome::Schedule);
 
         assert_eq!(switched_tids(result), Some((1, 2)));
         assert_eq!(
@@ -3027,8 +3191,6 @@ mod tests {
         let region = init_kheap(0x9000_0000, 0x10000);
         assert_eq!(region.end(), 0x9001_0000);
     }
-
-
 
     #[test]
     fn serial_device_is_a_named_character_device() {
@@ -3260,8 +3422,14 @@ mod tests {
     #[test]
     fn shared_object_load_plan_rejects_et_exec_image() {
         let elf = build_test_init_elf();
-        assert_eq!(plan_shared_object_load(&elf, 0x5000_0000), Err(ElfError::UnsupportedType));
-        assert_eq!(plan_shared_object_mappings(&elf, 0x5000_0000), Err(ElfError::UnsupportedType));
+        assert_eq!(
+            plan_shared_object_load(&elf, 0x5000_0000),
+            Err(ElfError::UnsupportedType)
+        );
+        assert_eq!(
+            plan_shared_object_mappings(&elf, 0x5000_0000),
+            Err(ElfError::UnsupportedType)
+        );
     }
 
     #[test]
@@ -3280,7 +3448,10 @@ mod tests {
     #[test]
     fn shared_object_dynamic_metadata_requires_dynamic_segment() {
         let elf = build_test_dyn_elf();
-        assert_eq!(inspect_shared_object_dynamic(&elf), Err(ElfError::NoDynamicSegment));
+        assert_eq!(
+            inspect_shared_object_dynamic(&elf),
+            Err(ElfError::NoDynamicSegment)
+        );
     }
 
     #[test]
@@ -3372,8 +3543,14 @@ mod tests {
     #[test]
     fn relocation_apply_plan_writes_multiple_values() {
         let applies = [
-            Some(SharedObjectRelocationApply { target_offset: 0, value: 0x11 }),
-            Some(SharedObjectRelocationApply { target_offset: 8, value: 0x22 }),
+            Some(SharedObjectRelocationApply {
+                target_offset: 0,
+                value: 0x11,
+            }),
+            Some(SharedObjectRelocationApply {
+                target_offset: 8,
+                value: 0x22,
+            }),
             None,
         ];
         let mut image = [0u8; 24];
@@ -3431,14 +3608,17 @@ mod tests {
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let mut scratch = [0u8; 512];
 
-        let copied = vfs.read_all("/lib/libmmos_user_libc.so", &mut scratch).unwrap();
+        let copied = vfs
+            .read_all("/lib/libmmos_user_libc.so", &mut scratch)
+            .unwrap();
         assert_eq!(copied, build_test_shared_object().len());
         let plan = plan_shared_object_from_vfs(
             &vfs,
             "/lib/libmmos_user_libc.so",
             &mut scratch,
             0x5000_0000,
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(plan.preferred_base, 0x5000_0000);
         assert_eq!(plan.segment_count, 1);
         assert!(plan.needs_relocation);
@@ -3450,11 +3630,12 @@ mod tests {
         assert!(elf
             .windows(b"/dev/console\0".len())
             .any(|w| w == b"/dev/console\0"));
-        assert!(elf
-            .windows(4)
-            .filter(|w| *w == [0x93, 0x08, 0x80, 0x03])
-            .count()
-            >= 3);
+        assert!(
+            elf.windows(4)
+                .filter(|w| *w == [0x93, 0x08, 0x80, 0x03])
+                .count()
+                >= 3
+        );
     }
 
     #[test]
@@ -3498,8 +3679,8 @@ mod tests {
 
     #[test]
     fn kernel_trap_stack_switch_reserves_frame_space() {
-        let switch = prepare_kernel_trap_stack_switch(0x4010_0000, 0x8020_8000, 0x8020_7000)
-            .unwrap();
+        let switch =
+            prepare_kernel_trap_stack_switch(0x4010_0000, 0x8020_8000, 0x8020_7000).unwrap();
 
         assert_eq!(
             switch,
@@ -3526,8 +3707,7 @@ mod tests {
 
     #[test]
     fn trap_entry_scratch_points_to_kernel_frame() {
-        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000)
-            .unwrap();
+        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000).unwrap();
 
         assert_eq!(scratch.user_sp, 0x4010_0000);
         assert_eq!(scratch.kernel_frame_sp, 0x8020_8000 - TRAP_FRAME_SIZE);
@@ -3536,8 +3716,7 @@ mod tests {
 
     #[test]
     fn trap_entry_stack_swap_preserves_user_sp_and_activates_kernel_frame() {
-        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000)
-            .unwrap();
+        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000).unwrap();
         let swap = simulate_trap_entry_stack_swap(scratch);
 
         assert_eq!(swap.active_sp, scratch.kernel_frame_sp);
@@ -3546,8 +3725,7 @@ mod tests {
 
     #[test]
     fn trap_entry_return_restores_scratch_for_next_user_trap() {
-        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000)
-            .unwrap();
+        let scratch = prepare_trap_entry_scratch(0x4010_0000, 0x8020_8000, 0x8020_7000).unwrap();
         let ret = simulate_trap_entry_return_scratch(scratch);
 
         assert_eq!(ret.restored_user_sp, scratch.user_sp);
@@ -3562,7 +3740,10 @@ mod tests {
         let scratch = prepare_enter_user_scratch(&frame).unwrap();
 
         assert_eq!(scratch.user_sp, frame.sp());
-        assert_eq!(scratch.kernel_frame_sp, super::trap::kernel_trap_stack_top() - TRAP_FRAME_SIZE);
+        assert_eq!(
+            scratch.kernel_frame_sp,
+            super::trap::kernel_trap_stack_top() - TRAP_FRAME_SIZE
+        );
         assert_eq!(scratch.kernel_frame_sp & 0xf, 0);
         assert_eq!(scratch.sscratch, scratch.kernel_frame_sp);
     }
@@ -3721,12 +3902,8 @@ mod tests {
     fn process_exit_runtime_marks_owner_process_and_tasks() {
         let mut processes = ProcessTable::<3, 2, 2>::new();
         let mut tasks = TaskTable::<4>::new();
-        let owner_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
-        let other_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let owner_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
+        let other_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
 
         tasks
             .add_task(TaskControlBlock::new(1, owner_pid, TrapFrame::default()))
@@ -3757,12 +3934,8 @@ mod tests {
         let mut processes = ProcessTable::<3, 2, 2>::new();
         let mut tasks = TaskTable::<4>::new();
         let mut scheduler = Scheduler::<4>::new();
-        let owner_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
-        let other_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let owner_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
+        let other_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
 
         for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
             let mut frame = TrapFrame::default();
@@ -3775,14 +3948,9 @@ mod tests {
         assert_eq!(scheduler.on_tick(), None);
         assert_eq!(scheduler.current_tid(), Some(1));
 
-        let report = exit_process_from_task_with_scheduler(
-            &mut processes,
-            &mut tasks,
-            &mut scheduler,
-            1,
-            9,
-        )
-        .unwrap();
+        let report =
+            exit_process_from_task_with_scheduler(&mut processes, &mut tasks, &mut scheduler, 1, 9)
+                .unwrap();
 
         assert_eq!(report.exit.owner_pid, owner_pid);
         assert_eq!(report.exit.tasks_marked, 2);
@@ -3806,12 +3974,8 @@ mod tests {
         let mut processes = ProcessTable::<3, 2, 2>::new();
         let mut tasks = TaskTable::<4>::new();
         let mut scheduler = Scheduler::<4>::new();
-        let owner_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
-        let other_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let owner_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
+        let other_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
 
         for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
             let mut frame = TrapFrame::default();
@@ -3856,12 +4020,8 @@ mod tests {
     #[test]
     fn process_trap_runtime_owns_tables_and_dispatches_exit() {
         let mut runtime = ProcessTrapRuntime::<3, 2, 2, 4>::new();
-        let owner_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
-        let other_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let owner_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+        let other_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
 
         for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
             let mut frame = TrapFrame::default();
@@ -3898,12 +4058,8 @@ mod tests {
         let mut processes = ProcessTable::<3, 2, 2>::new();
         let mut tasks = TaskTable::<4>::new();
         let mut scheduler = Scheduler::<4>::new();
-        let owner_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
-        let other_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let owner_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
+        let other_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
 
         for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
             let frame = TrapFrame::default();
@@ -3942,12 +4098,8 @@ mod tests {
     #[test]
     fn process_trap_runtime_reaps_exited_process() {
         let mut runtime = ProcessTrapRuntime::<3, 2, 2, 4>::new();
-        let owner_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
-        let other_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let owner_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+        let other_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
 
         for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
             let mut frame = TrapFrame::default();
@@ -3975,15 +4127,11 @@ mod tests {
         let mut processes = ProcessTable::<4, 2, 2>::new();
         let mut tasks = TaskTable::<5>::new();
         let mut scheduler = Scheduler::<5>::new();
-        let parent_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
         let child_pid = processes
             .create_process(Some(parent_pid), VmSpace::<2>::new())
             .unwrap();
-        let other_pid = processes
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let other_pid = processes.create_process(None, VmSpace::<2>::new()).unwrap();
         processes
             .get_mut(parent_pid)
             .unwrap()
@@ -3998,18 +4146,12 @@ mod tests {
             scheduler.add_runnable(tid, frame).unwrap();
         }
         let _ = scheduler.on_tick();
-        let _ = exit_process_from_task_with_scheduler(
-            &mut processes,
-            &mut tasks,
-            &mut scheduler,
-            1,
-            8,
-        )
-        .unwrap();
+        let _ =
+            exit_process_from_task_with_scheduler(&mut processes, &mut tasks, &mut scheduler, 1, 8)
+                .unwrap();
 
         let report =
-            wait_reap_zombie_child(&mut processes, &mut tasks, &mut scheduler, parent_pid)
-                .unwrap();
+            wait_reap_zombie_child(&mut processes, &mut tasks, &mut scheduler, parent_pid).unwrap();
 
         assert_eq!(report.parent_pid, parent_pid);
         assert_eq!(report.child_pid, child_pid);
@@ -4026,15 +4168,11 @@ mod tests {
     #[test]
     fn process_trap_runtime_wait_reaps_child() {
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let child_pid = runtime
             .create_process(Some(parent_pid), VmSpace::<2>::new())
             .unwrap();
-        let other_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let other_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
 
         for (tid, pid) in [(1, child_pid), (2, child_pid), (3, other_pid)] {
             let mut frame = TrapFrame::default();
@@ -4062,9 +4200,7 @@ mod tests {
     #[test]
     fn process_trap_runtime_wait_uses_current_process_as_parent() {
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let child_pid = runtime
             .create_process(Some(parent_pid), VmSpace::<2>::new())
             .unwrap();
@@ -4090,9 +4226,7 @@ mod tests {
     #[test]
     fn process_trap_runtime_wait_blocks_until_child_exit_wakes_parent() {
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
         let child_pid = runtime
             .create_process(Some(parent_pid), VmSpace::<2>::new())
             .unwrap();
@@ -4140,9 +4274,7 @@ mod tests {
     #[test]
     fn process_trap_runtime_wait_without_children_returns_no_child() {
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
 
         let mut frame = TrapFrame::default();
         frame.sepc = 0x4000_0000;
@@ -4162,14 +4294,14 @@ mod tests {
     #[test]
     fn process_trap_runtime_fork_current_process_links_child_and_wait() {
         let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
-        let parent_pid = runtime
-            .create_process(None, VmSpace::<2>::new())
-            .unwrap();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
 
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let mut child_frame = TrapFrame::default();
@@ -4234,7 +4366,9 @@ mod tests {
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let result = handle_current_process_clone_syscall(
@@ -4267,12 +4401,8 @@ mod tests {
         runtime.add_runnable_task(1, parent_pid, frame).unwrap();
         runtime.start_first_task();
 
-        let result = dispatch_current_clone_frame_from_runtime(
-            &frame,
-            &mut runtime,
-            2,
-            VmSpace::<2>::new(),
-        );
+        let result =
+            dispatch_current_clone_frame_from_runtime(&frame, &mut runtime, 2, VmSpace::<2>::new());
         assert_eq!(result, SyscallResult::Continue(2));
 
         let outcome = handle_current_clone_frame_from_runtime(
@@ -4304,7 +4434,9 @@ mod tests {
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let mut child_frame = TrapFrame::default();
@@ -4338,7 +4470,10 @@ mod tests {
         assert_eq!(exec.tid, fork.child_tid);
         assert_eq!(exec.entry, 0x4000_2000);
         assert_eq!(exec.stack_top, 0x4010_2000);
-        assert_eq!(handle_process_execv_syscall(exec), SyscallResult::Continue(0));
+        assert_eq!(
+            handle_process_execv_syscall(exec),
+            SyscallResult::Continue(0)
+        );
 
         let frame = runtime.task_frame(fork.child_tid).unwrap();
         assert_eq!(frame.sepc, exec.entry);
@@ -4355,7 +4490,9 @@ mod tests {
         let mut parent_frame = TrapFrame::default();
         parent_frame.sepc = 0x4000_0000;
         parent_frame.set_sp(0x4010_0000);
-        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime
+            .add_runnable_task(1, parent_pid, parent_frame)
+            .unwrap();
         runtime.start_first_task();
 
         let mut child_frame = TrapFrame::default();
@@ -4431,11 +4568,13 @@ mod tests {
     #[test]
     fn sv39_root_table_storage_is_page_aligned_and_yields_ppn() {
         let root = RootPageTable::new();
-        assert_eq!(core::mem::size_of::<RootPageTable>(), super::sv39::PAGE_SIZE);
+        assert_eq!(
+            core::mem::size_of::<RootPageTable>(),
+            super::sv39::PAGE_SIZE
+        );
         assert!(root.is_page_aligned());
         assert_eq!(root.ppn(), root.physical_addr() / super::sv39::PAGE_SIZE);
     }
-
 
     #[test]
     fn kernel_identity_mapping_is_global_and_supervisor_only() {
@@ -4463,7 +4602,8 @@ mod tests {
     fn relocated_user_vm_plan_can_preserve_kernel_mapping() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -4471,14 +4611,17 @@ mod tests {
         let user_entry = root.entries[1];
         assert!(is_leaf_user_mapping(user_entry));
         assert!(install_kernel_identity_mapping(&mut root).is_ok());
-        assert!(is_kernel_mapping(root.entries[super::user_vm::KERNEL_IDENTITY_VPN2]));
+        assert!(is_kernel_mapping(
+            root.entries[super::user_vm::KERNEL_IDENTITY_VPN2]
+        ));
     }
 
     #[test]
     fn user_vm_plan_can_be_installed_in_aligned_root_storage() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -4486,7 +4629,10 @@ mod tests {
         assert_eq!(root_frame_pa % super::sv39::PAGE_SIZE, 0);
         assert_eq!(install.root_frame_pa, root_frame_pa);
         assert_eq!(install.root_ppn, root_frame_pa / super::sv39::PAGE_SIZE);
-        assert_eq!(install.satp, make_satp(root_frame_pa / super::sv39::PAGE_SIZE, 0));
+        assert_eq!(
+            install.satp,
+            make_satp(root_frame_pa / super::sv39::PAGE_SIZE, 0)
+        );
         assert!(is_leaf_user_mapping(root.entries[1]));
     }
 
@@ -4559,7 +4705,12 @@ mod tests {
             PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let second_root_frame = allocator.alloc().unwrap();
         let second_install = spaces
-            .install_user_image(second_space_id, &loaded, second_root_frame, &mut second_root)
+            .install_user_image(
+                second_space_id,
+                &loaded,
+                second_root_frame,
+                &mut second_root,
+            )
             .unwrap();
         let mut proc_table = ProcessTable::<4, 4, 4>::new();
         let mut task_table = TaskTable::<4>::new();
@@ -4612,7 +4763,8 @@ mod tests {
     fn satp_commit_preflight_requires_user_and_kernel_mappings() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -4632,7 +4784,8 @@ mod tests {
     fn satp_commit_preflight_rejects_missing_kernel_mapping() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -4651,12 +4804,7 @@ mod tests {
         install_kernel_identity_mapping(&mut root).unwrap();
 
         assert_eq!(
-            guard_kernel_runtime_after_satp(
-                &root,
-                0x8020_0000,
-                0x8020_8000 - 16,
-                0x8020_1000,
-            ),
+            guard_kernel_runtime_after_satp(&root, 0x8020_0000, 0x8020_8000 - 16, 0x8020_1000,),
             Ok(KernelRuntimeSatpGuard {
                 kernel_code_vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
                 kernel_stack_vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
@@ -4670,12 +4818,7 @@ mod tests {
         let root = RootPageTable::new();
 
         assert_eq!(
-            guard_kernel_runtime_after_satp(
-                &root,
-                0x8020_0000,
-                0x8020_8000 - 16,
-                0x8020_1000,
-            ),
+            guard_kernel_runtime_after_satp(&root, 0x8020_0000, 0x8020_8000 - 16, 0x8020_1000,),
             Err(KernelRuntimeSatpGuardError::MissingKernelCode {
                 vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
             })
@@ -4813,7 +4956,8 @@ mod tests {
     fn user_vm_plan_maps_exec_and_stack_regions() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -4861,7 +5005,8 @@ mod tests {
             segment_count: 2,
         };
 
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let plan = build_user_vm_plan(&loaded, root_frame_pa).unwrap();
@@ -4894,7 +5039,6 @@ mod tests {
         assert_eq!(launch.trapframe.a2(), launch.envp_ptr);
     }
 
-
     #[test]
     fn user_launch_task_is_installed_into_global_trap_runtime() {
         reset_global_trap_runtime();
@@ -4904,7 +5048,7 @@ mod tests {
         let mut stack = [0u8; 512];
         let launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12345_000,
+            0x12345_000,
             &mut stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -4927,7 +5071,6 @@ mod tests {
         reset_global_trap_runtime();
     }
 
-
     #[test]
     fn user_process_creation_registers_launch_context() {
         let elf = build_test_init_elf();
@@ -4935,7 +5078,7 @@ mod tests {
         let mut stack = [0u8; 512];
         let launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12345_000,
+            0x12345_000,
             &mut stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -4967,7 +5110,10 @@ mod tests {
         assert_eq!(task.trapframe.sp(), launch.sp);
         assert_eq!(proc_table.get(created.pid).unwrap().satp, launch.satp);
         assert_eq!(scheduler.task_state(created.tid), Some(TaskState::Runnable));
-        assert_eq!(scheduler.task_frame(created.tid).unwrap().sepc, loaded.entry);
+        assert_eq!(
+            scheduler.task_frame(created.tid).unwrap().sepc,
+            loaded.entry
+        );
     }
 
     #[test]
@@ -4978,7 +5124,7 @@ mod tests {
         let mut second_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12345_000,
+            0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -4986,7 +5132,7 @@ mod tests {
         .unwrap();
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12346_000,
+            0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -5040,8 +5186,14 @@ mod tests {
         assert_eq!(scheduler.task_frame(first.tid).unwrap().sepc, 0xfeed_0000);
         assert_eq!(live.sepc, second_launch.trapframe.sepc);
         assert_eq!(live.sp(), second_launch.sp);
-        assert_eq!(task_table.get_mut(second.tid).unwrap().owner_pid, second.pid);
-        assert_eq!(proc_table.get_mut(first.pid).unwrap().children[0], Some(second.pid));
+        assert_eq!(
+            task_table.get_mut(second.tid).unwrap().owner_pid,
+            second.pid
+        );
+        assert_eq!(
+            proc_table.get_mut(first.pid).unwrap().children[0],
+            Some(second.pid)
+        );
     }
 
     #[test]
@@ -5052,7 +5204,7 @@ mod tests {
         let mut second_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12345_000,
+            0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -5060,7 +5212,7 @@ mod tests {
         .unwrap();
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12346_000,
+            0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -5125,7 +5277,8 @@ mod tests {
             &["PATH=/bin"],
         )
         .unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let root_install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -5152,7 +5305,9 @@ mod tests {
         )
         .unwrap();
 
-        proc_table.update_satp(second.pid, root_install.satp).unwrap();
+        proc_table
+            .update_satp(second.pid, root_install.satp)
+            .unwrap();
         scheduler.on_tick();
         scheduler.set_state(first.tid, TaskState::Blocked);
         let decision =
@@ -5189,7 +5344,8 @@ mod tests {
             &["PATH=/bin"],
         )
         .unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let root_install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -5216,7 +5372,9 @@ mod tests {
         )
         .unwrap();
 
-        proc_table.update_satp(second.pid, root_install.satp).unwrap();
+        proc_table
+            .update_satp(second.pid, root_install.satp)
+            .unwrap();
         scheduler.on_tick();
         scheduler.set_state(first.tid, TaskState::Blocked);
         let decision =
@@ -5248,7 +5406,6 @@ mod tests {
         assert_eq!(sequence.rooted.sequence.sepc, frame.sepc);
     }
 
-
     #[test]
     fn address_space_switch_updates_active_satp_slot() {
         let elf = build_test_init_elf();
@@ -5256,7 +5413,7 @@ mod tests {
         let mut first_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12345_000,
+            0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -5265,7 +5422,7 @@ mod tests {
         let mut second_stack = [0u8; 512];
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12346_000,
+            0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -5310,7 +5467,6 @@ mod tests {
         assert_eq!(active_satp, second_launch.satp);
     }
 
-
     #[test]
     fn satp_commit_plan_requires_tlb_flush_when_satp_changes() {
         let elf = build_test_init_elf();
@@ -5318,7 +5474,7 @@ mod tests {
         let mut first_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12345_000,
+            0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -5327,7 +5483,7 @@ mod tests {
         let mut second_stack = [0u8; 512];
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
- 0x12346_000,
+            0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -5521,8 +5677,7 @@ mod tests {
     fn frame_backed_user_image_plan_uses_pmm_frames_for_entry_and_stack() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
 
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
         let segment = plan.segments[0].unwrap();
@@ -5541,8 +5696,7 @@ mod tests {
     fn frame_backed_user_image_plan_reports_out_of_frames() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<1>::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<1>::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
 
         assert_eq!(
             plan_frame_backed_user_image(&loaded, &mut pmm, 512),
@@ -5554,8 +5708,7 @@ mod tests {
     fn frame_backed_shared_object_plan_allocates_segment_frame() {
         let elf = build_test_dyn_elf();
         let mapping = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
 
         let plan = plan_frame_backed_shared_object(&mapping, &mut pmm).unwrap();
         let segment = plan.segments[0].unwrap();
@@ -5574,8 +5727,7 @@ mod tests {
     fn frame_backed_shared_object_plan_reports_out_of_frames() {
         let elf = build_test_dyn_elf();
         let mapping = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<0>::new(0x9100_0000, 0x9100_0000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<0>::new(0x9100_0000, 0x9100_0000, super::sv39::PAGE_SIZE);
 
         assert_eq!(
             plan_frame_backed_shared_object(&mapping, &mut pmm),
@@ -5587,8 +5739,7 @@ mod tests {
     fn frame_backed_user_image_materializes_segments_and_stack_bytes() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
         let mut code_frame = [0u8; super::sv39::PAGE_SIZE];
         let mut stack_frame = [0u8; super::sv39::PAGE_SIZE];
@@ -5630,8 +5781,7 @@ mod tests {
     fn frame_backed_user_image_materialize_rejects_missing_segment_frame() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
         let mut stack_frame = [0u8; super::sv39::PAGE_SIZE];
         let stack_bytes = [0u8; 512];
@@ -5664,8 +5814,7 @@ mod tests {
             flags: 4,
             data: &first.data[..4],
         });
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
 
         assert_eq!(plan.segments[0].unwrap().frame_pa, 0x9000_0000);
@@ -5677,8 +5826,7 @@ mod tests {
     fn frame_backed_user_mapping_installs_4k_leafs_below_root() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
@@ -5716,8 +5864,7 @@ mod tests {
     fn frame_backed_shared_object_mapping_installs_segment_leafs_without_stack() {
         let elf = build_test_dyn_elf();
         let mapping = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_shared_object(&mapping, &mut pmm).unwrap();
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
@@ -5751,8 +5898,7 @@ mod tests {
     fn shared_object_load_pipeline_materializes_frames_and_page_tables() {
         let mut elf = build_test_dynamic_metadata_elf();
         write_le64_at(&mut elf, 0x1d8, 0);
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
@@ -5796,8 +5942,7 @@ mod tests {
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let mut scratch = [0u8; 1024];
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
@@ -5843,8 +5988,7 @@ mod tests {
             preferred_base: USER_LIBC_SHARED_OBJECT_DEPENDENCY.preferred_base,
         };
         let mut scratch = [0u8; 1024];
-        let mut pmm =
-            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
         let mut l0 = RootPageTable::new();
@@ -5883,8 +6027,7 @@ mod tests {
             flags: 4,
             data: &first.data[..4],
         });
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
@@ -5910,8 +6053,7 @@ mod tests {
     fn frame_backed_user_mapping_rejects_unaligned_table_frames() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
-        let mut pmm =
-            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+        let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
         let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
         let mut root = RootPageTable::new();
         let mut l1 = RootPageTable::new();
@@ -6022,7 +6164,8 @@ mod tests {
             &mut image,
             &elf,
             &shared_object,
-        ).unwrap();
+        )
+        .unwrap();
         image
     }
 

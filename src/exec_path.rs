@@ -35,17 +35,15 @@ pub struct ExecDependencyLoadReport {
     pub dependency_mapped_pages: usize,
 }
 
-pub fn load_exec_image_from_args<
-    const MAX_ARGS: usize,
-    const ARG_BYTES: usize,
->(
+pub fn load_exec_image_from_args<const MAX_ARGS: usize, const ARG_BYTES: usize>(
     vfs: &Vfs<'_>,
     block: &ExecvArgBlock<MAX_ARGS, ARG_BYTES>,
     scratch: &mut [u8],
     stack_top: usize,
 ) -> Result<(UserExecImage, ExecPathImageReport), ExecPathError> {
     let path = block.path_str().map_err(ExecPathError::Args)?;
-    let loaded = load_init_exec_image(vfs, path, scratch, stack_top).map_err(ExecPathError::Load)?;
+    let loaded =
+        load_init_exec_image(vfs, path, scratch, stack_top).map_err(ExecPathError::Load)?;
     let image = UserExecImage::from_loaded(&loaded);
     let report = ExecPathImageReport {
         path_len: block.path_len,
@@ -74,9 +72,15 @@ pub fn load_exec_image_with_shared_object_dependency_from_args<
     l1_frame_pa: usize,
     l0: &mut crate::sv39::RootPageTable,
     l0_frame_pa: usize,
-) -> Result<(UserExecImage, SharedObjectLoadPipeline, ExecDependencyLoadReport), ExecPathError> {
-    let (image, exec_report) =
-        load_exec_image_from_args(vfs, block, exec_scratch, stack_top)?;
+) -> Result<
+    (
+        UserExecImage,
+        SharedObjectLoadPipeline,
+        ExecDependencyLoadReport,
+    ),
+    ExecPathError,
+> {
+    let (image, exec_report) = load_exec_image_from_args(vfs, block, exec_scratch, stack_top)?;
     let shared = load_shared_object_dependency_in_tables(
         vfs,
         dependency,

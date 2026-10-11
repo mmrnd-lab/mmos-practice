@@ -8,50 +8,51 @@
 mod block;
 #[allow(dead_code)]
 mod block_io;
-mod serial;
-#[allow(dead_code)]
-mod serial_rx;
+mod char_device;
 mod console;
 #[allow(dead_code)]
 mod context_switch;
-mod char_device;
+#[allow(dead_code)]
+mod demo_user_init;
+#[allow(dead_code)]
+mod devfs;
+#[allow(dead_code)]
+mod device;
+#[allow(dead_code)]
+mod elf_loader;
+#[allow(dead_code)]
+mod exec_args;
+#[allow(dead_code)]
+mod exec_flow;
+#[allow(dead_code)]
+mod exec_path;
+#[allow(dead_code)]
+mod ext4;
 #[allow(dead_code)]
 mod fd_table;
+mod foundation_lifecycle;
 #[allow(dead_code)]
 mod idle;
 #[allow(dead_code)]
 mod irq_guard;
 #[allow(dead_code)]
-mod ramdisk;
-#[allow(dead_code)]
-mod demo_user_init;
-#[allow(dead_code)]
-mod device;
-#[allow(dead_code)]
-mod devfs;
-#[allow(dead_code)]
-mod elf_loader;
-#[allow(dead_code)]
-mod ext4;
-#[allow(dead_code)]
-mod exec_args;
-#[allow(dead_code)]
-mod exec_path;
-#[allow(dead_code)]
-mod exec_flow;
-#[allow(dead_code)]
 mod page_fault;
 #[allow(dead_code)]
 mod pmm;
 #[allow(dead_code)]
-mod process_model;
-#[allow(dead_code)]
 mod process_io;
 #[allow(dead_code)]
+mod process_model;
+#[allow(dead_code)]
 mod process_runtime;
+#[allow(dead_code)]
+mod ramdisk;
 mod sbi;
 #[allow(dead_code)]
 mod scheduler;
+mod serial;
+#[allow(dead_code)]
+mod serial_rx;
 #[allow(dead_code)]
 mod sv39;
 mod syscall;
@@ -75,18 +76,17 @@ mod user_stack;
 #[allow(dead_code)]
 mod user_vm;
 #[allow(dead_code)]
+mod vfs;
+#[allow(dead_code)]
 mod virtio_blk;
 #[allow(dead_code)]
 mod vm;
-#[allow(dead_code)]
-mod vfs;
 #[allow(dead_code)]
 mod wait_queue;
 
 use core::panic::PanicInfo;
 
-static mut USER_ADDRESS_SPACE: user_vm::ProcessAddressSpace =
-    user_vm::ProcessAddressSpace::empty();
+static mut USER_ADDRESS_SPACE: user_vm::ProcessAddressSpace = user_vm::ProcessAddressSpace::empty();
 static mut USER_ADDRESS_SPACES: user_vm::ProcessAddressSpaceTable<2> =
     user_vm::ProcessAddressSpaceTable::new();
 static mut PCB_ADDRESS_SPACE_HANDLE_READY: bool = false;
@@ -250,7 +250,8 @@ pub extern "C" fn rust_main() -> ! {
     }
     let mut user_vm = vm::VmSpace::<2>::new();
     let _ = user_vm.map_anon(0x4000, 0x4020, sv39::PTE_R);
-    let checked_user = user_copy::CheckedUserSlice::new(b"/dev/console\0fd-write", 0x4000, &user_vm);
+    let checked_user =
+        user_copy::CheckedUserSlice::new(b"/dev/console\0fd-write", 0x4000, &user_vm);
     let mut checked_io = process_io::ProcessIoContext::<8>::with_stdio(console::device());
     let mut checked_scratch = [0u8; 32];
     if let syscall::SyscallResult::Continue(fd) = syscall::handle_process_open_checked_user_path(
@@ -400,8 +401,7 @@ pub extern "C" fn rust_main() -> ! {
     let close_pid = close_runtime
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
         .unwrap_or(0);
-    let close_task =
-        process_model::TaskControlBlock::new(3, close_pid, trap::TrapFrame::default());
+    let close_task = process_model::TaskControlBlock::new(3, close_pid, trap::TrapFrame::default());
     let mut close_vm = vm::VmSpace::<2>::new();
     let _ = close_vm.map_anon(0x8000, 0x8020, sv39::PTE_R);
     let close_user = user_copy::CheckedUserSlice::new(b"/dev/console\0closed", 0x8000, &close_vm);
@@ -443,8 +443,7 @@ pub extern "C" fn rust_main() -> ! {
     let read_pid = read_runtime
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
         .unwrap_or(0);
-    let read_task =
-        process_model::TaskControlBlock::new(4, read_pid, trap::TrapFrame::default());
+    let read_task = process_model::TaskControlBlock::new(4, read_pid, trap::TrapFrame::default());
     let mut read_vm = vm::VmSpace::<2>::new();
     let _ = read_vm.map_anon(0x9000, 0x9020, sv39::PTE_W);
     let mut read_mem = [0u8; 32];
@@ -469,15 +468,13 @@ pub extern "C" fn rust_main() -> ! {
     let input_pid = input_runtime
         .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::readback_device())
         .unwrap_or(0);
-    let input_task =
-        process_model::TaskControlBlock::new(5, input_pid, trap::TrapFrame::default());
+    let input_task = process_model::TaskControlBlock::new(5, input_pid, trap::TrapFrame::default());
     let input_tid = input_task.tid;
     let mut input_vm = vm::VmSpace::<2>::new();
     let _ = input_vm.map_anon(0xa000, 0xa020, sv39::PTE_W);
     let mut input_mem = [0u8; 32];
     {
-        let mut input_user =
-            user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
+        let mut input_user = user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
         if let Ok(current) = input_runtime.current_for_task(&input_task) {
             let mut input_scratch = [0u8; 16];
             let first_read = syscall::handle_current_process_read_checked_user_syscall(
@@ -494,8 +491,7 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
     {
-        let mut input_user =
-            user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
+        let mut input_user = user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
         if let Ok(current) = input_runtime.current_for_task(&input_task) {
             let mut input_scratch = [0u8; 16];
             let _ = syscall::handle_current_process_read_checked_user_syscall(
@@ -520,8 +516,7 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
     {
-        let mut input_user =
-            user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
+        let mut input_user = user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
         if let Ok(current) = input_runtime.current_for_task(&input_task) {
             let mut blocking_scratch = [0u8; 16];
             let mut scheduler = scheduler::Scheduler::<2>::new();
@@ -588,10 +583,8 @@ pub extern "C" fn rust_main() -> ! {
             let _ = idle_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
             let _ = idle_scheduler.on_tick();
             let _ = idle_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
-            let idle_decision = trap::schedule_after_blocked_syscall(
-                &blocked_frame,
-                &mut idle_scheduler,
-            );
+            let idle_decision =
+                trap::schedule_after_blocked_syscall(&blocked_frame, &mut idle_scheduler);
             if blocked
                 && idle_decision
                     == Some(scheduler::ScheduleDecision::Idle {
@@ -602,8 +595,7 @@ pub extern "C" fn rust_main() -> ! {
             {
                 console::puts("[chapter] ch52 idle when no runnable task\n");
             }
-            if idle_decision
-                .and_then(idle::idle_action_for_schedule_decision)
+            if idle_decision.and_then(idle::idle_action_for_schedule_decision)
                 == Some(idle::IdleAction::WaitForInterrupt {
                     blocked_tid: input_tid,
                 })
@@ -618,24 +610,15 @@ pub extern "C" fn rust_main() -> ! {
             let _ = restore_scheduler.add_runnable(next_tid, next_frame);
             let _ = restore_scheduler.on_tick();
             let _ = restore_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
-            let restore_decision = trap::schedule_after_blocked_syscall(
-                &blocked_frame,
-                &mut restore_scheduler,
-            );
+            let restore_decision =
+                trap::schedule_after_blocked_syscall(&blocked_frame, &mut restore_scheduler);
             let mut dispatch_frame = blocked_frame;
-            if restore_decision
-                .and_then(|decision| {
-                    trap::apply_schedule_decision(
-                        &mut dispatch_frame,
-                        &restore_scheduler,
-                        decision,
-                    )
-                })
-                == Some(scheduler::ScheduleDecision::Switched {
-                    prev_tid: input_tid,
-                    next_tid,
-                })
-                && dispatch_frame.sepc == 0x8030_0000
+            if restore_decision.and_then(|decision| {
+                trap::apply_schedule_decision(&mut dispatch_frame, &restore_scheduler, decision)
+            }) == Some(scheduler::ScheduleDecision::Switched {
+                prev_tid: input_tid,
+                next_tid,
+            }) && dispatch_frame.sepc == 0x8030_0000
                 && dispatch_frame.a0() == 0x53
             {
                 console::puts("[chapter] ch54 restore next task frame\n");
@@ -656,8 +639,7 @@ pub extern "C" fn rust_main() -> ! {
             ) == trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
                 prev_tid: input_tid,
                 next_tid,
-            })
-                && dispatch_scheduler.current_tid() == Some(next_tid)
+            }) && dispatch_scheduler.current_tid() == Some(next_tid)
                 && scheduled_frame.sepc == 0x4000_0000
                 && scheduled_frame.a0() == 0x54
             {
@@ -726,9 +708,8 @@ pub extern "C" fn rust_main() -> ! {
             ) == trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
                 prev_tid: input_tid,
                 next_tid,
-            })
-                && trap_runtime::with_global_trap_runtime(|runtime| runtime.current_tid())
-                    == Some(next_tid)
+            }) && trap_runtime::with_global_trap_runtime(|runtime| runtime.current_tid())
+                == Some(next_tid)
                 && dispatch_global_frame.sepc == 0x8070_0000
                 && dispatch_global_frame.a0() == 0x57
                 && dispatch_global_frame.sp() == 0x8080_0000
@@ -1106,8 +1087,7 @@ fn run_wait_syscall_surface_demo() {
                 return;
             }
             let mut status_bytes = [0u8; 4];
-            let mut user =
-                user_copy::CheckedUserSliceMut::new(&mut status_bytes, 0x5000_0000, &vm);
+            let mut user = user_copy::CheckedUserSliceMut::new(&mut status_bytes, 0x5000_0000, &vm);
             if syscall::handle_process_wait4_checked_user_syscall(&mut user, 0x5000_0000, report)
                 == syscall::SyscallResult::Continue(child_pid as isize)
                 && i32::from_ne_bytes(status_bytes) == 9
@@ -1168,7 +1148,9 @@ fn run_blocking_wait_wakeup_demo() {
     }
 
     if let Ok(report) = runtime.wait_reap_current_child() {
-        if report.parent_pid == parent_pid && report.child_pid == child_pid && report.exit_code == 13
+        if report.parent_pid == parent_pid
+            && report.child_pid == child_pid
+            && report.exit_code == 13
         {
             console::puts("[chapter] ch97 blocking wait wakeup\n");
             console::puts("[syscall] wait blocked parent=1 child=2 wake=1 status=13\n");
@@ -1214,7 +1196,10 @@ fn run_minimal_fork_adapter_demo() {
     let mut parent_frame = trap::TrapFrame::default();
     parent_frame.sepc = 0x4000_0000;
     parent_frame.set_sp(0x4010_0000);
-    if runtime.add_runnable_task(1, parent_pid, parent_frame).is_err() {
+    if runtime
+        .add_runnable_task(1, parent_pid, parent_frame)
+        .is_err()
+    {
         return;
     }
     runtime.start_first_task();
@@ -1282,7 +1267,10 @@ fn run_clone_syscall_surface_demo() {
     let mut parent_frame = trap::TrapFrame::default();
     parent_frame.sepc = 0x4000_0000;
     parent_frame.set_sp(0x4010_0000);
-    if runtime.add_runnable_task(1, parent_pid, parent_frame).is_err() {
+    if runtime
+        .add_runnable_task(1, parent_pid, parent_frame)
+        .is_err()
+    {
         return;
     }
     runtime.start_first_task();
@@ -1306,10 +1294,14 @@ fn run_clone_syscall_surface_demo() {
         && child_frame.a0() == 0
         && child_frame.sp() == 0x4010_2000
     {
-        console::puts("[chapter] ch102 clone syscall surface
-");
-        console::puts("[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000
-");
+        console::puts(
+            "[chapter] ch102 clone syscall surface
+",
+        );
+        console::puts(
+            "[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000
+",
+        );
     }
 }
 
@@ -1385,14 +1377,10 @@ fn run_wait4_trap_dispatch_demo() {
         return;
     }
     let mut status_bytes = [0u8; 4];
-    let mut user =
-        user_copy::CheckedUserSliceMut::new(&mut status_bytes, 0x5000_0000, &vm);
+    let mut user = user_copy::CheckedUserSliceMut::new(&mut status_bytes, 0x5000_0000, &vm);
 
-    let outcome = trap::handle_current_wait4_frame_from_runtime(
-        &mut wait_frame,
-        &mut runtime,
-        &mut user,
-    );
+    let outcome =
+        trap::handle_current_wait4_frame_from_runtime(&mut wait_frame, &mut runtime, &mut user);
 
     if outcome == trap::TrapDispatchResult::Resumed
         && wait_frame.a0() == child_pid
@@ -1413,7 +1401,10 @@ fn run_minimal_execv_adapter_demo() {
     let mut parent_frame = trap::TrapFrame::default();
     parent_frame.sepc = 0x4000_0000;
     parent_frame.set_sp(0x4010_0000);
-    if runtime.add_runnable_task(1, parent_pid, parent_frame).is_err() {
+    if runtime
+        .add_runnable_task(1, parent_pid, parent_frame)
+        .is_err()
+    {
         return;
     }
     runtime.start_first_task();
@@ -1459,13 +1450,16 @@ fn run_minimal_execv_adapter_demo() {
         && exec_frame.sstatus & user_init::SSTATUS_SPP == 0
         && exec_frame.sstatus & user_init::SSTATUS_SPIE != 0
     {
-        console::puts("[chapter] ch103 minimal execv adapter
-");
-        console::puts("[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0
-");
+        console::puts(
+            "[chapter] ch103 minimal execv adapter
+",
+        );
+        console::puts(
+            "[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0
+",
+        );
     }
 }
-
 
 fn run_execv_user_arg_copyin_demo() {
     const BASE: usize = 0x5000_0000;
@@ -1499,7 +1493,10 @@ fn run_execv_user_arg_copyin_demo() {
     );
 
     let mut vm = vm::VmSpace::<1>::new();
-    if vm.map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R).is_err() {
+    if vm
+        .map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R)
+        .is_err()
+    {
         return;
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &vm);
@@ -1554,7 +1551,10 @@ fn run_execv_path_vfs_image_demo() {
     );
 
     let mut vm = vm::VmSpace::<1>::new();
-    if vm.map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R).is_err() {
+    if vm
+        .map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R)
+        .is_err()
+    {
         return;
     }
     let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &vm);
@@ -1590,9 +1590,7 @@ fn run_execv_path_vfs_image_demo() {
         && exec.segment_count == 1
     {
         console::puts("[chapter] ch105 execv path vfs image\n");
-        console::puts(
-            "[syscall] execv path=/sbin/init entry=0x40000000 segments=1 argc=1\n",
-        );
+        console::puts("[syscall] execv path=/sbin/init entry=0x40000000 segments=1 argc=1\n");
     }
 }
 
@@ -1678,9 +1676,7 @@ fn run_execv_apply_pipeline_demo() {
         && syscall::handle_process_execv_syscall(exec).is_ok_continue_zero()
     {
         console::puts("[chapter] ch106 execv apply pipeline\n");
-        console::puts(
-            "[syscall] execv full path=/sbin/init entry=0x40000000 argc=1 ret=0\n",
-        );
+        console::puts("[syscall] execv full path=/sbin/init entry=0x40000000 argc=1 ret=0\n");
     }
 }
 
@@ -1703,8 +1699,7 @@ fn run_execv_syscall_surface_demo() {
         path_ptr,
         argv_ptr,
         envp_ptr,
-    }) =
-        syscall::decode_syscall(syscall::SYS_EXECVE, PATH, ARGV, 0)
+    }) = syscall::decode_syscall(syscall::SYS_EXECVE, PATH, ARGV, 0)
     else {
         return;
     };
@@ -1798,8 +1793,7 @@ fn run_current_execv_syscall_runtime_demo() {
         path_ptr,
         argv_ptr,
         envp_ptr,
-    }) =
-        syscall::decode_syscall(syscall::SYS_EXECVE, PATH, ARGV, 0)
+    }) = syscall::decode_syscall(syscall::SYS_EXECVE, PATH, ARGV, 0)
     else {
         return;
     };
@@ -1839,15 +1833,7 @@ fn run_current_execv_syscall_runtime_demo() {
 
     let mut scratch = [0u8; 512];
     let mut stack = [0u8; 256];
-    let result = syscall::handle_current_process_execv_checked_user_syscall::<
-        1,
-        2,
-        64,
-        4,
-        2,
-        2,
-        5,
-    >(
+    let result = syscall::handle_current_process_execv_checked_user_syscall::<1, 2, 64, 4, 2, 2, 5>(
         &mut runtime,
         &user,
         path_ptr,
@@ -2334,24 +2320,14 @@ fn run_execv_trap_resources_demo() {
     live_frame.set_a1(ARGV);
     live_frame.set_a2(0);
 
-    let mut entry_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-        runtime, &vfs,
-    );
+    let mut entry_store =
+        trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(runtime, &vfs);
     let user_source = trap::ExecvPreparedUserSource::new(&user_mem, BASE);
     let replacement_vm = trap::ExecvPreparedReplacementVm::new(vm::VmSpace::<2>::new());
     let recipe = entry_store.entry_recipe(user_source, replacement_vm);
     let input = entry_store.entry_input(recipe);
 
-    let outcome = trap::handle_execv_user_ecall_with_prepared_store::<
-        4,
-        64,
-        4,
-        2,
-        2,
-        5,
-        512,
-        256,
-    >(
+    let outcome = trap::handle_execv_user_ecall_with_prepared_store::<4, 64, 4, 2, 2, 5, 512, 256>(
         &mut live_frame,
         &mut entry_store,
         input,
@@ -2368,41 +2344,69 @@ fn run_execv_trap_resources_demo() {
         console::puts("[chapter] ch114 execv trap resources\n");
         console::puts("[trap] execve resources routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch115 execv resource store\n");
-        console::puts("[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve resource store routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch116 execv runtime resources\n");
-        console::puts("[trap] execve runtime resources routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve runtime resources routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch117 execv runtime dispatch\n");
-        console::puts("[trap] execve runtime dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve runtime dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch118 execv dispatch state\n");
-        console::puts("[trap] execve dispatch state routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve dispatch state routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch119 execv dispatch plan\n");
         console::puts("[trap] execve dispatch plan routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch120 execv runtime plan\n");
         console::puts("[trap] execve runtime plan routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch121 execv prepared dispatch\n");
-        console::puts("[trap] execve prepared dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch122 execv prepared runtime\n");
-        console::puts("[trap] execve prepared runtime routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared runtime routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch123 execv prepared ecall\n");
-        console::puts("[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch124 execv prepared entry\n");
-        console::puts("[trap] execve prepared entry routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared entry routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch125 execv prepared store\n");
-        console::puts("[trap] execve prepared store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared store routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch126 execv prepared init\n");
         console::puts("[trap] execve prepared init routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch127 execv prepared input\n");
-        console::puts("[trap] execve prepared input routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared input routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch128 execv entry input boundary\n");
-        console::puts("[trap] execve entry input boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve entry input boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch129 execv user source boundary\n");
-        console::puts("[trap] execve user source boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve user source boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch130 execv replacement vm boundary\n");
-        console::puts("[trap] execve replacement vm boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve replacement vm boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
         console::puts("[chapter] ch131 execv entry recipe\n");
         console::puts("[trap] execve entry recipe routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch132 execv recipe store boundary\n");
-        console::puts("[trap] execve recipe store boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve recipe store boundary routed a0=0 sepc=0x40004004 entry=0x40000000\n",
+        );
     }
 }
 
@@ -2461,21 +2465,11 @@ fn run_execv_prepared_entry_dispatch_demo() {
     live_frame.set_a1(ARGV);
     live_frame.set_a2(0);
 
-    let mut entry_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-        runtime, &vfs,
-    );
+    let mut entry_store =
+        trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(runtime, &vfs);
     let user_source = trap::ExecvPreparedUserSource::new(&user_mem, BASE);
     let replacement_vm = trap::ExecvPreparedReplacementVm::new(vm::VmSpace::<2>::new());
-    let outcome = trap::handle_execv_user_ecall_with_prepared_entry::<
-        4,
-        64,
-        4,
-        2,
-        2,
-        5,
-        512,
-        256,
-    >(
+    let outcome = trap::handle_execv_user_ecall_with_prepared_entry::<4, 64, 4, 2, 2, 5, 512, 256>(
         &mut live_frame,
         &mut entry_store,
         user_source,
@@ -2491,7 +2485,9 @@ fn run_execv_prepared_entry_dispatch_demo() {
         && exec_frame.sepc == 0x4000_0000
     {
         console::puts("[chapter] ch137 execve prepared entry dispatch\n");
-        console::puts("[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000\n");
+        console::puts(
+            "[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000\n",
+        );
     }
 }
 
@@ -2542,10 +2538,8 @@ fn run_prepared_process_syscall_entry_demo() {
     }
     exec_runtime.start_first_task();
 
-    let mut exec_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
-        exec_runtime,
-        &vfs,
-    );
+    let mut exec_store =
+        trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(exec_runtime, &vfs);
     let user_source = trap::ExecvPreparedUserSource::new(&user_mem, BASE);
     let replacement_vm = trap::ExecvPreparedReplacementVm::new(vm::VmSpace::<2>::new());
 
@@ -2564,17 +2558,7 @@ fn run_prepared_process_syscall_entry_demo() {
     frame.set_a1(ARGV);
     frame.set_a2(0);
 
-    let dispatch = trap::handle_prepared_process_syscall_entry::<
-        2,
-        4,
-        64,
-        4,
-        2,
-        2,
-        5,
-        512,
-        256,
-    >(
+    let dispatch = trap::handle_prepared_process_syscall_entry::<2, 4, 64, 4, 2, 2, 5, 512, 256>(
         &mut frame,
         &mut entry_runtime,
         2,
@@ -2594,7 +2578,9 @@ fn run_prepared_process_syscall_entry_demo() {
         && exec_frame.sepc == 0x4000_0000
     {
         console::puts("[chapter] ch138 prepared process syscall entry\n");
-        console::puts("[trap] process syscall entry routed execve a0=0 sepc=0x40006004 entry=0x40000000\n");
+        console::puts(
+            "[trap] process syscall entry routed execve a0=0 sepc=0x40006004 entry=0x40000000\n",
+        );
     }
 }
 
@@ -2686,9 +2672,7 @@ fn run_process_syscall_write_entry_demo() {
         replacement_vm,
     );
 
-    if dispatch == trap::TrapDispatchResult::Resumed
-        && frame.a0() == 8
-        && frame.sepc == 0x4000_7004
+    if dispatch == trap::TrapDispatchResult::Resumed && frame.a0() == 8 && frame.sepc == 0x4000_7004
     {
         console::puts("[chapter] ch139 process syscall write entry\n");
         console::puts("[trap] process syscall entry routed write a0=8 sepc=0x40007004\n");
@@ -2786,9 +2770,7 @@ fn run_process_syscall_read_entry_demo() {
         replacement_vm,
     );
 
-    if dispatch == trap::TrapDispatchResult::Resumed
-        && frame.a0() == 1
-        && frame.sepc == 0x4000_8004
+    if dispatch == trap::TrapDispatchResult::Resumed && frame.a0() == 1 && frame.sepc == 0x4000_8004
     {
         console::puts("[chapter] ch140 process syscall read entry\n");
         console::puts("[trap] process syscall entry routed read a0=1 sepc=0x40008004\n");
@@ -3014,7 +2996,9 @@ fn run_process_syscall_openat_entry_demo() {
         console::puts("[chapter] ch142 process syscall openat entry\n");
         console::puts("[trap] process syscall entry routed openat a0=3 sepc=0x4000a004 wrote=10\n");
         console::puts("[chapter] ch143 process syscall io resources\n");
-        console::puts("[trap] process syscall io resources routed openat a0=3 sepc=0x4000a004 wrote=10\n");
+        console::puts(
+            "[trap] process syscall io resources routed openat a0=3 sepc=0x4000a004 wrote=10\n",
+        );
     }
 }
 
@@ -3078,11 +3062,17 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch147 user libc library boundary\n");
     console::puts("[user-libc] init links syscall and stdio API from user/libc crate\n");
     console::puts("[chapter] ch148 user libc static link artifact\n");
-    console::puts("[user-libc] build produces libmmos_user_libc.rlib before shared object support\n");
+    console::puts(
+        "[user-libc] build produces libmmos_user_libc.rlib before shared object support\n",
+    );
     console::puts("[chapter] ch149 user link model classification\n");
-    console::puts("[user-link] init is ET_EXEC, crt and libc are rlibs, runtime shared object is absent\n");
+    console::puts(
+        "[user-link] init is ET_EXEC, crt and libc are rlibs, runtime shared object is absent\n",
+    );
     console::puts("[chapter] ch150 shared object load plan\n");
-    console::puts("[user-link] ET_DYN shared object requires base, segments, and relocation plan\n");
+    console::puts(
+        "[user-link] ET_DYN shared object requires base, segments, and relocation plan\n",
+    );
     console::puts("[chapter] ch151 user image shared object artifact\n");
     console::puts("[user-link] /lib/libmmos_user_libc.so is packaged as an ET_DYN candidate\n");
     console::puts("[chapter] ch152 shared object dynamic metadata\n");
@@ -3096,15 +3086,21 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch156 shared object relocation materialize\n");
     console::puts("[user-link] shared object materialization connects RELA scan, relative apply, and writeback\n");
     console::puts("[chapter] ch157 shared object mapping plan\n");
-    console::puts("[user-link] shared object segments become base-offset user mapping candidates\n");
+    console::puts(
+        "[user-link] shared object segments become base-offset user mapping candidates\n",
+    );
     console::puts("[chapter] ch158 shared object frame plan\n");
     console::puts("[user-link] shared object mapping candidates receive PMM-backed frames before page table install\n");
     console::puts("[chapter] ch159 shared object page table install\n");
-    console::puts("[user-link] shared object frame plan installs user leaf mappings without stack pages\n");
+    console::puts(
+        "[user-link] shared object frame plan installs user leaf mappings without stack pages\n",
+    );
     console::puts("[chapter] ch160 shared object load pipeline\n");
     console::puts("[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings\n");
     console::puts("[chapter] ch161 shared object path load\n");
-    console::puts("[user-link] shared object path load reads VFS bytes before running the load pipeline\n");
+    console::puts(
+        "[user-link] shared object path load reads VFS bytes before running the load pipeline\n",
+    );
     console::puts("[chapter] ch162 shared object dependency load\n");
     console::puts("[user-link] exec dependency names /lib/libmmos_user_libc.so before path load\n");
     console::puts("[chapter] ch163 exec shared object dependency\n");
@@ -3112,9 +3108,13 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch164 process exec shared object runtime\n");
     console::puts("[user-link] process exec result preserves loaded shared object metadata\n");
     console::puts("[chapter] ch165 exec apply shared object runtime\n");
-    console::puts("[user-link] exec apply path passes loaded shared object metadata into process runtime\n");
+    console::puts(
+        "[user-link] exec apply path passes loaded shared object metadata into process runtime\n",
+    );
     console::puts("[chapter] ch166 exec dispatch shared object runtime\n");
-    console::puts("[user-link] exec dispatch path can select the shared object aware apply runtime\n");
+    console::puts(
+        "[user-link] exec dispatch path can select the shared object aware apply runtime\n",
+    );
     console::puts("[chapter] ch168 user crt entry main\n");
     console::puts("[user-crt] _start passes argc argv envp to libc startup entry\n");
     console::puts("[user-libc] startup entry calls app main and exits with its return code\n");
@@ -3161,7 +3161,8 @@ fn run_user_frame_backed_mapping_demo() {
 }
 
 fn run_user_frame_backed_materialize_demo() {
-    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_MATERIALIZE_READY)) } {
+    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_MATERIALIZE_READY)) }
+    {
         console::puts("[chapter] ch84 user frame materialize\n");
     }
 }
@@ -3187,15 +3188,11 @@ fn run_persistent_satp_commit_demo() {
     let committed = unsafe { task_vm::commit_satp_hardware(hardware) };
     if committed.active_satp == next_satp && committed.flushed_tlb {
         unsafe {
-            core::ptr::write_volatile(
-                core::ptr::addr_of_mut!(PERSISTENT_SATP_COMMIT_READY),
-                true,
-            );
+            core::ptr::write_volatile(core::ptr::addr_of_mut!(PERSISTENT_SATP_COMMIT_READY), true);
         }
         console::puts("[chapter] ch85 persistent satp commit\n");
-        let access = user_access::with_user_memory_access(|| {
-            user_access::user_access_window_from_status(0)
-        });
+        let access =
+            user_access::with_user_memory_access(|| user_access::user_access_window_from_status(0));
         if user_access::user_memory_access_enabled(access.enabled_sstatus)
             && !user_access::user_memory_access_enabled(access.restored_sstatus)
         {
@@ -3220,8 +3217,7 @@ fn run_persistent_satp_commit_demo() {
 
 #[inline(never)]
 fn ch78_kernel_satp_runtime_guard() -> bool {
-    let mut pmm =
-        pmm::PageFrameManager::<1>::new(0x9000_0000, 0x9000_1000, sv39::PAGE_SIZE);
+    let mut pmm = pmm::PageFrameManager::<1>::new(0x9000_0000, 0x9000_1000, sv39::PAGE_SIZE);
     let Some(root_frame_pa) = pmm.alloc() else {
         return false;
     };
@@ -3249,8 +3245,7 @@ fn ch78_kernel_satp_runtime_guard() -> bool {
 fn ch79_process_address_space_root() -> bool {
     let address_space = unsafe { &*core::ptr::addr_of!(USER_ADDRESS_SPACE) };
     address_space.mapped_regions > 0
-        && address_space.satp
-            == sv39::make_satp(address_space.root_frame_pa / sv39::PAGE_SIZE, 0)
+        && address_space.satp == sv39::make_satp(address_space.root_frame_pa / sv39::PAGE_SIZE, 0)
         && address_space.root_frame_pa % sv39::PAGE_SIZE == 0
 }
 
@@ -3315,7 +3310,7 @@ fn run_user_launch_demo() {
 
     let plan = user_launch::prepare_user_init_launch::<4, 4>(
         &loaded,
- 0x12345_000,
+        0x12345_000,
         stack_bytes,
         &["/sbin/init"],
         &["PATH=/bin"],
@@ -3348,8 +3343,7 @@ fn run_user_launch_demo() {
                 if first.pid == 1
                     && first.tid == 1
                     && first.entry == loaded.entry
-                    && spawn_scheduler.task_state(first.tid)
-                        == Some(scheduler::TaskState::Runnable)
+                    && spawn_scheduler.task_state(first.tid) == Some(scheduler::TaskState::Runnable)
                 {
                     console::puts("[chapter] ch61 user process creation path\n");
                 }
@@ -3357,7 +3351,7 @@ fn run_user_launch_demo() {
                 let mut second_stack = [0u8; 512];
                 if let Ok(second_plan) = user_launch::prepare_user_init_launch::<4, 4>(
                     &loaded,
- 0x12346_000,
+                    0x12346_000,
                     &mut second_stack,
                     &["/sbin/worker"],
                     &["PATH=/bin"],
@@ -3388,13 +3382,11 @@ fn run_user_launch_demo() {
                                 && live.sp() == second_plan.sp
                             {
                                 console::puts("[chapter] ch62 second user task switch\n");
-                                if let Ok(Some(space)) =
-                                    task_vm::address_space_switch_for_decision(
-                                        &proc_table,
-                                        &task_table,
-                                        decision,
-                                    )
-                                {
+                                if let Ok(Some(space)) = task_vm::address_space_switch_for_decision(
+                                    &proc_table,
+                                    &task_table,
+                                    decision,
+                                ) {
                                     if space.next_tid == second.tid
                                         && space.next_satp == second_plan.satp
                                     {
@@ -3411,10 +3403,8 @@ fn run_user_launch_demo() {
                                             console::puts(
                                                 "[chapter] ch64 address space switch apply\n",
                                             );
-                                            let commit = task_vm::prepare_satp_commit(
-                                                p.satp,
-                                                applied,
-                                            );
+                                            let commit =
+                                                task_vm::prepare_satp_commit(p.satp, applied);
                                             if commit.next_satp == second_plan.satp
                                                 && commit.needs_sfence_vma
                                             {
@@ -3442,18 +3432,14 @@ fn run_user_launch_demo() {
                                                     )
                                                     .unwrap();
                                                 let _ = root_install;
-                                                if user_vm::install_kernel_identity_mapping(
-                                                    root,
-                                                )
-                                                .is_err()
+                                                if user_vm::install_kernel_identity_mapping(root)
+                                                    .is_err()
                                                 {
                                                     console::puts(
                                                         "[chapter] ch66 kernel mapping overlap\n",
                                                     );
                                                 } else if user_vm::is_kernel_mapping(
-                                                    root.entries[
-                                                        user_vm::KERNEL_IDENTITY_VPN2
-                                                    ],
+                                                    root.entries[user_vm::KERNEL_IDENTITY_VPN2],
                                                 ) {
                                                     console::puts(
                                                         "[chapter] ch66 user address relocation\n",
@@ -3506,7 +3492,8 @@ fn run_user_launch_demo() {
                                                                     if ret.restored_user_sp
                                                                         == loaded.stack_top
                                                                         && ret.next_sscratch
-                                                                            == scratch.kernel_frame_sp
+                                                                            == scratch
+                                                                                .kernel_frame_sp
                                                                     {
                                                                         console::puts(
                                                                             "[chapter] ch70 trap entry asm stack switch\n",
@@ -3867,6 +3854,9 @@ fn run_user_launch_demo() {
                                                                                                                                                                             }
                                                                                                                                                                             .is_ok()
                                                                                                                                                                             {
+                                                                                                                                                                                foundation_lifecycle::install(
+                                                                                                                                                                                    frame_plan,
+                                                                                                                                                                                );
                                                                                                                                                                                 unsafe {
                                                                                                                                                                                     core::ptr::write_volatile(
                                                                                                                                                                                         core::ptr::addr_of_mut!(
