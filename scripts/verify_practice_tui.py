@@ -1469,6 +1469,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=ELF segment and initial stack bytes are copied into PMM-backed user frames",
     ),
     ChapterSet(
+        key="ch85_persistent_satp_commit",
+        label="Ch85 Persistent SATP Commit",
+        commit_candidates=["4f686d7"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch85 persistent satp commit",
+                    "[chapter] ch84 user frame materialize",
+                    "[chapter] ch83 user frame backed page mapping",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared user satp is written persistently and kernel output continues under the new root",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

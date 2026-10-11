@@ -299,6 +299,11 @@
     - page table leaf가 가리키는 frame 안에 실제 실행 코드와 stack 내용이 채워졌음을 테스트와 런타임 시그니처로 검증
 
 
+77. `4f686d7` `feat(ch85): commit user satp persistently`
+    - 이전 장들에서 준비한 root page table의 `satp`를 더 이상 bare `satp=0`으로 복구하지 않는 persistent commit 경로를 추가
+    - commit 뒤에도 kernel identity mapping 아래에서 supervisor 코드가 계속 실행되고 chapter marker를 출력할 수 있음을 테스트와 런타임 시그니처로 검증
+
+
 ## Reproduce Example
 
 ```bash
