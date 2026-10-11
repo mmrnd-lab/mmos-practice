@@ -339,6 +339,11 @@
     - reaped process owner의 TCB와 scheduler slot을 제거해 다음 process만 runnable table에 남는지 확인
     - QEMU runtime marker에서 `[chapter] ch94 process trap runtime reap`, `[proc] runtime reap pid=1 code=0 tasks=2 sched=2 next=3` 확인
 
+85. `cbef4a7` `feat(ch95): wait reaps process trap runtime child`
+    - parent PCB의 child list에서 zombie child를 찾아 wait-style reap 경로로 회수
+    - child process의 TCB와 scheduler slot을 제거하고 parent의 child slot을 비움
+    - QEMU runtime marker에서 `[chapter] ch95 process wait child reap`, `[proc] wait parent=1 child=2 code=7 tasks=2 sched=2 next=3` 확인
+
 
 ## Reproduce Example
 

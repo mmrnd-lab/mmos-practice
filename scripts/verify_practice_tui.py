@@ -1616,6 +1616,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-aware trap runtime reaps the exited owner and removes its task slots",
     ),
     ChapterSet(
+        key="ch95_process_wait_child_reap",
+        label="Ch95 Process Wait Child Reap",
+        commit_candidates=["cbef4a7"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch95 process wait child reap",
+                    "[proc] wait parent=1 child=2 code=7 tasks=2 sched=2 next=3",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=parent wait path reaps a zombie child through the process-aware trap runtime",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
