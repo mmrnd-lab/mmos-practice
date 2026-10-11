@@ -1412,6 +1412,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=temporary satp CSR write, sfence.vma, and restore-to-bare probe",
     ),
     ChapterSet(
+        key="ch82_user_frame_backed_image",
+        label="Ch82 User Frame Backed Image",
+        commit_candidates=["2ac7753"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch82 user frame backed image",
+                    "[chapter] ch81 satp hardware commit probe",
+                    "[chapter] ch80 pcb address space handle",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=user entry and stack are planned on PMM-backed frames before persistent satp",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

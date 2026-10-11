@@ -284,6 +284,11 @@
     - hardware commit probe 전에 새 root table에도 kernel identity mapping이 유지되는지 확인하고 테스트와 런타임 시그니처로 검증
 
 
+74. `2ac7753` `feat(ch82): plan user image on pmm frames`
+    - relocated user entry와 user stack이 낮은 identity 물리주소가 아니라 PMM이 할당한 실제 frame을 사용하도록 frame-backed image plan을 추가
+    - 지속적인 `satp` 전환 전에 user code와 stack의 물리 backing을 분리해야 함을 테스트와 런타임 시그니처로 검증
+
+
 ## Reproduce Example
 
 ```bash
