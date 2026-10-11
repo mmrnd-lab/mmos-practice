@@ -410,6 +410,12 @@
     - 성공한 execve dispatch는 current task frame을 새 ELF entry와 initial stack pointer로 교체하고 `0`을 반환
     - QEMU runtime marker에서 `[chapter] ch109 execv dispatch context`, `[syscall] execve dispatch current=1 ret=0 entry=0x40000000` 확인
 
+97. `abca6ca` `feat(ch110): derive execv user view from current process vm`
+    - `ProcessTrapRuntime::current_process_vm()`을 추가해 current task owner process의 VM descriptor를 조회
+    - `dispatch_current_execv_syscall_from_runtime()`이 process VM으로 `CheckedUserSlice`를 구성한 뒤 execv dispatch를 수행
+    - caller가 별도 user memory view를 직접 만들지 않고, current process VM에 등록된 user range를 copyin 권한 기준으로 사용
+    - QEMU runtime marker에서 `[chapter] ch110 execv runtime context lookup`, `[syscall] execve runtime-vm current=1 ret=0 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

@@ -1852,7 +1852,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch110_execv_runtime_context_lookup",
         label="Ch110 Execv Runtime Context Lookup",
-        commit_candidates=["HEAD"],
+        commit_candidates=["abca6ca"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
