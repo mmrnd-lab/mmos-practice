@@ -3,6 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
+pub mod block;
+pub mod ramdisk;
+pub mod block_io;
+pub mod device;
 pub mod irq_guard;
 pub mod kheap;
 pub mod page_frame_allocator;
@@ -19,6 +23,10 @@ pub fn align_up(value: usize, align: usize) -> usize {
 #[cfg(test)]
 mod tests {
     use super::align_up;
+    use super::block::{BlockDevice, BlockError};
+    use super::ramdisk::RamDisk;
+    use super::block_io::read_bytes;
+    use super::device::{Device, DeviceKind};
     use super::kheap::init_kheap;
     use super::page_frame_allocator::PageFrameAllocator;
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
@@ -40,6 +48,55 @@ mod tests {
     fn kheap_region_end_is_calculated() {
         let region = init_kheap(0x9000_0000, 0x10000);
         assert_eq!(region.end(), 0x9001_0000);
+    }
+
+    #[test]
+    fn ramdisk_is_registered_as_block_kind() {
+        let storage = [0u8; 16];
+        let dev = RamDisk::new("ramblk0", &storage, 8);
+        assert_eq!(dev.name(), "ramblk0");
+        assert_eq!(dev.kind(), DeviceKind::Block);
+        assert_eq!(dev.total_blocks(), 2);
+    }
+
+    #[test]
+    fn block_read_single_lba() {
+        let storage: [u8; 16] = [
+            0, 1, 2, 3, 4, 5, 6, 7,
+            8, 9, 10, 11, 12, 13, 14, 15,
+        ];
+        let dev = RamDisk::new("ramblk0", &storage, 8);
+        let mut out = [0u8; 8];
+        dev.read_block(1, &mut out).unwrap();
+        assert_eq!(out, [8, 9, 10, 11, 12, 13, 14, 15]);
+    }
+
+    #[test]
+    fn block_read_rejects_wrong_sized_buffer() {
+        let storage = [0u8; 16];
+        let dev = RamDisk::new("ramblk0", &storage, 8);
+        let mut out = [0u8; 4];
+        assert_eq!(dev.read_block(0, &mut out), Err(BlockError::BadBuffer));
+    }
+
+    #[test]
+    fn block_read_across_boundary() {
+        let storage: [u8; 16] = [
+            b'A', b'B', b'C', b'D', b'E', b'F', b'G', b'H',
+            b'I', b'J', b'K', b'L', b'M', b'N', b'O', b'P',
+        ];
+        let dev = RamDisk::new("ramblk0", &storage, 8);
+        let mut out = [0u8; 6];
+        read_bytes(&dev, 6, &mut out).unwrap();
+        assert_eq!(&out, b"GHIJKL");
+    }
+
+    #[test]
+    fn block_read_reports_out_of_range() {
+        let storage = [0u8; 16];
+        let dev = RamDisk::new("ramblk0", &storage, 8);
+        let mut out = [0u8; 4];
+        assert_eq!(read_bytes(&dev, 14, &mut out), Err(BlockError::OutOfRange));
     }
 
     #[test]
