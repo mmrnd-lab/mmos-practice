@@ -422,6 +422,12 @@
     - 아직 live trap dispatcher 전체에 자동 연결하지 않고, execve frame snapshot에서 시작하는 전용 경계를 검증
     - QEMU runtime marker에서 `[chapter] ch111 execv frame dispatch`, `[syscall] execve frame a7=221 ret=0 entry=0x40000000` 확인
 
+99. `816a836` `feat(ch112): write back execve frame result`
+    - `handle_current_execv_frame_from_runtime()`을 추가해 111장의 frame dispatch 결과를 live trap frame writeback 경계로 연결
+    - 성공한 `SyscallResult::Continue(0)` 값을 live trap frame의 `a0`에 기록하고, syscall instruction 다음으로 `sepc`를 4바이트 전진
+    - exec target task frame은 새 ELF entry와 initial stack pointer로 교체되고, syscall caller frame은 return value/next pc만 갱신
+    - QEMU runtime marker에서 `[chapter] ch112 execv frame writeback`, `[syscall] execve writeback a0=0 sepc=0x40002004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

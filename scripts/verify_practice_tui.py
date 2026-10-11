@@ -1886,6 +1886,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch decodes syscall arguments from a trap frame register snapshot",
     ),
     ChapterSet(
+        key="ch112_execv_frame_writeback",
+        label="Ch112 Execv Frame Writeback",
+        commit_candidates=["816a836"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch112 execv frame writeback",
+                    "[syscall] execve writeback a0=0 sepc=0x40002004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve syscall result is written back to the live trap frame",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
