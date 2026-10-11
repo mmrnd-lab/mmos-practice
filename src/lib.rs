@@ -118,19 +118,23 @@ mod tests {
         SatpHardwareCommitError,
     };
     use super::syscall::{
-        dispatch_current_execv_frame_from_runtime, dispatch_current_execv_syscall, dispatch_current_execv_syscall_from_runtime,
+        dispatch_current_execv_frame_from_runtime,
+        dispatch_current_execv_shared_object_frame_from_runtime, dispatch_current_execv_syscall,
+        dispatch_current_execv_syscall_from_runtime,
         dispatch_current_clone_frame_from_runtime, dispatch_current_wait4_frame_from_runtime, decode_syscall,
         handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall,
-        handle_current_process_clone_syscall, handle_current_process_execv_checked_user_syscall, handle_process_execv_checked_user_syscall, BlockingReadResult, CurrentExecvDispatchContext, CurrentExecvRuntimeContext,
+        handle_current_process_clone_syscall, handle_current_process_execv_checked_user_syscall,
+        handle_process_execv_checked_user_syscall, BlockingReadResult, CurrentExecvDispatchContext,
+        CurrentExecvRuntimeContext, CurrentExecvSharedObjectRuntimeContext,
         handle_process_execv_syscall, handle_process_fork_syscall,
         handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
-        Syscall, SyscallResult, Wait4DispatchResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_CLONE, SYS_EXECVE,
+        Syscall, SyscallResult, Wait4DispatchResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, EIO, SYS_CLOSE, SYS_EXIT, SYS_CLONE, SYS_EXECVE,
         SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
     };
     use super::trap::{
@@ -1473,6 +1477,155 @@ mod tests {
         let frame = runtime.task_frame(1).unwrap();
         assert_eq!(frame.sepc, 0x4000_0000);
         assert!(frame.sp() < 0x4010_0000);
+    }
+
+    #[test]
+    fn execv_shared_object_frame_dispatch_uses_dependency_loader() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let init = build_test_init_elf();
+        let mut shared_object = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut shared_object, 0x1d8, 0);
+        let mut disk = vec![0u8; super::demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+        super::demo_user_init::build_demo_ext4_image_with_shared_object(
+            &mut disk,
+            &init,
+            &shared_object,
+        )
+        .unwrap();
+        let dev = RamDisk::new("ramblk0", &disk, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut exec_scratch = [0u8; 512];
+        let mut shared_scratch = [0u8; 1024];
+        let mut stack = [0u8; 256];
+
+        let mut process_vm = VmSpace::<2>::new();
+        process_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let pid = runtime.create_process(None, process_vm).unwrap();
+        let mut task_frame = TrapFrame::default();
+        task_frame.sepc = 0x4000_1000;
+        task_frame.set_sp(0x4010_1000);
+        runtime.add_runnable_task(1, pid, task_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut syscall_frame = TrapFrame::default();
+        syscall_frame.set_a7(SYS_EXECVE);
+        syscall_frame.set_a0(PATH);
+        syscall_frame.set_a1(ARGV);
+        syscall_frame.set_a2(0);
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let result = dispatch_current_execv_shared_object_frame_from_runtime::<4, 64, 4, 2, 2, 5, 2>(
+            &syscall_frame,
+            CurrentExecvSharedObjectRuntimeContext {
+                runtime: &mut runtime,
+                user_bytes: &user_mem,
+                user_base: BASE,
+                vfs: &vfs,
+                exec_scratch: &mut exec_scratch,
+                shared_scratch: &mut shared_scratch,
+                stack_bytes: &mut stack,
+                stack_top_va: 0x4010_0000,
+                new_vm: VmSpace::<2>::new(),
+                dependency: USER_CRT_SHARED_OBJECT_DEPENDENCY,
+                pmm: &mut pmm,
+                root: &mut root,
+                l1: &mut l1,
+                l1_frame_pa: 0x9100_2000,
+                l0: &mut l0,
+                l0_frame_pa: 0x9100_3000,
+            },
+        );
+
+        assert_eq!(result, SyscallResult::Continue(0));
+        let frame = runtime.task_frame(1).unwrap();
+        assert_eq!(frame.sepc, 0x4000_0000);
+        assert!(frame.sp() < 0x4010_0000);
+        assert!(is_leaf_user_mapping(l0.entries[vpn0(0x9000_0000)]));
+    }
+
+    #[test]
+    fn execv_shared_object_dispatch_requires_dependency_file() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut exec_scratch = [0u8; 512];
+        let mut shared_scratch = [0u8; 1024];
+        let mut stack = [0u8; 256];
+
+        let mut process_vm = VmSpace::<2>::new();
+        process_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let pid = runtime.create_process(None, process_vm).unwrap();
+        let mut task_frame = TrapFrame::default();
+        task_frame.sepc = 0x4000_1000;
+        task_frame.set_sp(0x4010_1000);
+        runtime.add_runnable_task(1, pid, task_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut syscall_frame = TrapFrame::default();
+        syscall_frame.set_a7(SYS_EXECVE);
+        syscall_frame.set_a0(PATH);
+        syscall_frame.set_a1(ARGV);
+        syscall_frame.set_a2(0);
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let result = dispatch_current_execv_shared_object_frame_from_runtime::<4, 64, 4, 2, 2, 5, 2>(
+            &syscall_frame,
+            CurrentExecvSharedObjectRuntimeContext {
+                runtime: &mut runtime,
+                user_bytes: &user_mem,
+                user_base: BASE,
+                vfs: &vfs,
+                exec_scratch: &mut exec_scratch,
+                shared_scratch: &mut shared_scratch,
+                stack_bytes: &mut stack,
+                stack_top_va: 0x4010_0000,
+                new_vm: VmSpace::<2>::new(),
+                dependency: USER_CRT_SHARED_OBJECT_DEPENDENCY,
+                pmm: &mut pmm,
+                root: &mut root,
+                l1: &mut l1,
+                l1_frame_pa: 0x9100_2000,
+                l0: &mut l0,
+                l0_frame_pa: 0x9100_3000,
+            },
+        );
+
+        assert_eq!(result, SyscallResult::Continue(-EIO));
+        let frame = runtime.task_frame(1).unwrap();
+        assert_eq!(frame.sepc, 0x4000_1000);
     }
 
     #[test]

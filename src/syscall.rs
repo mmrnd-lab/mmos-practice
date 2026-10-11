@@ -829,6 +829,144 @@ pub fn dispatch_current_execv_frame_from_runtime<
     >(syscall, ctx)
 }
 
+pub struct CurrentExecvSharedObjectRuntimeContext<
+    'a,
+    'v,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const FREE_CAP: usize,
+> {
+    pub runtime: &'a mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    pub user_bytes: &'a [u8],
+    pub user_base: usize,
+    pub vfs: &'a crate::vfs::Vfs<'v>,
+    pub exec_scratch: &'a mut [u8],
+    pub shared_scratch: &'a mut [u8],
+    pub stack_bytes: &'a mut [u8],
+    pub stack_top_va: usize,
+    pub new_vm: crate::vm::VmSpace<MAX_AREAS>,
+    pub dependency: crate::user_vm::SharedObjectDependency,
+    pub pmm: &'a mut crate::pmm::PageFrameManager<FREE_CAP>,
+    pub root: &'a mut crate::sv39::RootPageTable,
+    pub l1: &'a mut crate::sv39::RootPageTable,
+    pub l1_frame_pa: usize,
+    pub l0: &'a mut crate::sv39::RootPageTable,
+    pub l0_frame_pa: usize,
+}
+
+pub fn dispatch_current_execv_shared_object_syscall_from_runtime<
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const FREE_CAP: usize,
+>(
+    syscall: Syscall,
+    ctx: CurrentExecvSharedObjectRuntimeContext<
+        '_,
+        '_,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        FREE_CAP,
+    >,
+) -> SyscallResult {
+    let user_vm = match ctx.runtime.current_process_vm() {
+        Ok(vm) => vm,
+        Err(_) => return errno_result(EINVAL),
+    };
+    let user = crate::user_copy::CheckedUserSlice::<MAX_AREAS>::new(
+        ctx.user_bytes,
+        ctx.user_base,
+        &user_vm,
+    );
+    let Some(tid) = ctx.runtime.current_tid() else {
+        return errno_result(EINVAL);
+    };
+
+    match syscall {
+        Syscall::Execv { path_ptr, argv_ptr, .. } => {
+            match crate::exec_flow::apply_execv_with_shared_object_dependency_from_user_args::<
+                MAX_AREAS,
+                MAX_ARGS,
+                ARG_BYTES,
+                MAX_PROCS,
+                MAX_CHILDREN,
+                MAX_AREAS,
+                MAX_TASKS,
+                FREE_CAP,
+            >(
+                ctx.runtime,
+                tid,
+                &user,
+                path_ptr,
+                argv_ptr,
+                ctx.vfs,
+                ctx.exec_scratch,
+                ctx.shared_scratch,
+                ctx.stack_bytes,
+                ctx.stack_top_va,
+                ctx.new_vm,
+                ctx.dependency,
+                ctx.pmm,
+                ctx.root,
+                ctx.l1,
+                ctx.l1_frame_pa,
+                ctx.l0,
+                ctx.l0_frame_pa,
+            ) {
+                Ok((exec, _report)) => handle_process_execv_syscall(exec),
+                Err(error) => errno_result(execv_apply_errno(error)),
+            }
+        }
+        _ => SyscallResult::Unsupported,
+    }
+}
+
+pub fn dispatch_current_execv_shared_object_frame_from_runtime<
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const FREE_CAP: usize,
+>(
+    frame: &crate::trap::TrapFrame,
+    ctx: CurrentExecvSharedObjectRuntimeContext<
+        '_,
+        '_,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        FREE_CAP,
+    >,
+) -> SyscallResult {
+    let Some(syscall) = decode_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()) else {
+        return SyscallResult::Unsupported;
+    };
+    dispatch_current_execv_shared_object_syscall_from_runtime::<
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        FREE_CAP,
+    >(syscall, ctx)
+}
+
 pub fn handle_process_execv_syscall(
     _report: crate::trap_runtime::ProcessExecRuntime,
 ) -> SyscallResult {

@@ -3089,6 +3089,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] process exec result preserves loaded shared object metadata\n");
     console::puts("[chapter] ch165 exec apply shared object runtime\n");
     console::puts("[user-link] exec apply path passes loaded shared object metadata into process runtime\n");
+    console::puts("[chapter] ch166 exec dispatch shared object runtime\n");
+    console::puts("[user-link] exec dispatch path can select the shared object aware apply runtime\n");
 }
 
 fn run_kernel_satp_guard_demo() {
