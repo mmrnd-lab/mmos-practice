@@ -80,6 +80,21 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
         None
     }
 
+    pub fn replace_task_frame(&mut self, tid: usize, tf: TrapFrame) -> bool {
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(mut task) = self.slots[idx] {
+                if task.tid == tid {
+                    task.tf = tf;
+                    self.slots[idx] = Some(task);
+                    return true;
+                }
+            }
+            idx += 1;
+        }
+        false
+    }
+
     pub fn add_runnable(&mut self, tid: usize, tf: TrapFrame) -> Result<(), SchedError> {
         let mut idx = 0usize;
         while idx < MAX_TASKS {

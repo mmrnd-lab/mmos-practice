@@ -89,6 +89,14 @@ pub struct ProcessForkRuntime {
     pub child_tid: usize,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessExecRuntime {
+    pub pid: usize,
+    pub tid: usize,
+    pub entry: usize,
+    pub stack_top: usize,
+}
+
 pub struct TrapRuntime<const MAX_TASKS: usize> {
     scheduler: Scheduler<MAX_TASKS>,
 }
@@ -204,6 +212,30 @@ impl<
             parent_pid,
             child_pid,
             child_tid,
+        })
+    }
+
+    pub fn exec_task_image(
+        &mut self,
+        tid: usize,
+        image: crate::user_exec::UserExecImage,
+        new_vm: VmSpace<MAX_AREAS>,
+    ) -> Result<ProcessExecRuntime, ProcError> {
+        let pid = self.tasks.owner_pid(tid)?;
+        self.processes.get_mut(pid)?.vm = new_vm;
+
+        let mut frame = self.tasks.get(tid)?.trapframe;
+        crate::user_exec::install_exec_context(&mut frame, &image);
+        self.tasks.get_mut(tid)?.trapframe = frame;
+        if !self.scheduler.replace_task_frame(tid, frame) {
+            return Err(ProcError::MissingTask);
+        }
+
+        Ok(ProcessExecRuntime {
+            pid,
+            tid,
+            entry: image.entry,
+            stack_top: image.stack_top,
         })
     }
 

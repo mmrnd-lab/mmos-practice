@@ -103,7 +103,8 @@ mod tests {
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall,
         handle_current_process_clone_syscall, BlockingReadResult,
-        handle_process_fork_syscall, handle_process_wait4_checked_user_syscall,
+        handle_process_execv_syscall, handle_process_fork_syscall,
+        handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
@@ -131,7 +132,7 @@ mod tests {
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_frame_backed_user_image,
         materialize_segments, ExecError, FrameBackedMaterializeError, FrameRegionMut,
-        UserExecImage, UserRegionMut,
+        SegmentPlacement, UserExecImage, UserRegionMut,
     };
     use super::user_access::{
         enable_user_memory_access_status, restore_user_memory_access_status,
@@ -2335,6 +2336,57 @@ mod tests {
         let child_frame = runtime.task_frame(2).unwrap();
         assert_eq!(child_frame.a0(), 0);
         assert_eq!(child_frame.sp(), 0x4010_2000);
+    }
+
+    #[test]
+    fn process_trap_runtime_exec_task_image_replaces_child_context() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+
+        let mut parent_frame = TrapFrame::default();
+        parent_frame.sepc = 0x4000_0000;
+        parent_frame.set_sp(0x4010_0000);
+        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut child_frame = TrapFrame::default();
+        child_frame.sepc = 0x4000_1000;
+        child_frame.set_sp(0x4010_1000);
+        let fork = runtime
+            .fork_current_process(2, child_frame, VmSpace::<2>::new())
+            .unwrap();
+
+        let image = UserExecImage {
+            entry: 0x4000_2000,
+            stack_top: 0x4010_2000,
+            segment_count: 1,
+            segments: [
+                Some(SegmentPlacement {
+                    vaddr: 0x4000_2000,
+                    file_size: 16,
+                    mem_size: 32,
+                    flags: (PTE_R | PTE_X) as u32,
+                }),
+                None,
+                None,
+                None,
+            ],
+        };
+        let exec = runtime
+            .exec_task_image(fork.child_tid, image, VmSpace::<2>::new())
+            .unwrap();
+
+        assert_eq!(exec.pid, fork.child_pid);
+        assert_eq!(exec.tid, fork.child_tid);
+        assert_eq!(exec.entry, 0x4000_2000);
+        assert_eq!(exec.stack_top, 0x4010_2000);
+        assert_eq!(handle_process_execv_syscall(exec), SyscallResult::Continue(0));
+
+        let frame = runtime.task_frame(fork.child_tid).unwrap();
+        assert_eq!(frame.sepc, exec.entry);
+        assert_eq!(frame.sp(), exec.stack_top);
+        assert_eq!(frame.sstatus & super::user_init::SSTATUS_SPP, 0);
+        assert_ne!(frame.sstatus & super::user_init::SSTATUS_SPIE, 0);
     }
 
     #[test]

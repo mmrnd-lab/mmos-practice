@@ -687,6 +687,7 @@ pub extern "C" fn rust_main() -> ! {
     run_wait_no_child_boundary_demo();
     run_minimal_fork_adapter_demo();
     run_clone_syscall_surface_demo();
+    run_minimal_execv_adapter_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1214,8 +1215,72 @@ fn run_clone_syscall_surface_demo() {
         && child_frame.a0() == 0
         && child_frame.sp() == 0x4010_2000
     {
-        console::puts("[chapter] ch102 clone syscall surface\n");
-        console::puts("[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000\n");
+        console::puts("[chapter] ch102 clone syscall surface
+");
+        console::puts("[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000
+");
+    }
+}
+
+fn run_minimal_execv_adapter_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut parent_frame = trap::TrapFrame::default();
+    parent_frame.sepc = 0x4000_0000;
+    parent_frame.set_sp(0x4010_0000);
+    if runtime.add_runnable_task(1, parent_pid, parent_frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let mut child_frame = trap::TrapFrame::default();
+    child_frame.sepc = 0x4000_1000;
+    child_frame.set_sp(0x4010_1000);
+    let Ok(fork) = runtime.fork_current_process(2, child_frame, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let image = user_exec::UserExecImage {
+        entry: 0x4000_2000,
+        stack_top: 0x4010_2000,
+        segment_count: 1,
+        segments: [
+            Some(user_exec::SegmentPlacement {
+                vaddr: 0x4000_2000,
+                file_size: 16,
+                mem_size: 32,
+                flags: (sv39::PTE_R | sv39::PTE_X) as u32,
+            }),
+            None,
+            None,
+            None,
+        ],
+    };
+    let Ok(exec) = runtime.exec_task_image(fork.child_tid, image, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    if syscall::handle_process_execv_syscall(exec) != syscall::SyscallResult::Continue(0) {
+        return;
+    }
+    let Some(exec_frame) = runtime.task_frame(fork.child_tid) else {
+        return;
+    };
+
+    if exec.pid == fork.child_pid
+        && exec.entry == 0x4000_2000
+        && exec.stack_top == 0x4010_2000
+        && exec_frame.sepc == exec.entry
+        && exec_frame.sp() == exec.stack_top
+        && exec_frame.sstatus & user_init::SSTATUS_SPP == 0
+        && exec_frame.sstatus & user_init::SSTATUS_SPIE != 0
+    {
+        console::puts("[chapter] ch103 minimal execv adapter
+");
+        console::puts("[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0
+");
     }
 }
 

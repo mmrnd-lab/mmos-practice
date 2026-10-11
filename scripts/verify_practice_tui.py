@@ -1724,6 +1724,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=decoded clone syscall creates a runnable child process and applies the requested child stack pointer",
     ),
     ChapterSet(
+        key="ch103_minimal_execv_adapter",
+        label="Ch103 Minimal Execv Adapter",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch103 minimal execv adapter",
+                    "[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=fork child task context is replaced by the minimal execv adapter and returns success to the caller",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

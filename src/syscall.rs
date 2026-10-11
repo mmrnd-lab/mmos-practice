@@ -436,3 +436,9 @@ pub fn handle_current_process_clone_syscall<
         Err(error) => errno_result(process_wait_errno(error)),
     }
 }
+
+pub fn handle_process_execv_syscall(
+    _report: crate::trap_runtime::ProcessExecRuntime,
+) -> SyscallResult {
+    SyscallResult::Continue(0)
+}
