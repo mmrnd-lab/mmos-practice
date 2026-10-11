@@ -28,6 +28,8 @@ pub extern "C" fn _start() -> ! {
     uart::puts("\\n");
 
     let mut boot_tf = trap::TrapFrame::default();
+    boot_tf.set_sp(0x8050_0000);
+    let _ = boot_tf.sp();
     boot_tf.set_a7(syscall::SYS_WRITE);
     boot_tf.set_a0(1);
     boot_tf.set_a1(0x9000_0000);
@@ -46,7 +48,7 @@ pub extern "C" fn _start() -> ! {
     }
 
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch17 elf loader\\n");
+    uart::puts("[chapter] ch18 exec prep\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }

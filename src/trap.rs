@@ -12,6 +12,10 @@ pub struct TrapFrame {
 }
 
 impl TrapFrame {
+    pub fn sp(&self) -> usize {
+        self.regs[2]
+    }
+
     pub fn a0(&self) -> usize {
         self.regs[10]
     }
@@ -42,6 +46,10 @@ impl TrapFrame {
 
     pub fn set_a7(&mut self, value: usize) {
         self.regs[17] = value;
+    }
+
+    pub fn set_sp(&mut self, value: usize) {
+        self.regs[2] = value;
     }
 }
 

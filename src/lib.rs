@@ -15,6 +15,7 @@ pub mod page_frame_allocator;
 pub mod syscall;
 pub mod sv39;
 pub mod trap;
+pub mod user_exec;
 pub mod user_init;
 pub mod vfs;
 
@@ -41,6 +42,9 @@ mod tests {
     };
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
     use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
+    use super::user_exec::{
+        install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage, UserRegionMut,
+    };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::vfs::Vfs;
 
@@ -281,6 +285,74 @@ mod tests {
     #[test]
     fn user_init_demo_exits_with_zero() {
         assert_eq!(run_user_init_demo(), TrapOutcome::Exit(0));
+    }
+
+    #[test]
+    fn user_exec_materialize_copies_file_and_zeros_bss() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let seg = loaded.segments[0].unwrap();
+        let mut region = [0xaa_u8; 8];
+        let mut regions = [UserRegionMut {
+            vaddr: seg.vaddr,
+            bytes: &mut region,
+        }];
+
+        materialize_segments(&loaded, &mut regions).unwrap();
+
+        assert_eq!(&region[..4], &[0x13, 0x00, 0x00, 0x00]);
+        assert_eq!(&region[4..8], &[0x00, 0x00, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn user_exec_materialize_fails_when_region_is_missing() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut region = [0u8; 8];
+        let mut regions = [UserRegionMut {
+            vaddr: 0x9000_0000,
+            bytes: &mut region,
+        }];
+
+        let seg = loaded.segments[0].unwrap();
+        assert_eq!(
+            materialize_segments(&loaded, &mut regions),
+            Err(ExecError::MissingRegion(seg.vaddr))
+        );
+    }
+
+    #[test]
+    fn user_exec_context_sets_entry_stack_and_umode_bits() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let image = UserExecImage::from_loaded(&loaded);
+        let mut tf = TrapFrame::default();
+        tf.sstatus = usize::MAX;
+
+        install_exec_context(&mut tf, &image);
+
+        assert_eq!(tf.sepc, 0x8040_0000);
+        assert_eq!(tf.sp(), 0x8050_0000);
+        assert_eq!(tf.sstatus & SSTATUS_SPP, 0);
+        assert_ne!(tf.sstatus & super::user_init::SSTATUS_SPIE, 0);
+    }
+
+    #[test]
+    fn user_exec_can_load_init_from_vfs_and_prepare_image() {
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+
+        let loaded = load_init_exec_image(&vfs, "/sbin/init", &mut scratch, 0x8050_0000).unwrap();
+        let exec = UserExecImage::from_loaded(&loaded);
+
+        assert_eq!(exec.entry, 0x8040_0000);
+        assert_eq!(exec.segment_count, 1);
+        let seg = exec.segments[0].unwrap();
+        assert_eq!(seg.vaddr, 0x8040_0000);
+        assert_eq!(seg.file_size, 4);
+        assert_eq!(seg.mem_size, 8);
     }
 
     fn build_test_ext4_image() -> Vec<u8> {
