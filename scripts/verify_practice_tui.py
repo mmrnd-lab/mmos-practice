@@ -2012,6 +2012,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch state owns the resource store and routes runtime dispatch",
     ),
     ChapterSet(
+        key="ch119_execv_dispatch_plan",
+        label="Ch119 Execv Dispatch Plan",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch119 execv dispatch plan",
+                    "[trap] execve dispatch plan routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve dispatch plan prepares the dispatch state",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

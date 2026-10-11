@@ -137,7 +137,8 @@ mod tests {
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
-        with_global_trap_runtime, ExecvTrapDispatchState, ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
+        with_global_trap_runtime, ExecvTrapDispatchPlan, ExecvTrapDispatchState,
+        ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -1360,7 +1361,8 @@ mod tests {
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
-        let mut execv_dispatch = ExecvTrapDispatchState::<512, 256, 2>::new(&vfs, 0x4010_0000);
+        let execv_plan = ExecvTrapDispatchPlan::<512, 256, 2>::new(0x4010_0000);
+        let mut execv_dispatch = execv_plan.prepare(&vfs);
 
         let mut process_vm = VmSpace::<2>::new();
         process_vm

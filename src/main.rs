@@ -2184,7 +2184,8 @@ fn run_execv_trap_resources_demo() {
     live_frame.set_a1(ARGV);
     live_frame.set_a2(0);
 
-    let mut execv_dispatch = trap_runtime::ExecvTrapDispatchState::<512, 256, 2>::new(&vfs, 0x4010_0000);
+    let execv_plan = trap_runtime::ExecvTrapDispatchPlan::<512, 256, 2>::new(0x4010_0000);
+    let mut execv_dispatch = execv_plan.prepare(&vfs);
     let outcome = execv_dispatch.dispatch::<4, 64, 4, 2, 5>(
         &mut runtime,
         &mut live_frame,
@@ -2213,6 +2214,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve runtime dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch118 execv dispatch state\n");
         console::puts("[trap] execve dispatch state routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch119 execv dispatch plan\n");
+        console::puts("[trap] execve dispatch plan routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 

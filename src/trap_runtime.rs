@@ -154,6 +154,42 @@ impl<'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: 
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExecvTrapDispatchPlan<
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+    const MAX_AREAS: usize,
+> {
+    pub stack_top_va: usize,
+}
+
+impl<const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: usize>
+    ExecvTrapDispatchPlan<SCRATCH_BYTES, STACK_BYTES, MAX_AREAS>
+{
+    pub const fn new(stack_top_va: usize) -> Self {
+        Self { stack_top_va }
+    }
+
+    pub const fn scratch_bytes(&self) -> usize {
+        SCRATCH_BYTES
+    }
+
+    pub const fn stack_bytes(&self) -> usize {
+        STACK_BYTES
+    }
+
+    pub const fn max_areas(&self) -> usize {
+        MAX_AREAS
+    }
+
+    pub const fn prepare<'v>(
+        self,
+        vfs: &'v crate::vfs::Vfs<'v>,
+    ) -> ExecvTrapDispatchState<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS> {
+        ExecvTrapDispatchState::new(vfs, self.stack_top_va)
+    }
+}
+
 pub struct TrapRuntime<const MAX_TASKS: usize> {
     scheduler: Scheduler<MAX_TASKS>,
 }
