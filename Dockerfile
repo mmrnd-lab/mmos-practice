@@ -4,13 +4,23 @@
 FROM ubuntu:24.04
 
 RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    bc \
+    bison \
     build-essential \
     curl \
+    fdisk \
+    flex \
     git \
-    qemu-system-misc \
-    u-boot-tools \
     device-tree-compiler \
+    libgnutls28-dev \
+    libssl-dev \
     pkg-config \
+    python3 \
+    python3-pyelftools \
+    python3-setuptools \
+    qemu-system-misc \
+    gcc-riscv64-linux-gnu \
+    u-boot-tools \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 

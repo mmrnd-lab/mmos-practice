@@ -1,4 +1,8 @@
 /target
+/build
+Cargo.lock
+/external/opensbi
+/external/u-boot
 *.log
 *.img
 *.qcow2

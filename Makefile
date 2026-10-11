@@ -6,17 +6,24 @@ QEMU ?= qemu-system-riscv64
 RUN_SECONDS ?= 5
 TEST_TARGET ?= x86_64-unknown-linux-gnu
 CONSOLE ?= sbi
+CROSS_COMPILE ?= riscv64-linux-gnu-
 KERNEL_ELF := target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-practice
+BUILD_DIR := build
+KERNEL_RAW := $(BUILD_DIR)/mmos.raw
+UIMAGE := $(BUILD_DIR)/mmos.uImage
+BOOT_DISK := $(BUILD_DIR)/drive0.img
+UBOOT_BUILD := $(BUILD_DIR)/u-boot
+UBOOT_BIN := $(UBOOT_BUILD)/u-boot.bin
 
 ifeq ($(CONSOLE),sbi)
 CARGO_CONSOLE_FLAGS := --no-default-features --features console-sbi
 else ifeq ($(CONSOLE),mmio)
 CARGO_CONSOLE_FLAGS := --no-default-features --features console-mmio
 else
-$(error unsupported CONSOLE='$(CONSOLE)' (expected 'sbi' or 'mmio'))
+$(error unsupported CONSOLE=$(CONSOLE) (expected sbi or mmio))
 endif
 
-.PHONY: require-container image shell test mmos.bin run-nographic run-monitor
+.PHONY: require-container image shell test mmos.bin uImage boot-disk u-boot run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -38,6 +45,35 @@ test: require-container
 
 mmos.bin: require-container
 	cargo build --profile $(PROFILE) $(CARGO_CONSOLE_FLAGS)
+
+$(BUILD_DIR):
+	mkdir -p $(BUILD_DIR)
+
+$(KERNEL_RAW): require-container mmos.bin | $(BUILD_DIR)
+	$(CROSS_COMPILE)objcopy -O binary $(KERNEL_ELF) $(KERNEL_RAW)
+
+$(UIMAGE): require-container $(KERNEL_RAW) | $(BUILD_DIR)
+	mkimage -A riscv -O linux -T kernel -C none \
+		-a 0x80200000 -e 0x80200000 \
+		-n "mmos-practice" \
+		-d $(KERNEL_RAW) $(UIMAGE)
+
+uImage: $(UIMAGE)
+
+$(BOOT_DISK): require-container $(UIMAGE) boot/extlinux.conf | $(BUILD_DIR)
+	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf
+
+boot-disk: $(BOOT_DISK)
+
+$(UBOOT_BIN): require-container | $(BUILD_DIR)
+	@if [ ! -d external/u-boot ]; then \
+		echo "error: missing external/u-boot (run ./scripts/init-submodules.sh first)"; \
+		exit 1; \
+	fi
+	$(MAKE) -C external/u-boot O=$(CURDIR)/$(UBOOT_BUILD) CROSS_COMPILE=$(CROSS_COMPILE) qemu-riscv64_smode_defconfig
+	$(MAKE) -C external/u-boot O=$(CURDIR)/$(UBOOT_BUILD) CROSS_COMPILE=$(CROSS_COMPILE) -j$$(nproc)
+
+u-boot: $(UBOOT_BIN)
 
 run-nographic: require-container
 	@echo "running QEMU (nographic) with $(KERNEL_ELF)"
@@ -63,6 +99,22 @@ run-monitor: require-container
 		-serial mon:stdio \
 		-bios default \
 		-kernel $(KERNEL_ELF) \
+		-no-reboot \
+		-smp 1 \
+		-m 512M || test $$? -eq 124
+
+run-u-boot: require-container $(UBOOT_BIN) $(BOOT_DISK)
+	@echo "running QEMU via OpenSBI -> U-Boot -> MMOS"
+	@echo "tip: this path exercises ext4 + extlinux + legacy uImage boot"
+	@echo "tip: set RUN_SECONDS=<sec> to adjust runtime window"
+	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		-machine virt \
+		-nographic \
+		-bios default \
+		-kernel $(UBOOT_BIN) \
+		-drive file=$(BOOT_DISK),format=raw,id=drive0 \
+		-device virtio-blk-device,drive=drive0 \
+		-device virtio-rng-pci \
 		-no-reboot \
 		-smp 1 \
 		-m 512M || test $$? -eq 124

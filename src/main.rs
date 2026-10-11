@@ -21,7 +21,7 @@ pub extern "C" fn _start() -> ! {
     uart::puts(CONSOLE_KIND);
     uart::puts("\\n");
     uart::puts("[mmos-practice] boot ok\\n");
-    uart::puts("[chapter] ch06 memory\\n");
+    uart::puts("[chapter] ch07 u-boot flow\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
