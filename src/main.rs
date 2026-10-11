@@ -868,6 +868,17 @@ fn run_user_launch_demo() {
                                                     console::puts(
                                                         "[chapter] ch66 user address relocation\n",
                                                     );
+                                                    if user_vm::preflight_satp_commit(
+                                                        &root,
+                                                        loaded.entry,
+                                                        loaded.stack_top,
+                                                    )
+                                                    .is_ok()
+                                                    {
+                                                        console::puts(
+                                                            "[chapter] ch67 satp commit preflight\n",
+                                                        );
+                                                    }
                                                 }
                                             }
                                         }

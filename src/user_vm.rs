@@ -7,7 +7,7 @@ use crate::sv39::{
     PTE_U, PTE_V, PTE_W, PTE_X, PT_ENTRIES,
 };
 
-const GIB_SHIFT: usize = 30;
+pub const GIB_SHIFT: usize = 30;
 const PPN_GIB_SHIFT: usize = 18;
 
 pub const KERNEL_IDENTITY_VPN2: usize = 2;
@@ -206,6 +206,47 @@ pub fn install_kernel_identity_mapping(root: &mut RootPageTable) -> Result<(), K
         KERNEL_IDENTITY_FLAGS,
     );
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SatpCommitPreflight {
+    pub user_entry_vpn2: usize,
+    pub user_stack_vpn2: usize,
+    pub kernel_vpn2: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SatpCommitPreflightError {
+    MissingUserEntry { vpn2: usize },
+    MissingUserStack { vpn2: usize },
+    MissingKernelMapping { vpn2: usize },
+}
+
+pub fn preflight_satp_commit(
+    root: &RootPageTable,
+    user_entry: usize,
+    user_stack_top: usize,
+) -> Result<SatpCommitPreflight, SatpCommitPreflightError> {
+    let entry_vpn2 = user_entry >> GIB_SHIFT;
+    let stack_vpn2 = user_stack_top.saturating_sub(1) >> GIB_SHIFT;
+
+    if entry_vpn2 >= PT_ENTRIES || !is_leaf_user_mapping(root.entries[entry_vpn2]) {
+        return Err(SatpCommitPreflightError::MissingUserEntry { vpn2: entry_vpn2 });
+    }
+    if stack_vpn2 >= PT_ENTRIES || !is_leaf_user_mapping(root.entries[stack_vpn2]) {
+        return Err(SatpCommitPreflightError::MissingUserStack { vpn2: stack_vpn2 });
+    }
+    if !is_kernel_mapping(root.entries[KERNEL_IDENTITY_VPN2]) {
+        return Err(SatpCommitPreflightError::MissingKernelMapping {
+            vpn2: KERNEL_IDENTITY_VPN2,
+        });
+    }
+
+    Ok(SatpCommitPreflight {
+        user_entry_vpn2: entry_vpn2,
+        user_stack_vpn2: stack_vpn2,
+        kernel_vpn2: KERNEL_IDENTITY_VPN2,
+    })
 }
 
 pub fn is_kernel_mapping(entry: PageTableEntry) -> bool {

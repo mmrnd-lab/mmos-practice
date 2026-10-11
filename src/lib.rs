@@ -120,7 +120,8 @@ mod tests {
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{
         build_user_vm_plan, install_kernel_identity_mapping, install_user_vm_plan_in_root,
-        is_kernel_mapping, is_leaf_user_mapping,
+        is_kernel_mapping, is_leaf_user_mapping, preflight_satp_commit, SatpCommitPreflight,
+        SatpCommitPreflightError,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
@@ -1703,6 +1704,43 @@ mod tests {
         assert!(is_leaf_user_mapping(user_entry));
         assert!(install_kernel_identity_mapping(&mut root).is_ok());
         assert!(is_kernel_mapping(root.entries[super::user_vm::KERNEL_IDENTITY_VPN2]));
+    }
+
+    #[test]
+    fn satp_commit_preflight_requires_user_and_kernel_mappings() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+        install_kernel_identity_mapping(&mut root).unwrap();
+
+        assert_eq!(
+            preflight_satp_commit(&root, loaded.entry, loaded.stack_top),
+            Ok(SatpCommitPreflight {
+                user_entry_vpn2: 1,
+                user_stack_vpn2: 1,
+                kernel_vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
+            })
+        );
+    }
+
+    #[test]
+    fn satp_commit_preflight_rejects_missing_kernel_mapping() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+
+        assert_eq!(
+            preflight_satp_commit(&root, loaded.entry, loaded.stack_top),
+            Err(SatpCommitPreflightError::MissingKernelMapping {
+                vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
+            })
+        );
     }
 
     #[test]
