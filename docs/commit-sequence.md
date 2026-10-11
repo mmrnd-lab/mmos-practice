@@ -43,7 +43,7 @@
 17. `79e393b` `feat(ch21): add pcb/tcb process model foundations`
     - 프로세스 생명주기용 PCB와 실행 단위용 TCB 구조 분리
     - 부모-자식 링크, zombie/reap 규칙, process/task table 기본 연산 추가
-18. `CH22_RUNTIME_DEMO_COMMIT` `feat(ch22): add runtime scheduler/process lifecycle demo logs`
+18. `59fcfe5` `feat(ch22): add runtime scheduler/process lifecycle demo logs`
     - QEMU 부팅 로그에 `[sched] tick/switch` 시그니처를 추가해 스케줄러 경로를 시각화
     - QEMU 부팅 로그에 `[proc] fork/exec/wait` 시그니처를 추가해 프로세스 상태 전이를 시각화
 
