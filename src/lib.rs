@@ -6,6 +6,7 @@
 pub mod block;
 pub mod ramdisk;
 pub mod block_io;
+pub mod char_device;
 pub mod context_switch;
 pub mod demo_user_init;
 pub mod device;
@@ -44,6 +45,7 @@ mod tests {
     use super::block::{BlockDevice, BlockError};
     use super::ramdisk::RamDisk;
     use super::block_io::read_bytes;
+    use super::char_device::{CharError, CharacterDevice};
     use super::context_switch::switch_context;
     use super::device::{Device, DeviceKind};
     use super::elf_loader::{
@@ -80,6 +82,60 @@ mod tests {
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
 
+
+    struct MockCharDevice {
+        input: std::cell::RefCell<std::vec::Vec<u8>>,
+        written: std::cell::RefCell<std::vec::Vec<u8>>,
+    }
+
+    impl MockCharDevice {
+        fn new(input: &[u8]) -> Self {
+            Self {
+                input: std::cell::RefCell::new(input.to_vec()),
+                written: std::cell::RefCell::new(std::vec::Vec::new()),
+            }
+        }
+
+        fn written(&self) -> std::vec::Vec<u8> {
+            self.written.borrow().clone()
+        }
+    }
+
+    impl Device for MockCharDevice {
+        fn name(&self) -> &str {
+            "mocktty0"
+        }
+
+        fn kind(&self) -> DeviceKind {
+            DeviceKind::Char
+        }
+    }
+
+    impl CharacterDevice for MockCharDevice {
+        fn read(&self, out: &mut [u8]) -> Result<usize, CharError> {
+            if out.is_empty() {
+                return Err(CharError::BadBuffer);
+            }
+            let mut input = self.input.borrow_mut();
+            if input.is_empty() {
+                return Err(CharError::WouldBlock);
+            }
+            let n = core::cmp::min(out.len(), input.len());
+            for (dst, src) in out.iter_mut().zip(input.drain(..n)) {
+                *dst = src;
+            }
+            Ok(n)
+        }
+
+        fn write(&self, bytes: &[u8]) -> Result<usize, CharError> {
+            if bytes.is_empty() {
+                return Err(CharError::BadBuffer);
+            }
+            self.written.borrow_mut().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+    }
+
     #[test]
     fn align_up_keeps_aligned_values() {
         assert_eq!(align_up(0x1000, 0x1000), 0x1000);
@@ -94,6 +150,42 @@ mod tests {
     fn kheap_region_end_is_calculated() {
         let region = init_kheap(0x9000_0000, 0x10000);
         assert_eq!(region.end(), 0x9001_0000);
+    }
+
+
+    #[test]
+    fn mock_char_device_is_registered_as_char_kind() {
+        let dev = MockCharDevice::new(b"");
+        assert_eq!(dev.name(), "mocktty0");
+        assert_eq!(dev.kind(), DeviceKind::Char);
+    }
+
+    #[test]
+    fn character_device_write_reports_written_len() {
+        let dev = MockCharDevice::new(b"");
+        assert_eq!(dev.write(b"hello"), Ok(5));
+        assert_eq!(dev.written(), b"hello".to_vec());
+    }
+
+    #[test]
+    fn character_device_read_drains_available_stream_bytes() {
+        let dev = MockCharDevice::new(b"abc");
+        let mut out = [0u8; 2];
+        assert_eq!(dev.read(&mut out), Ok(2));
+        assert_eq!(&out, b"ab");
+
+        let mut tail = [0u8; 2];
+        assert_eq!(dev.read(&mut tail), Ok(1));
+        assert_eq!(tail[0], b'c');
+        assert_eq!(dev.read(&mut tail), Err(CharError::WouldBlock));
+    }
+
+    #[test]
+    fn character_device_rejects_empty_buffers() {
+        let dev = MockCharDevice::new(b"x");
+        let mut out = [];
+        assert_eq!(dev.read(&mut out), Err(CharError::BadBuffer));
+        assert_eq!(dev.write(b""), Err(CharError::BadBuffer));
     }
 
     #[test]
