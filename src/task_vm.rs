@@ -56,3 +56,32 @@ pub fn apply_address_space_switch(
         active_satp: switch.next_satp,
     }
 }
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SatpCommitPlan {
+    pub prev_satp: usize,
+    pub next_satp: usize,
+    pub needs_sfence_vma: bool,
+}
+
+pub fn prepare_satp_commit(prev_satp: usize, applied: AppliedAddressSpaceSwitch) -> SatpCommitPlan {
+    SatpCommitPlan {
+        prev_satp,
+        next_satp: applied.active_satp,
+        needs_sfence_vma: prev_satp != applied.active_satp,
+    }
+}
+
+#[cfg(target_arch = "riscv64")]
+pub unsafe fn write_satp_and_flush(next_satp: usize) {
+    core::arch::asm!(
+        "csrw satp, {satp}",
+        "sfence.vma x0, x0",
+        satp = in(reg) next_satp,
+        options(nostack, preserves_flags)
+    );
+}
+
+#[cfg(not(target_arch = "riscv64"))]
+pub unsafe fn write_satp_and_flush(_next_satp: usize) {}

@@ -85,7 +85,9 @@ mod tests {
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
-    use super::task_vm::{address_space_switch_for_decision, apply_address_space_switch};
+    use super::task_vm::{
+        address_space_switch_for_decision, apply_address_space_switch, prepare_satp_commit,
+    };
     use super::syscall::{
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
@@ -2151,6 +2153,68 @@ mod tests {
         assert_eq!(applied.next_tid, second.tid);
         assert_eq!(applied.active_satp, second_launch.satp);
         assert_eq!(active_satp, second_launch.satp);
+    }
+
+
+    #[test]
+    fn satp_commit_plan_requires_tlb_flush_when_satp_changes() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut first_stack = [0u8; 512];
+        let first_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345,
+            &mut first_stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let mut second_stack = [0u8; 512];
+        let second_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12346,
+            &mut second_stack,
+            &["/sbin/worker"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let first = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            first_launch,
+        )
+        .unwrap();
+        let _second = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            Some(first.pid),
+            VmSpace::<4>::new(),
+            second_launch,
+        )
+        .unwrap();
+
+        scheduler.on_tick();
+        scheduler.set_state(first.tid, TaskState::Blocked);
+        let decision =
+            schedule_after_blocked_syscall(&first_launch.trapframe, &mut scheduler).unwrap();
+        let switch = address_space_switch_for_decision(&proc_table, &task_table, decision)
+            .unwrap()
+            .unwrap();
+        let mut active_satp = first_launch.satp;
+        let applied = apply_address_space_switch(&mut active_satp, switch);
+        let commit = prepare_satp_commit(first_launch.satp, applied);
+
+        assert_eq!(commit.prev_satp, first_launch.satp);
+        assert_eq!(commit.next_satp, second_launch.satp);
+        assert!(commit.needs_sfence_vma);
     }
 
     #[test]

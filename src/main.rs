@@ -835,6 +835,17 @@ fn run_user_launch_demo() {
                                             console::puts(
                                                 "[chapter] ch64 address space switch apply\n",
                                             );
+                                            let commit = task_vm::prepare_satp_commit(
+                                                p.satp,
+                                                applied,
+                                            );
+                                            if commit.next_satp == second_plan.satp
+                                                && commit.needs_sfence_vma
+                                            {
+                                                console::puts(
+                                                    "[chapter] ch65 satp commit boundary\n",
+                                                );
+                                            }
                                         }
                                     }
                                 }
