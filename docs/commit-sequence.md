@@ -106,6 +106,10 @@
     - 현재 실행 중인 process의 pid와 `ProcessIoContext`를 함께 보관하는 `CurrentProcessIoContext`를 추가
     - fd 기반 checked write syscall이 current process wrapper에서 I/O context를 꺼내 사용하도록 연결
 
+35. `720d9b2` `feat(ch41): resolve process io from task owner`
+    - `ProcessIoTable`을 추가해 task의 `owner_pid`로 현재 process I/O context를 찾는 경로를 고정
+    - fd 기반 checked write syscall이 task owner lookup으로 얻은 current process I/O context를 사용하도록 검증
+
 
 ## Reproduce Example
 

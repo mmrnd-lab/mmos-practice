@@ -667,6 +667,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=write syscall uses the current process IO context wrapper",
     ),
     ChapterSet(
+        key="ch41_task_owner_io_lookup",
+        label="Ch41 Task Owner IO Lookup",
+        commit_candidates=["720d9b2"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch41 task owner io lookup",
+                    "[chapter] ch40 current process io context",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=current task owner_pid resolves the process IO context used by write",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
