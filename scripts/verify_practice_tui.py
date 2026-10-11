@@ -1068,6 +1068,26 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=schedule decision can resolve the next process address-space token",
     ),
     ChapterSet(
+        key="ch64_address_space_switch_apply",
+        label="Ch64 Address Space Switch Apply",
+        commit_candidates=["b643557"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch64 address space switch apply",
+                    "[chapter] ch63 task address space token",
+                    "[chapter] ch62 second user task switch",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=address-space switch token is applied to the active satp slot",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

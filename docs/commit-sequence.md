@@ -194,6 +194,11 @@
     - 두 번째 task로 frame을 복원한 뒤 다음 주소공간 token까지 함께 확인하는 런타임 probe를 추가
 
 
+56. `b643557` `feat(ch64): apply task address space switch token`
+    - address-space switch 결과를 active `satp` slot에 적용하는 경계를 추가
+    - live frame 복원 이후 next task의 address-space token이 trap return 준비 상태에 반영됨을 검증
+
+
 ## Reproduce Example
 
 ```bash
