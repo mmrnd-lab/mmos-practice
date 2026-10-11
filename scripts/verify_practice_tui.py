@@ -283,6 +283,15 @@ CHAPTERS: List[ChapterSet] = [
             Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
         ],
     ),
+    ChapterSet(
+        key="ch21_process_model",
+        label="Ch21 PCB/TCB Model",
+        commit_candidates=["79e393b"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step("run-nographic", "make run-nographic PROFILE=release RUN_SECONDS=4"),
+        ],
+    ),
 ]
 
 

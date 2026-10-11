@@ -40,6 +40,9 @@
 16. `f0c13f2` `feat(ch20): add timer-driven scheduler and context switch scaffolds`
     - timer tick 기반 최소 scheduler(`Scheduler`)와 run queue 순환 규칙 추가
     - context switch 저장/복원 스캐폴드(`context_switch.rs`)와 단위 테스트 추가
+17. `79e393b` `feat(ch21): add pcb/tcb process model foundations`
+    - 프로세스 생명주기용 PCB와 실행 단위용 TCB 구조 분리
+    - 부모-자식 링크, zombie/reap 규칙, process/task table 기본 연산 추가
 
 ## Reproduce Example
 
