@@ -648,6 +648,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=write(fd, user_buf, len) uses process fd table after checked copyin",
     ),
     ChapterSet(
+        key="ch40_current_process_io_context",
+        label="Ch40 Current Process IO Context",
+        commit_candidates=["b70e151"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch40 current process io context",
+                    "[chapter] ch39 fd write syscall",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=write syscall uses the current process IO context wrapper",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

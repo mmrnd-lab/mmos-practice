@@ -102,6 +102,10 @@
     - `write(fd, user_buf, len)` 형태의 syscall helper를 추가해 checked copyin 결과를 현재 process fd table의 open file write로 전달
     - bad fd, 권한 오류, user pointer 오류를 syscall errno 형태로 구분해 반환하도록 테스트 보강
 
+34. `b70e151` `feat(ch40): add current process io context`
+    - 현재 실행 중인 process의 pid와 `ProcessIoContext`를 함께 보관하는 `CurrentProcessIoContext`를 추가
+    - fd 기반 checked write syscall이 current process wrapper에서 I/O context를 꺼내 사용하도록 연결
+
 
 ## Reproduce Example
 
