@@ -724,6 +724,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=close(fd) releases the slot and later write returns EBADF",
     ),
     ChapterSet(
+        key="ch44_read_fd_copyout",
+        label="Ch44 Read FD Copyout",
+        commit_candidates=["ac0c769"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch44 read fd copyout",
+                    "[chapter] ch43 close fd lifecycle",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=read(fd, user_buf, len) checks VM write permission and copyout path",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

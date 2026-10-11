@@ -118,6 +118,10 @@
     - fd table에 `close(fd)`를 추가해 open file slot을 비우고 가장 낮은 fd 재사용을 검증
     - current process close syscall helper를 추가해 닫힌 fd에 대한 write가 `-EBADF`로 실패하도록 연결
 
+38. `ac0c769` `feat(ch44): add read fd copyout path`
+    - mutable user buffer view와 checked copyout을 추가해 VM write 권한을 확인한 뒤 user memory로 복사
+    - `read(fd, user_buf, len)` helper를 추가해 fd table read 결과를 copyout하고 오류를 errno로 매핑
+
 
 ## Reproduce Example
 
