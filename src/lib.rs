@@ -91,8 +91,8 @@ mod tests {
         EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
     };
     use super::trap::{
-        handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
-        TrapOutcome, SCAUSE_USER_ECALL,
+        handle_blocking_syscall_result, handle_syscall_result, handle_timer_tick_with_scheduler,
+        handle_trap, handle_user_page_fault_outcome, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -937,6 +937,43 @@ mod tests {
             Some(7)
         );
         assert_eq!(scheduler.task_state(7), Some(TaskState::Runnable));
+    }
+
+    #[test]
+    fn blocked_read_result_requests_scheduler_handoff() {
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x8020_0000;
+        frame.set_a0(0x55);
+
+        assert_eq!(
+            handle_blocking_syscall_result(&mut frame, BlockingReadResult::Blocked),
+            TrapOutcome::Schedule
+        );
+        assert_eq!(frame.sepc, 0x8020_0000);
+        assert_eq!(frame.a0(), 0x55);
+
+        assert_eq!(
+            handle_blocking_syscall_result(
+                &mut frame,
+                BlockingReadResult::Ready(SyscallResult::Continue(3)),
+            ),
+            TrapOutcome::Resume
+        );
+        assert_eq!(frame.sepc, 0x8020_0004);
+        assert_eq!(frame.a0(), 3);
+    }
+
+    #[test]
+    fn plain_syscall_result_still_advances_trap_frame() {
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x1000;
+
+        assert_eq!(
+            handle_syscall_result(&mut frame, SyscallResult::Continue(-EAGAIN)),
+            TrapOutcome::Resume
+        );
+        assert_eq!(frame.sepc, 0x1004);
+        assert_eq!(frame.a0() as isize, -EAGAIN);
     }
 
     #[test]

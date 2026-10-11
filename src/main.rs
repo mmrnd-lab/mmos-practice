@@ -453,6 +453,17 @@ pub extern "C" fn rust_main() -> ! {
             {
                 console::puts("[chapter] ch49 serial rx wake reader\n");
             }
+            let mut blocked_frame = trap::TrapFrame::default();
+            blocked_frame.sepc = 0x8020_0000;
+            if blocked
+                && trap::handle_blocking_syscall_result(
+                    &mut blocked_frame,
+                    syscall::BlockingReadResult::Blocked,
+                ) == trap::TrapOutcome::Schedule
+                && blocked_frame.sepc == 0x8020_0000
+            {
+                console::puts("[chapter] ch50 blocked syscall scheduler handoff\n");
+            }
         }
     }
 

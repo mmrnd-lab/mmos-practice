@@ -67,6 +67,7 @@ pub const SCAUSE_SUPERVISOR_TIMER_INTERRUPT: usize = 0x8000_0000_0000_0005;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrapOutcome {
     Resume,
+    Schedule,
     Exit(i32),
     Fatal(usize),
 }
@@ -206,23 +207,38 @@ fn set_interrupt_enable_bits() {
 #[cfg(not(target_arch = "riscv64"))]
 fn set_interrupt_enable_bits() {}
 
+pub fn handle_syscall_result(frame: &mut TrapFrame, result: syscall::SyscallResult) -> TrapOutcome {
+    match result {
+        syscall::SyscallResult::Continue(ret) => {
+            frame.set_a0(ret as usize);
+            frame.sepc = frame.sepc.wrapping_add(4);
+            TrapOutcome::Resume
+        }
+        syscall::SyscallResult::Exit(code) => TrapOutcome::Exit(code),
+        syscall::SyscallResult::Unsupported => {
+            frame.set_a0(usize::MAX);
+            frame.sepc = frame.sepc.wrapping_add(4);
+            TrapOutcome::Resume
+        }
+    }
+}
+
+pub fn handle_blocking_syscall_result(
+    frame: &mut TrapFrame,
+    result: syscall::BlockingReadResult,
+) -> TrapOutcome {
+    match result {
+        syscall::BlockingReadResult::Ready(result) => handle_syscall_result(frame, result),
+        syscall::BlockingReadResult::Blocked => TrapOutcome::Schedule,
+    }
+}
+
 pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapOutcome {
     match scause {
-        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL => {
-            match syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()) {
-                syscall::SyscallResult::Continue(ret) => {
-                    frame.set_a0(ret as usize);
-                    frame.sepc = frame.sepc.wrapping_add(4);
-                    TrapOutcome::Resume
-                }
-                syscall::SyscallResult::Exit(code) => TrapOutcome::Exit(code),
-                syscall::SyscallResult::Unsupported => {
-                    frame.set_a0(usize::MAX);
-                    frame.sepc = frame.sepc.wrapping_add(4);
-                    TrapOutcome::Resume
-                }
-            }
-        }
+        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL => handle_syscall_result(
+            frame,
+            syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
+        ),
         SCAUSE_SUPERVISOR_TIMER_INTERRUPT => TrapOutcome::Resume,
         cause => TrapOutcome::Fatal(cause),
     }
@@ -233,7 +249,7 @@ pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapO
 extern "C" fn rust_trap_dispatch(frame: *mut TrapFrame, scause: usize, stval: usize) {
     let frame = unsafe { &mut *frame };
     match handle_trap(frame, scause, stval) {
-        TrapOutcome::Resume => {}
+        TrapOutcome::Resume | TrapOutcome::Schedule => {}
         TrapOutcome::Exit(code) => {
             crate::uart::puts("[user-init] exit=");
             put_i32(code);
