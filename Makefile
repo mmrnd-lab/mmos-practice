@@ -20,6 +20,7 @@ USER_STDIN_PROBE_ELF := $(BUILD_DIR)/user-stdin-probe.elf
 STDIN_PROBE_DISK := $(BUILD_DIR)/stdin-probe.img
 USER_SHELL_ELF := $(BUILD_DIR)/user-shell.elf
 SHELL_DISK := $(BUILD_DIR)/shell.img
+FOUNDATION_DISK := $(BUILD_DIR)/foundation.img
 USER_CRT_RLIB := user/crt/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_crt.rlib
 USER_LIBC_RLIB := user/libc/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_libc.rlib
 USER_LIBC_SO := $(BUILD_DIR)/lib/libmmos_user_libc.so
@@ -49,7 +50,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-stdin-probe stdin-probe-disk user-shell shell-disk user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-stdin-probe run-shell run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-stdin-probe stdin-probe-disk user-shell shell-disk foundation-disk foundation-image-layout user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-stdin-probe run-shell run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -243,6 +244,20 @@ $(SHELL_DISK): require-container $(UIMAGE) $(USER_SHELL_ELF) $(USER_LIBC_SO) boo
 	./scripts/build-boot-disk.sh $(SHELL_DISK) $(UIMAGE) boot/extlinux.conf $(USER_SHELL_ELF) $(USER_LIBC_SO)
 
 shell-disk: $(SHELL_DISK)
+
+$(FOUNDATION_DISK): require-container $(UIMAGE) $(USER_INIT_ELF) $(USER_SHELL_ELF) $(USER_LIBC_SO) boot/extlinux.conf | $(BUILD_DIR)
+	./scripts/build-foundation-disk.sh $(FOUNDATION_DISK) $(UIMAGE) boot/extlinux.conf $(USER_INIT_ELF) $(USER_SHELL_ELF) $(USER_LIBC_SO)
+
+foundation-disk: $(FOUNDATION_DISK)
+
+foundation-image-layout: require-container $(FOUNDATION_DISK)
+	@fs_image=$$(mktemp); \
+	trap 'rm -f "$$fs_image"' EXIT; \
+	dd if=$(FOUNDATION_DISK) of="$$fs_image" bs=512 skip=2048 status=none; \
+	debugfs -R "stat /sbin/init" "$$fs_image" 2>/dev/null | grep -q "Type: regular"; \
+	debugfs -R "stat /bin/sh" "$$fs_image" 2>/dev/null | grep -q "Type: regular"; \
+	debugfs -R "stat /lib/libmmos_user_libc.so" "$$fs_image" 2>/dev/null | grep -q "Type: regular"; \
+	echo "[foundation] image=/sbin/init+/bin/sh+/lib/libmmos_user_libc.so"
 
 $(UBOOT_BIN): require-container | $(BUILD_DIR)
 	@if [ ! -d external/u-boot ]; then \

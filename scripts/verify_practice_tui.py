@@ -3114,6 +3114,22 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=bounded line reader dispatches help echo and exit builtins",
     ),
     ChapterSet(
+        key="ch110_foundation_boot_filesystem",
+        label="Ch110 Foundation Boot Filesystem",
+        commit_candidates=["ch110_foundation_boot_filesystem"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "foundation-image-layout",
+                "make foundation-image-layout PROFILE=release",
+                must_contain=(
+                    "[foundation] image=/sbin/init+/bin/sh+/lib/libmmos_user_libc.so",
+                ),
+            ),
+        ],
+        note="artifact signature=one boot filesystem retains init and installs shell at /bin/sh",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
