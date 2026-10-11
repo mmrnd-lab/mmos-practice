@@ -27,6 +27,31 @@ make boot-disk PROFILE=release
 - `build/user-init.elf`: `no_std + no_main + _start` 기반 최소 user app ELF
 - `build/drive0.img`: `/sbin/init`로 user ELF가 주입된 ext4 부트 이미지
 
+## 실제 `/sbin/init` 로딩 경로 (27장 이후)
+
+현재 런타임 통합 경로는 메모리 안에서 만든 데모 ext4 이미지를 주 경로로 사용하지 않는다.
+QEMU에 연결된 `build/drive0.img`의 virtio-blk 장치를 커널이 직접 읽고,
+MBR 첫 파티션을 `PartitionBlockDevice`로 보정한 뒤 ext4/VFS에서 `/sbin/init`을 로딩한다.
+QEMU 실행 타깃은 `virtio-mmio.force-legacy=false`로 modern virtio-mmio transport를 고정하고,
+커널 드라이버는 `VIRTIO_F_VERSION_1`을 협상한 뒤 polling virtqueue로 512바이트 섹터를 읽는다.
+교육용 ext4 reader가 현재 1024바이트 블록만 다루므로 `scripts/build-boot-disk.sh`는
+`mkfs.ext4 -b 1024`로 파일시스템 블록 크기를 명시한다.
+ELF 파일처럼 중간 offset에 비어 있는 구간이 생기는 sparse 파일은 ext4 direct block의
+0번 hole을 0으로 채워 읽는다.
+
+```text
+make user-init
+make boot-disk
+QEMU virtio-blk drive0
+  -> VirtioBlockDevice
+  -> PartitionBlockDevice(drive0p1)
+  -> Vfs::mount_ext4()
+  -> load_init_exec_image("/sbin/init")
+```
+
+`src/demo_user_init.rs`는 여전히 단위 테스트 fixture로 남겨 둔다.
+상위 VFS/ELF 로더를 빠르게 검증하기 위한 샘플 이미지 생성기이며, 런타임 주 경로는 실제 boot disk를 사용한다.
+
 ## 브랜치 정책
 
 - 기본 브랜치: `main`

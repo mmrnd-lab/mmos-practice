@@ -42,6 +42,8 @@ mod user_stack;
 #[allow(dead_code)]
 mod user_vm;
 #[allow(dead_code)]
+mod virtio_blk;
+#[allow(dead_code)]
 mod vm;
 #[allow(dead_code)]
 mod vfs;
@@ -142,43 +144,53 @@ fn run_user_launch_demo() {
         uart::puts("[chapter] ch19 trap outcome bridge\n");
     }
 
-    static mut DEMO_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] = [0; demo_user_init::DEMO_INIT_ELF_SIZE];
-    static mut DEMO_EXT4: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] = [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
-    static mut DEMO_SCRATCH: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] = [0; demo_user_init::DEMO_INIT_ELF_SIZE];
-    static mut DEMO_STACK: [u8; 256] = [0; 256];
+    static mut INIT_SCRATCH: [u8; 64 * 1024] = [0; 64 * 1024];
+    static mut DEMO_STACK: [u8; 4096] = [0; 4096];
 
-    let (elf_buf, image_buf, scratch, stack) = unsafe {
-        (&mut DEMO_ELF, &mut DEMO_EXT4, &mut DEMO_SCRATCH, &mut DEMO_STACK)
+    let scratch = unsafe { &mut *core::ptr::addr_of_mut!(INIT_SCRATCH) };
+    let stack_bytes = unsafe { &mut *core::ptr::addr_of_mut!(DEMO_STACK) };
+    let stack_top = stack_bytes.as_ptr() as usize + stack_bytes.len();
+
+    let dev = match virtio_blk::VirtioBlockDevice::probe() {
+        Ok(dev) => dev,
+        Err(_) => {
+            uart::puts("[runtime] virtio-blk probe failed\n");
+            return;
+        }
     };
-
-    let elf_len = match demo_user_init::build_demo_init_elf(elf_buf) {
-        Ok(n) => n,
-        Err(_) => return,
+    let start_lba = match block::mbr_first_partition_lba(&dev) {
+        Ok(lba) => lba,
+        Err(_) => {
+            uart::puts("[runtime] MBR first partition lookup failed\n");
+            return;
+        }
     };
-    if demo_user_init::build_demo_ext4_image(image_buf, &elf_buf[..elf_len]).is_err() {
-        return;
-    }
-
-    let dev = ramdisk::RamDisk::new("demo-ext4", image_buf, 512);
-    let vfs = match vfs::Vfs::mount_ext4(&dev) {
+    let root = block::PartitionBlockDevice::new("drive0p1", &dev, start_lba);
+    let vfs = match vfs::Vfs::mount_ext4(&root) {
         Ok(v) => v,
-        Err(_) => return,
+        Err(_) => {
+            uart::puts("[runtime] ext4 mount failed\n");
+            return;
+        }
     };
     let loaded = match user_exec::load_init_exec_image(&vfs, "/sbin/init", scratch, 0x8050_0000) {
         Ok(v) => v,
-        Err(_) => return,
+        Err(_) => {
+            uart::puts("[runtime] /sbin/init ELF load failed\n");
+            return;
+        }
     };
     let plan = user_launch::prepare_user_init_launch::<4, 4>(
         &loaded,
         0x12345,
-        stack,
+        stack_bytes,
         &["/sbin/init"],
         &["PATH=/bin"],
     );
     if let Ok(p) = plan {
         if p.argc == 1 && p.trapframe.sepc == loaded.entry {
             uart::puts("[chapter] ch18 exec prep\n");
-            uart::puts("[runtime] loaded /sbin/init from ext4 into exec image\n");
+            uart::puts("[runtime] loaded /sbin/init from virtio ext4 into exec image\n");
             uart::puts("[chapter] ch26 user init launch handoff\n");
             uart::puts("[launch] vm+stack+trapframe ready for first sret\n");
         }

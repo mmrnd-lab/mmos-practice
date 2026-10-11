@@ -3,6 +3,7 @@
 
 PROFILE ?= release
 QEMU ?= qemu-system-riscv64
+QEMU_VIRTIO_MODERN ?= -global virtio-mmio.force-legacy=false
 RUN_SECONDS ?= 5
 TEST_TARGET ?= x86_64-unknown-linux-gnu
 CONSOLE ?= sbi
@@ -82,14 +83,17 @@ $(UBOOT_BIN): require-container | $(BUILD_DIR)
 
 u-boot: $(UBOOT_BIN)
 
-run-nographic: require-container
+run-nographic: require-container $(BOOT_DISK)
 	@echo "running QEMU (nographic) with $(KERNEL_ELF)"
 	@echo "tip: set RUN_SECONDS=<sec> to adjust runtime window"
 	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		$(QEMU_VIRTIO_MODERN) \
 		-machine virt \
 		-nographic \
 		-bios default \
 		-kernel $(KERNEL_ELF) \
+		-drive file=$(BOOT_DISK),format=raw,id=drive0 \
+		-device virtio-blk-device,drive=drive0 \
 		-no-reboot \
 		-smp 1 \
 		-m 512M || test $$? -eq 124
@@ -100,6 +104,7 @@ run-monitor: require-container
 	@echo "tip: press Ctrl-t h to show QEMU hotkeys"
 	@echo "tip: set RUN_SECONDS=<sec> to adjust runtime window"
 	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		$(QEMU_VIRTIO_MODERN) \
 		-machine virt \
 		-nographic \
 		-echr 0x14 \
@@ -115,6 +120,7 @@ run-u-boot: require-container $(UBOOT_BIN) $(BOOT_DISK)
 	@echo "tip: this path exercises ext4 + extlinux + legacy uImage boot"
 	@echo "tip: set RUN_SECONDS=<sec> to adjust runtime window"
 	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		$(QEMU_VIRTIO_MODERN) \
 		-machine virt \
 		-nographic \
 		-bios default \

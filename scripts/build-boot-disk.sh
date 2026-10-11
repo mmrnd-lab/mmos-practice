@@ -59,7 +59,7 @@ printf 'label: dos\nstart=2048, type=83, bootable\n' | sfdisk "${IMAGE}" >/dev/n
 
 OFFSET_BYTES=$((2048 * 512))
 FS_SIZE_KB=$(((SIZE_MB - 1) * 1024))
-mkfs.ext4 -F -d "${TMPDIR}" -E offset="${OFFSET_BYTES}" "${IMAGE}" "${FS_SIZE_KB}" >/dev/null
+mkfs.ext4 -F -b 1024 -d "${TMPDIR}" -O ^extent,^metadata_csum,^64bit -E offset="${OFFSET_BYTES}" "${IMAGE}" "${FS_SIZE_KB}" >/dev/null
 
 if [ -n "${USER_ELF}" ]; then
   echo "created bootable ext4 image with /sbin/init: ${IMAGE}"

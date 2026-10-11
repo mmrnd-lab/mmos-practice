@@ -18,15 +18,17 @@ pub mod page_frame_allocator;
 pub mod pmm;
 pub mod process_model;
 pub mod process_runtime;
+pub mod sbi;
 pub mod scheduler;
-pub mod syscall;
 pub mod sv39;
+pub mod syscall;
 pub mod trap;
 pub mod user_exec;
 pub mod user_launch;
 pub mod user_init;
 pub mod user_stack;
 pub mod user_vm;
+pub mod virtio_blk;
 pub mod vm;
 pub mod vfs;
 
@@ -137,6 +139,22 @@ mod tests {
         let dev = RamDisk::new("ramblk0", &storage, 8);
         let mut out = [0u8; 4];
         assert_eq!(read_bytes(&dev, 14, &mut out), Err(BlockError::OutOfRange));
+    }
+
+    #[test]
+    fn mbr_partition_wrapper_offsets_reads() {
+        let mut storage = [0u8; 1024];
+        storage[510] = 0x55;
+        storage[511] = 0xaa;
+        storage[446 + 8..446 + 12].copy_from_slice(&1u32.to_le_bytes());
+        storage[512..520].copy_from_slice(b"PARTDATA");
+
+        let dev = RamDisk::new("disk0", &storage, 512);
+        let start = super::block::mbr_first_partition_lba(&dev).unwrap();
+        let part = super::block::PartitionBlockDevice::new("disk0p1", &dev, start);
+        let mut out = [0u8; 512];
+        part.read_block(0, &mut out).unwrap();
+        assert_eq!(&out[..8], b"PARTDATA");
     }
 
     #[test]

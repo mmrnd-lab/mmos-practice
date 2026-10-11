@@ -241,13 +241,13 @@ impl<'a> Ext4Fs<'a> {
             if remaining == 0 {
                 break;
             }
-            if data_block == 0 {
-                return Err(FsError::Corrupt);
-            }
-
-            self.read_fs_block(data_block as u64, &mut block[..block_size])?;
             let chunk = core::cmp::min(block_size, remaining);
-            out[copied..copied + chunk].copy_from_slice(&block[..chunk]);
+            if data_block == 0 {
+                out[copied..copied + chunk].fill(0);
+            } else {
+                self.read_fs_block(data_block as u64, &mut block[..block_size])?;
+                out[copied..copied + chunk].copy_from_slice(&block[..chunk]);
+            }
             copied += chunk;
             remaining -= chunk;
         }
