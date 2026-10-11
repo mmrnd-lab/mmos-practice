@@ -224,12 +224,12 @@ impl<
     pub const fn entry_input<'u>(
         &self,
         user_source: crate::trap::ExecvPreparedUserSource<'u>,
-        new_vm: VmSpace<MAX_AREAS>,
+        replacement_vm: crate::trap::ExecvPreparedReplacementVm<MAX_AREAS>,
     ) -> crate::trap::ExecvPreparedEntryInput<'u, MAX_AREAS> {
         crate::trap::ExecvPreparedEntryInput {
             user_bytes: user_source.bytes,
             user_base: user_source.base,
-            new_vm,
+            new_vm: replacement_vm.vm,
         }
     }
 

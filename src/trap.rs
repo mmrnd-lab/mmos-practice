@@ -611,6 +611,16 @@ impl<'a> ExecvPreparedUserSource<'a> {
     }
 }
 
+pub struct ExecvPreparedReplacementVm<const MAX_AREAS: usize> {
+    pub vm: crate::vm::VmSpace<MAX_AREAS>,
+}
+
+impl<const MAX_AREAS: usize> ExecvPreparedReplacementVm<MAX_AREAS> {
+    pub const fn new(vm: crate::vm::VmSpace<MAX_AREAS>) -> Self {
+        Self { vm }
+    }
+}
+
 pub struct ExecvPreparedEntryInput<'a, const MAX_AREAS: usize> {
     pub user_bytes: &'a [u8],
     pub user_base: usize,

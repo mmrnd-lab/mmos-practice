@@ -2210,6 +2210,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry input receives a named user copy source",
     ),
     ChapterSet(
+        key="ch130_execv_replacement_vm_boundary",
+        label="Ch130 Execv Replacement VM Boundary",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch130 execv replacement vm boundary",
+                    "[trap] execve replacement vm boundary routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared entry input receives a named replacement VM",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
