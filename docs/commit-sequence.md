@@ -549,3 +549,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `PreparedExecvEntryStore::entry_input()`이 source 객체와 replacement VM을 받아 `ExecvPreparedEntryInput`을 만들도록 변경
     - demo와 unit test는 `entry_input()`에 raw byte slice/base를 직접 넘기지 않고 named source를 전달
     - QEMU runtime marker에서 `[chapter] ch129 execv user source boundary`, `[trap] execve user source boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
+117. `6f8009b` `feat(ch130): name prepared execve replacement vm`
+    - `ExecvPreparedReplacementVm`을 추가해 execve 성공 시 설치할 replacement VM을 named input으로 분리
+    - `PreparedExecvEntryStore::entry_input()`이 user source와 replacement VM 객체를 받아 `ExecvPreparedEntryInput`을 만들도록 변경
+    - demo와 unit test는 raw `VmSpace::new()` 대신 named replacement VM을 전달
+    - QEMU runtime marker에서 `[chapter] ch130 execv replacement vm boundary`, `[trap] execve replacement vm boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인

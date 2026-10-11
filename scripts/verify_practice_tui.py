@@ -2212,7 +2212,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch130_execv_replacement_vm_boundary",
         label="Ch130 Execv Replacement VM Boundary",
-        commit_candidates=["HEAD"],
+        commit_candidates=["6f8009b"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
