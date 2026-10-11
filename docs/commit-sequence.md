@@ -91,6 +91,10 @@
     - 현재 프로세스의 입출력 상태를 나타내는 `ProcessIoContext`를 추가
     - `open("/dev/console")`으로 얻은 fd가 같은 process fd table 안에 남아 이후 `write(fd, ...)`에서 재사용됨을 검증
 
+31. `cac2997` `feat(ch37): add user copyin helpers for syscall buffers`
+    - user address range를 검증하고 kernel scratch buffer로 복사하는 `UserSlice`/copyin helper 추가
+    - `openat()` path와 `write()` buffer가 copyin 경계를 통과한 뒤 process fd context로 전달되는 흐름 검증
+
 
 ## Reproduce Example
 

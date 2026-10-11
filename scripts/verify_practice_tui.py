@@ -591,6 +591,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=open result remains in a process IO fd table and is reused by write",
     ),
     ChapterSet(
+        key="ch37_user_copyin",
+        label="Ch37 User Pointer Copyin",
+        commit_candidates=["cac2997"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch37 user copyin",
+                    "[chapter] ch36 process fd context",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=open path and write buffer pass through explicit user copyin helpers",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
