@@ -7,6 +7,7 @@ pub mod block;
 pub mod ramdisk;
 pub mod block_io;
 pub mod device;
+pub mod elf_loader;
 pub mod ext4;
 pub mod irq_guard;
 pub mod kheap;
@@ -29,11 +30,16 @@ mod tests {
     use super::ramdisk::RamDisk;
     use super::block_io::read_bytes;
     use super::device::{Device, DeviceKind};
+    use super::elf_loader::{
+        load_init_from_vfs, load_user_elf, pflags_to_pte, parse_elf_header, ElfError,
+    };
     use super::ext4::{Ext4Fs, FsError};
     use super::kheap::init_kheap;
     use super::page_frame_allocator::PageFrameAllocator;
+    use super::sv39::{
+        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_W, PTE_X,
+    };
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
-    use super::sv39::{make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_W, PTE_X};
     use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::vfs::Vfs;
@@ -130,7 +136,7 @@ mod tests {
         let inode = fs.lookup_path("/sbin/init").unwrap();
         assert!(inode.is_regular_file());
         assert_eq!(inode.number(), 13);
-        assert_eq!(inode.size(), 8);
+        assert_eq!(inode.size(), build_test_init_elf().len());
     }
 
     #[test]
@@ -139,10 +145,10 @@ mod tests {
         let dev = RamDisk::new("ramblk0", &image, 512);
         let fs = Ext4Fs::open(&dev).unwrap();
         let inode = fs.lookup_path("/sbin/init").unwrap();
-        let mut out = [0u8; 8];
+        let mut out = [0u8; 512];
         let copied = fs.read_file(&inode, &mut out).unwrap();
-        assert_eq!(copied, 8);
-        assert_eq!(&out, b"\x7fELFinit");
+        assert_eq!(copied, build_test_init_elf().len());
+        assert_eq!(&out[..4], b"\x7fELF");
     }
 
     #[test]
@@ -150,10 +156,10 @@ mod tests {
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
-        let mut out = [0u8; 8];
+        let mut out = [0u8; 512];
         let copied = vfs.read_all("/sbin/init", &mut out).unwrap();
-        assert_eq!(copied, 8);
-        assert_eq!(&out, b"\x7fELFinit");
+        assert_eq!(copied, build_test_init_elf().len());
+        assert_eq!(&out[..4], b"\x7fELF");
     }
 
     #[test]
@@ -161,8 +167,45 @@ mod tests {
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
-        let mut out = [0u8; 16];
+        let mut out = [0u8; 512];
         assert_eq!(vfs.read_all("/sbin", &mut out), Err(FsError::NotFile));
+    }
+
+    #[test]
+    fn elf_loader_rejects_bad_magic() {
+        let bytes = [0u8; 64];
+        assert_eq!(parse_elf_header(&bytes), Err(ElfError::BadMagic));
+    }
+
+    #[test]
+    fn elf_loader_collects_pt_load_segment() {
+        let elf = build_test_init_elf();
+        let image = load_user_elf(&elf, 0x8050_0000).unwrap();
+        assert_eq!(image.entry, 0x8040_0000);
+        assert_eq!(image.segment_count, 1);
+        let seg = image.segments[0].unwrap();
+        assert_eq!(seg.vaddr, 0x8040_0000);
+        assert_eq!(seg.file_size, 4);
+        assert_eq!(seg.mem_size, 8);
+        assert_eq!(seg.data, &[0x13, 0x00, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn elf_loader_maps_pflags_to_pte_bits() {
+        assert_eq!(pflags_to_pte(5), PTE_U | PTE_R | PTE_X);
+        assert_eq!(pflags_to_pte(6), PTE_U | PTE_R | PTE_W);
+    }
+
+    #[test]
+    fn vfs_init_elf_can_be_parsed_by_loader() {
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+        let loaded = load_init_from_vfs(&vfs, "/sbin/init", &mut scratch, 0x8050_0000).unwrap();
+        assert_eq!(loaded.entry, 0x8040_0000);
+        assert_eq!(loaded.stack_top, 0x8050_0000);
+        assert_eq!(loaded.segment_count, 1);
     }
 
     #[test]
@@ -241,16 +284,44 @@ mod tests {
     }
 
     fn build_test_ext4_image() -> Vec<u8> {
+        let elf = build_test_init_elf();
         let mut image = vec![0u8; 16 * 1024];
         write_superblock(&mut image);
         write_group_descriptor(&mut image);
         write_inode(&mut image, 2, 0x4000, 1024, 10);
         write_inode(&mut image, 12, 0x4000, 1024, 11);
-        write_inode(&mut image, 13, 0x8000, 8, 12);
+        write_inode(&mut image, 13, 0x8000, elf.len() as u32, 12);
         write_root_dir(&mut image);
         write_sbin_dir(&mut image);
-        image[12 * 1024..12 * 1024 + 8].copy_from_slice(b"\x7fELFinit");
+        image[12 * 1024..12 * 1024 + elf.len()].copy_from_slice(&elf);
         image
+    }
+
+    fn build_test_init_elf() -> Vec<u8> {
+        let mut elf = vec![0u8; 0x104];
+        elf[0..4].copy_from_slice(b"\x7fELF");
+        elf[4] = 2;
+        elf[5] = 1;
+        elf[6] = 1;
+        write_le16(&mut elf, 16, 2);
+        write_le16(&mut elf, 18, 243);
+        write_le32(&mut elf, 20, 1);
+        write_le64(&mut elf, 24, 0x8040_0000);
+        write_le64(&mut elf, 32, 64);
+        write_le16(&mut elf, 52, 64);
+        write_le16(&mut elf, 54, 56);
+        write_le16(&mut elf, 56, 1);
+
+        let ph = 64usize;
+        write_le32(&mut elf, ph, 1);
+        write_le32(&mut elf, ph + 4, 5);
+        write_le64(&mut elf, ph + 8, 0x100);
+        write_le64(&mut elf, ph + 16, 0x8040_0000);
+        write_le64(&mut elf, ph + 32, 4);
+        write_le64(&mut elf, ph + 40, 8);
+        write_le64(&mut elf, ph + 48, 0x1000);
+        elf[0x100..0x104].copy_from_slice(&[0x13, 0x00, 0x00, 0x00]);
+        elf
     }
 
     fn write_superblock(image: &mut [u8]) {
@@ -307,5 +378,9 @@ mod tests {
 
     fn write_le32(buf: &mut [u8], offset: usize, value: u32) {
         buf[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+    }
+
+    fn write_le64(buf: &mut [u8], offset: usize, value: u64) {
+        buf[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
     }
 }
