@@ -154,6 +154,10 @@
     - idle decision을 `IdleAction::WaitForInterrupt`로 번역하는 idle 경계 모듈을 추가
     - runnable task가 없을 때 커널이 panic이 아니라 interrupt 대기 경로로 갈 수 있음을 런타임 probe로 검증
 
+47. `6932e91` `feat(ch54): restore next task frame after schedule decision`
+    - switched schedule decision이 고른 next task의 saved trap frame을 현재 dispatch frame으로 복사하는 helper를 추가
+    - blocked task frame 저장 이후 next task register snapshot으로 복귀 대상이 바뀌는 경로를 검증
+
 
 ## Reproduce Example
 

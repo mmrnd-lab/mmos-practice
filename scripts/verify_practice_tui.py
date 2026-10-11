@@ -895,6 +895,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=idle decision maps to a wait-for-interrupt action without entering an endless idle loop",
     ),
     ChapterSet(
+        key="ch54_restore_next_task_frame",
+        label="Ch54 Restore Next Task Frame",
+        commit_candidates=["6932e91"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch54 restore next task frame",
+                    "[chapter] ch53 idle wait for interrupt",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=switched schedule decision restores the selected task trap frame into the dispatch frame",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
