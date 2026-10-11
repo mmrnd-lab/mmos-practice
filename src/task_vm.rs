@@ -150,10 +150,36 @@ pub struct SatpHardwareCommitResult {
 }
 
 pub unsafe fn commit_satp_hardware(plan: SatpHardwareCommitPlan) -> SatpHardwareCommitResult {
-    write_satp_and_flush(plan.next_satp);
+    unsafe {
+        write_satp_and_flush(plan.next_satp);
+    }
     SatpHardwareCommitResult {
         active_satp: plan.next_satp,
         flushed_tlb: plan.flush_after_write,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SatpHardwareCommitProbe {
+    pub committed_satp: usize,
+    pub restored_satp: usize,
+    pub flushed_on_commit: bool,
+    pub flushed_on_restore: bool,
+}
+
+pub unsafe fn probe_satp_hardware_commit_roundtrip(
+    plan: SatpHardwareCommitPlan,
+    restore_satp: usize,
+) -> SatpHardwareCommitProbe {
+    let committed = unsafe { commit_satp_hardware(plan) };
+    unsafe {
+        write_satp_and_flush(restore_satp);
+    }
+    SatpHardwareCommitProbe {
+        committed_satp: committed.active_satp,
+        restored_satp: restore_satp,
+        flushed_on_commit: committed.flushed_tlb,
+        flushed_on_restore: true,
     }
 }
 

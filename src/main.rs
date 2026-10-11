@@ -82,6 +82,7 @@ static mut USER_ADDRESS_SPACE: user_vm::ProcessAddressSpace =
 static mut USER_ADDRESS_SPACES: user_vm::ProcessAddressSpaceTable<2> =
     user_vm::ProcessAddressSpaceTable::new();
 static mut PCB_ADDRESS_SPACE_HANDLE_READY: bool = false;
+static mut SATP_HARDWARE_COMMIT_PROBE_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -666,6 +667,7 @@ pub extern "C" fn rust_main() -> ! {
     run_kernel_satp_guard_demo();
     run_process_address_space_root_demo();
     run_pcb_address_space_handle_demo();
+    run_satp_hardware_commit_probe_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -702,6 +704,12 @@ fn run_process_address_space_root_demo() {
 fn run_pcb_address_space_handle_demo() {
     if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(PCB_ADDRESS_SPACE_HANDLE_READY)) } {
         console::puts("[chapter] ch80 pcb address space handle\n");
+    }
+}
+
+fn run_satp_hardware_commit_probe_demo() {
+    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(SATP_HARDWARE_COMMIT_PROBE_READY)) } {
+        console::puts("[chapter] ch81 satp hardware commit probe\n");
     }
 }
 
@@ -1184,13 +1192,22 @@ fn run_user_launch_demo() {
                                                                                                                                             space_root,
                                                                                                                                         )
                                                                                                                                     {
-                                                                                                                                        if proc_table
-                                                                                                                                            .bind_address_space(
-                                                                                                                                                second
-                                                                                                                                                    .pid,
-                                                                                                                                                space_id,
+                                                                                                                                        if user_vm::install_kernel_identity_mapping(
+                                                                                                                                            space_root,
+                                                                                                                                        )
+                                                                                                                                        .is_ok()
+                                                                                                                                            && user_vm::is_kernel_mapping(
+                                                                                                                                                space_root.entries[
+                                                                                                                                                    user_vm::KERNEL_IDENTITY_VPN2
+                                                                                                                                                ],
                                                                                                                                             )
-                                                                                                                                            .is_ok()
+                                                                                                                                            && proc_table
+                                                                                                                                                .bind_address_space(
+                                                                                                                                                    second
+                                                                                                                                                        .pid,
+                                                                                                                                                    space_id,
+                                                                                                                                                )
+                                                                                                                                                .is_ok()
                                                                                                                                         {
                                                                                                                                             if let Ok(Some(handle_space)) =
                                                                                                                                                 task_vm::address_space_switch_for_decision_with_spaces(
@@ -1226,6 +1243,49 @@ fn run_user_launch_demo() {
                                                                                                                                                             ),
                                                                                                                                                             true,
                                                                                                                                                         );
+                                                                                                                                                    }
+                                                                                                                                                    let probe_commit =
+                                                                                                                                                        task_vm::prepare_satp_commit(
+                                                                                                                                                            0,
+                                                                                                                                                            task_vm::AppliedAddressSpaceSwitch {
+                                                                                                                                                                prev_tid: handle_space
+                                                                                                                                                                    .prev_tid,
+                                                                                                                                                                next_tid: handle_space
+                                                                                                                                                                    .next_tid,
+                                                                                                                                                                active_satp: handle_space
+                                                                                                                                                                    .next_satp,
+                                                                                                                                                            },
+                                                                                                                                                        );
+                                                                                                                                                    if let Ok(hw_probe) =
+                                                                                                                                                        task_vm::prepare_satp_hardware_commit(
+                                                                                                                                                            probe_commit,
+                                                                                                                                                        )
+                                                                                                                                                    {
+                                                                                                                                                        let probe = unsafe {
+                                                                                                                                                            task_vm::probe_satp_hardware_commit_roundtrip(
+                                                                                                                                                                hw_probe,
+                                                                                                                                                                0,
+                                                                                                                                                            )
+                                                                                                                                                        };
+                                                                                                                                                        if probe.committed_satp
+                                                                                                                                                            == space_install
+                                                                                                                                                                .satp
+                                                                                                                                                            && probe.restored_satp
+                                                                                                                                                                == 0
+                                                                                                                                                            && probe
+                                                                                                                                                                .flushed_on_commit
+                                                                                                                                                            && probe
+                                                                                                                                                                .flushed_on_restore
+                                                                                                                                                        {
+                                                                                                                                                            unsafe {
+                                                                                                                                                                core::ptr::write_volatile(
+                                                                                                                                                                    core::ptr::addr_of_mut!(
+                                                                                                                                                                        SATP_HARDWARE_COMMIT_PROBE_READY
+                                                                                                                                                                    ),
+                                                                                                                                                                    true,
+                                                                                                                                                                );
+                                                                                                                                                            }
+                                                                                                                                                        }
                                                                                                                                                     }
                                                                                                                                                 }
                                                                                                                                             }

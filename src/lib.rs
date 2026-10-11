@@ -88,8 +88,9 @@ mod tests {
     use super::task_vm::{
         address_space_switch_for_decision, address_space_switch_for_decision_with_spaces,
         apply_address_space_switch,
-        prepare_rooted_satp_commit_sequence, prepare_rooted_user_launch_csr_sequence, prepare_satp_commit,
-        prepare_satp_hardware_commit, prepare_user_launch_csr_sequence,
+        prepare_rooted_satp_commit_sequence, prepare_rooted_user_launch_csr_sequence,
+        prepare_satp_commit, prepare_satp_hardware_commit,
+        prepare_user_launch_csr_sequence, probe_satp_hardware_commit_roundtrip,
         SatpHardwareCommitError,
     };
     use super::syscall::{
@@ -2733,6 +2734,25 @@ mod tests {
             prepare_satp_hardware_commit(bare),
             Err(SatpHardwareCommitError::UnsupportedMode { mode: 0 })
         );
+    }
+
+    #[test]
+    fn satp_hardware_commit_probe_roundtrips_to_restore_satp() {
+        let changed = prepare_satp_commit(
+            0,
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 2,
+                active_satp: make_satp(0x22222, 0),
+            },
+        );
+        let hardware = prepare_satp_hardware_commit(changed).unwrap();
+        let probe = unsafe { probe_satp_hardware_commit_roundtrip(hardware, 0) };
+
+        assert_eq!(probe.committed_satp, make_satp(0x22222, 0));
+        assert_eq!(probe.restored_satp, 0);
+        assert!(probe.flushed_on_commit);
+        assert!(probe.flushed_on_restore);
     }
 
     #[test]
