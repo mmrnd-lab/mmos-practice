@@ -33,6 +33,19 @@ pub struct KernelTrapStackSwitch {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrapEntryScratch {
+    pub sscratch: usize,
+    pub user_sp: usize,
+    pub kernel_frame_sp: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrapEntryStackSwap {
+    pub active_sp: usize,
+    pub saved_user_sp: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KernelTrapStackError {
     StackTooSmall,
     MisalignedTop,
@@ -58,6 +71,28 @@ pub fn prepare_kernel_trap_stack_switch(
         kernel_frame_sp,
         frame_size: TRAP_FRAME_SIZE,
     })
+}
+
+pub fn prepare_trap_entry_scratch(
+    user_sp: usize,
+    kernel_stack_top: usize,
+    kernel_stack_bottom: usize,
+) -> Result<TrapEntryScratch, KernelTrapStackError> {
+    let switch =
+        prepare_kernel_trap_stack_switch(user_sp, kernel_stack_top, kernel_stack_bottom)?;
+
+    Ok(TrapEntryScratch {
+        sscratch: switch.kernel_frame_sp,
+        user_sp: switch.user_sp,
+        kernel_frame_sp: switch.kernel_frame_sp,
+    })
+}
+
+pub fn simulate_trap_entry_stack_swap(scratch: TrapEntryScratch) -> TrapEntryStackSwap {
+    TrapEntryStackSwap {
+        active_sp: scratch.sscratch,
+        saved_user_sp: scratch.user_sp,
+    }
 }
 
 impl TrapFrame {

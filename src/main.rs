@@ -888,6 +888,29 @@ fn run_user_launch_demo() {
                                                             console::puts(
                                                                 "[chapter] ch68 kernel trap stack switch\n",
                                                             );
+                                                            if let Ok(scratch) =
+                                                                trap::prepare_trap_entry_scratch(
+                                                                    loaded.stack_top,
+                                                                    0x8020_8000,
+                                                                    0x8020_7000,
+                                                                )
+                                                            {
+                                                                let swap =
+                                                                    trap::simulate_trap_entry_stack_swap(
+                                                                        scratch,
+                                                                    );
+                                                                if scratch.sscratch
+                                                                    == scratch.kernel_frame_sp
+                                                                    && swap.active_sp
+                                                                        == scratch.kernel_frame_sp
+                                                                    && swap.saved_user_sp
+                                                                        == loaded.stack_top
+                                                                {
+                                                                    console::puts(
+                                                                        "[chapter] ch69 trap entry scratch swap\n",
+                                                                    );
+                                                                }
+                                                            }
                                                         }
                                                     }
                                                 }
