@@ -97,6 +97,63 @@ pub struct ProcessExecRuntime {
     pub stack_top: usize,
 }
 
+pub struct ExecvTrapDispatchState<
+    'v,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+    const MAX_AREAS: usize,
+> {
+    store: crate::trap::ExecvTrapResourceStore<
+        'v,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+        MAX_AREAS,
+    >,
+}
+
+impl<'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: usize>
+    ExecvTrapDispatchState<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS>
+{
+    pub const fn new(vfs: &'v crate::vfs::Vfs<'v>, stack_top_va: usize) -> Self {
+        Self {
+            store: crate::trap::ExecvTrapResourceStore::new(vfs, stack_top_va),
+        }
+    }
+
+    pub fn dispatch<
+        'a,
+        const MAX_ARGS: usize,
+        const ARG_BYTES: usize,
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_TASKS: usize,
+    >(
+        &'a mut self,
+        runtime: &'a mut ProcessTrapRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
+        frame: &mut TrapFrame,
+        scause: usize,
+        stval: usize,
+        user_bytes: &'a [u8],
+        user_base: usize,
+        new_vm: VmSpace<MAX_AREAS>,
+    ) -> TrapOutcome {
+        runtime.dispatch_execv_trap::<
+            MAX_ARGS,
+            ARG_BYTES,
+            SCRATCH_BYTES,
+            STACK_BYTES,
+        >(
+            frame,
+            scause,
+            stval,
+            &mut self.store,
+            user_bytes,
+            user_base,
+            new_vm,
+        )
+    }
+}
+
 pub struct TrapRuntime<const MAX_TASKS: usize> {
     scheduler: Scheduler<MAX_TASKS>,
 }
