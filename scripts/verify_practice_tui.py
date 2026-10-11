@@ -1582,7 +1582,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch93_process_trap_runtime_exit",
         label="Ch93 Process Trap Runtime Exit",
-        commit_candidates=["HEAD"],
+        commit_candidates=["e6f1eca"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

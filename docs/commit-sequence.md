@@ -329,7 +329,7 @@
     - 종료된 process의 sibling TCB를 scheduler 후보에서 제거하고, 다음 process의 trap frame을 live frame에 복원
     - QEMU runtime marker에서 `[chapter] ch92 trap exit process dispatch`, `[proc] trap exit dispatch prev=1 next=3 restored=0x40003000` 확인
 
-83. `TBD` `feat(ch93): add process-aware trap runtime exit dispatch`
+83. `e6f1eca` `feat(ch93): add process-aware trap runtime exit dispatch`
     - `ProcessTrapRuntime`이 process table, task table, scheduler를 함께 소유하도록 추가
     - runtime-owned state에서 exit dispatch를 수행해 owner PCB/TCB 상태 갱신과 next frame restore를 한 경로로 확인
     - QEMU runtime marker에서 `[chapter] ch93 process trap runtime exit`, `[proc] runtime exit owner=1 next=3 restored=0x40003000` 확인
