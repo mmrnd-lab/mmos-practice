@@ -386,6 +386,12 @@
     - load 결과를 `UserExecImage`와 작은 report로 바꿔 이후 process image replacement 경계에 넘길 준비 완료
     - QEMU runtime marker에서 `[chapter] ch105 execv path vfs image`, `[syscall] execv path=/sbin/init entry=0x40000000 segments=1 argc=1` 확인
 
+93. `TBD` `feat(ch106): apply execv copyin image and stack pipeline`
+    - user pointer에서 pathname/argv를 복사하고 새 user stack layout을 만든 뒤, 복사된 pathname으로 VFS/ELF image를 로드하는 통합 helper 추가
+    - 로드한 `UserExecImage`의 stack pointer를 104장에서 만든 initial stack pointer로 바꾼 다음 103장의 `exec_task_image()` 경계에 전달
+    - 아직 실제 user entry로 `sret`까지 이어 붙이지 않고, fork child task context가 통합 execv 경로로 교체되는 runtime marker를 검증
+    - QEMU runtime marker에서 `[chapter] ch106 execv apply pipeline`, `[syscall] execv full path=/sbin/init entry=0x40000000 argc=1 ret=0` 확인
+
 
 ## Reproduce Example
 

@@ -1778,6 +1778,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execv pathname copied from user memory is used to load a VFS ELF image plan",
     ),
     ChapterSet(
+        key="ch106_execv_apply_pipeline",
+        label="Ch106 Execv Apply Pipeline",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch106 execv apply pipeline",
+                    "[syscall] execv full path=/sbin/init entry=0x40000000 argc=1 ret=0",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execv copyin, VFS ELF image loading, stack layout, and child task context replacement are applied as one pipeline",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

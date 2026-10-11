@@ -38,6 +38,8 @@ mod exec_args;
 #[allow(dead_code)]
 mod exec_path;
 #[allow(dead_code)]
+mod exec_flow;
+#[allow(dead_code)]
 mod page_fault;
 #[allow(dead_code)]
 mod pmm;
@@ -104,6 +106,10 @@ static mut FIRST_USER_SRET_READY: bool = false;
 static mut CH105_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
     [0; demo_user_init::DEMO_INIT_ELF_SIZE];
 static mut CH105_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
+    [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+static mut CH106_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
+    [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+static mut CH106_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
     [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
 
 trait SyscallResultExt {
@@ -698,6 +704,7 @@ pub extern "C" fn rust_main() -> ! {
     run_minimal_execv_adapter_demo();
     run_execv_user_arg_copyin_demo();
     run_execv_path_vfs_image_demo();
+    run_execv_apply_pipeline_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1407,6 +1414,93 @@ fn run_execv_path_vfs_image_demo() {
         console::puts("[chapter] ch105 execv path vfs image\n");
         console::puts(
             "[syscall] execv path=/sbin/init entry=0x40000000 segments=1 argc=1\n",
+        );
+    }
+}
+
+fn run_execv_apply_pipeline_demo() {
+    const BASE: usize = 0x7000_0000;
+    const PATH: usize = BASE;
+    const ARG0: usize = BASE + 0x40;
+    const ARGV: usize = BASE + 0x100;
+    let mut user_mem = [0u8; 512];
+    put_cstr(&mut user_mem, PATH - BASE, b"/sbin/init");
+    put_cstr(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+    put_usize(&mut user_mem, ARGV - BASE, ARG0);
+    put_usize(
+        &mut user_mem,
+        ARGV - BASE + core::mem::size_of::<usize>(),
+        0,
+    );
+
+    let mut user_vm = vm::VmSpace::<1>::new();
+    if user_vm
+        .map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R)
+        .is_err()
+    {
+        return;
+    }
+    let user = user_copy::CheckedUserSlice::new(&user_mem, BASE, &user_vm);
+
+    let (elf, image) = unsafe { (&mut CH106_INIT_ELF, &mut CH106_EXT4_IMAGE) };
+    let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
+        return;
+    };
+    if demo_user_init::build_demo_ext4_image(image, &elf[..elf_len]).is_err() {
+        return;
+    }
+    let dev = ramdisk::RamDisk::new("ramblk0", image, 512);
+    let Ok(vfs) = vfs::Vfs::mount_ext4(&dev) else {
+        return;
+    };
+
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let mut parent_frame = trap::TrapFrame::default();
+    parent_frame.sepc = 0x4000_0000;
+    parent_frame.set_sp(0x4010_0000);
+    if runtime
+        .add_runnable_task(1, parent_pid, parent_frame)
+        .is_err()
+    {
+        return;
+    }
+    runtime.start_first_task();
+
+    let mut child_frame = trap::TrapFrame::default();
+    child_frame.sepc = 0x4000_1000;
+    child_frame.set_sp(0x4010_1000);
+    let Ok(fork) = runtime.fork_current_process(2, child_frame, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut scratch = [0u8; 512];
+    let mut stack = [0u8; 256];
+    let Ok((exec, report)) = exec_flow::apply_execv_from_user_args::<1, 4, 64, 4, 2, 2, 5>(
+        &mut runtime,
+        fork.child_tid,
+        &user,
+        PATH,
+        ARGV,
+        &vfs,
+        &mut scratch,
+        &mut stack,
+        0x4010_0000,
+        vm::VmSpace::<2>::new(),
+    ) else {
+        return;
+    };
+
+    if report.argc == 1
+        && report.entry == 0x4000_0000
+        && report.segment_count == 1
+        && syscall::handle_process_execv_syscall(exec).is_ok_continue_zero()
+    {
+        console::puts("[chapter] ch106 execv apply pipeline\n");
+        console::puts(
+            "[syscall] execv full path=/sbin/init entry=0x40000000 argc=1 ret=0\n",
         );
     }
 }
