@@ -48,22 +48,26 @@
     - QEMU 부팅 로그에 `[proc] fork/exec/wait` 시그니처를 추가해 프로세스 상태 전이를 시각화
     - `src/process_runtime.rs` + 단위 테스트로 fork/exec/wait 라이프사이클 모델을 별도로 고정
 
-19. `d7f8cb4` `feat(ch24): add initial user stack ABI`
-    - `argc/argv/envp` 초기 user stack 레이아웃 빌더를 추가
-    - verifier와 단위 테스트를 통해 stack ABI 계약을 회귀 없이 검증
-20. `3ab359e` `feat(ch25): add user-init launch handoff plan scaffold`
-    - exec image, user vm plan, argc/argv/envp stack를 하나의 launch plan으로 결합
-    - runtime 로그에 ch25 handoff 시그니처를 추가해 첫 user 진입 직전 상태를 확인
-21. `da7e19e` `feat(ch26): integrate runtime /sbin/init load path`
-    - test 전용 ext4/ELF 빌더를 공용 모듈로 승격해 런타임에서도 재사용
-    - `main` 경로에서 `Vfs -> load_init_exec_image("/sbin/init") -> launch handoff`를 실제로 연결
-    - QEMU 로그에 `/sbin/init` 실로딩 시그니처를 추가해 통합 경로를 눈으로 검증
-22. `2371b8b` `feat(ch27): execute first user-init via sret`
-    - trap entry/return 경로를 연결해 U-mode로 실제 진입
-    - user `write/exit` syscall이 커널 trap 경로를 왕복하며 로그를 남기는지 확인
-23. `25e3344` `feat(ch28): add minimal user-init ELF build and boot-disk injection`
+19. `16f0be5` `feat(ch24): add minimal user-init ELF build and boot-disk injection`
     - user 공용 링크 스크립트(`user/common/mmos_user_app.ld`)를 기준으로 `user-init.elf` 빌드 경로를 고정
     - `make boot-disk`에서 `/sbin/init`로 주입되는 실제 user ELF 아티팩트 체인을 고정
+20. `3655e98` `feat(ch25): add initial user stack ABI`
+    - `argc/argv/envp` 초기 user stack 레이아웃 빌더를 추가
+    - verifier와 단위 테스트를 통해 stack ABI 규칙을 회귀 없이 검증
+21. `162e889` `feat(ch26): add user-init launch handoff plan scaffold`
+    - exec image, user vm plan, argc/argv/envp stack를 하나의 launch plan으로 결합
+    - runtime 로그에 ch26 handoff 시그니처를 추가해 첫 user 진입 직전 상태를 확인
+22. `95fcfb8` `feat(ch27): integrate runtime /sbin/init load path`
+    - test 전용 ext4/ELF 빌더를 공용 모듈로 승격해 런타임에서도 재사용
+    - `main` 경로에서 `Vfs -> load_init_exec_image("/sbin/init") -> launch handoff`를 연결
+    - QEMU 로그에 `/sbin/init` 로딩 시그니처를 추가해 통합 경로를 눈으로 검증
+23. `4837357` `feat(ch27): load init from virtio boot disk`
+    - QEMU `virtio-blk` 장치에서 `build/drive0.img`를 직접 읽는 최소 polling 드라이버 추가
+    - MBR 첫 파티션을 `PartitionBlockDevice`로 감싸 ext4/VFS가 실제 `/sbin/init`을 읽도록 런타임 경로 변경
+    - `demo_user_init.rs`는 런타임 주 경로가 아니라 단위 테스트 fixture로 유지
+24. `cd96cdc` `feat(ch28): execute first user-init via sret`
+    - trap entry/return 경로를 연결해 U-mode로 실제 진입
+    - user `write/exit` syscall이 커널 trap 경로를 왕복하며 로그를 남기는지 확인
 
 ## Reproduce Example
 

@@ -399,7 +399,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch24_user_app_build",
         label="Ch24 User App Build Foundation",
-        commit_candidates=["25e3344"],
+        commit_candidates=["16f0be5"],
         steps=[
             Step(
                 "user-init-build",
@@ -421,7 +421,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch25_user_stack_abi",
         label="Ch25 User ABI Stack Layout (argc/argv/envp)",
-        commit_candidates=["d7f8cb4"],
+        commit_candidates=["3655e98"],
         steps=[
             Step(
                 "user-stack-tests",
@@ -436,7 +436,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch26_user_init_launch_handoff",
         label="Ch26 User Init Launch Handoff",
-        commit_candidates=["3ab359e"],
+        commit_candidates=["162e889"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -453,7 +453,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch27_runtime_user_init_load",
         label="Ch27 Runtime User Init Load + Handoff",
-        commit_candidates=["da7e19e"],
+        commit_candidates=["4837357"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
@@ -471,7 +471,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch28_first_user_sret",
         label="Ch28 First User SRET Execution",
-        commit_candidates=["2371b8b"],
+        commit_candidates=["cd96cdc"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
