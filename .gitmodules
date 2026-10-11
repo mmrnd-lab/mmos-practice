@@ -1,0 +1,6 @@
+[submodule "external/opensbi"]
+	path = external/opensbi
+	url = https://github.com/riscv-software-src/opensbi.git
+[submodule "external/u-boot"]
+	path = external/u-boot
+	url = https://source.denx.de/u-boot/u-boot.git
