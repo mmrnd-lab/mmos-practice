@@ -72,6 +72,85 @@ impl ProcessAddressSpace {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AddressSpaceTableError {
+    TableFull,
+    MissingAddressSpace,
+}
+
+#[derive(Debug)]
+pub struct ProcessAddressSpaceTable<const MAX_SPACES: usize> {
+    slots: [Option<(usize, ProcessAddressSpace)>; MAX_SPACES],
+    next_id: usize,
+}
+
+impl<const MAX_SPACES: usize> ProcessAddressSpaceTable<MAX_SPACES> {
+    pub const fn new() -> Self {
+        Self {
+            slots: [const { None }; MAX_SPACES],
+            next_id: 1,
+        }
+    }
+
+    pub fn create_empty(&mut self) -> Result<usize, AddressSpaceTableError> {
+        let mut idx = 0usize;
+        while idx < MAX_SPACES {
+            if self.slots[idx].is_none() {
+                let id = self.next_id;
+                self.next_id = self.next_id.wrapping_add(1);
+                self.slots[idx] = Some((id, ProcessAddressSpace::empty()));
+                return Ok(id);
+            }
+            idx += 1;
+        }
+        Err(AddressSpaceTableError::TableFull)
+    }
+
+    pub fn get(&self, id: usize) -> Result<&ProcessAddressSpace, AddressSpaceTableError> {
+        self.find_index(id)
+            .and_then(|idx| self.slots[idx].as_ref().map(|(_, space)| space))
+            .ok_or(AddressSpaceTableError::MissingAddressSpace)
+    }
+
+    pub fn get_mut(
+        &mut self,
+        id: usize,
+    ) -> Result<&mut ProcessAddressSpace, AddressSpaceTableError> {
+        self.find_index(id)
+            .and_then(|idx| self.slots[idx].as_mut().map(|(_, space)| space))
+            .ok_or(AddressSpaceTableError::MissingAddressSpace)
+    }
+
+    pub fn satp(&self, id: usize) -> Result<usize, AddressSpaceTableError> {
+        Ok(self.get(id)?.satp)
+    }
+
+    pub fn install_user_image(
+        &mut self,
+        id: usize,
+        loaded: &LoadedUserImage<'_>,
+        root_frame_pa: usize,
+        root: &mut RootPageTable,
+    ) -> Result<UserVmRootInstall, UserVmError> {
+        self.get_mut(id)
+            .map_err(|_| UserVmError::MalformedImage)?
+            .install_user_image(loaded, root_frame_pa, root)
+    }
+
+    fn find_index(&self, id: usize) -> Option<usize> {
+        let mut idx = 0usize;
+        while idx < MAX_SPACES {
+            if let Some((slot_id, _)) = self.slots[idx].as_ref() {
+                if *slot_id == id {
+                    return Some(idx);
+                }
+            }
+            idx += 1;
+        }
+        None
+    }
+}
+
 pub fn build_user_vm_plan(
     loaded: &LoadedUserImage<'_>,
     root_frame_pa: usize,

@@ -7,6 +7,7 @@ use crate::{
 };
 use crate::sv39::SATP_MODE_SV39;
 use crate::trap::{KernelTrapStackError, TrapEntryScratch, TrapFrame};
+use crate::user_vm::{AddressSpaceTableError, ProcessAddressSpaceTable};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AddressSpaceSwitch {
@@ -36,6 +37,43 @@ pub fn address_space_switch_for_decision<
             }))
         }
         ScheduleDecision::Idle { .. } => Ok(None),
+    }
+}
+
+pub fn address_space_switch_for_decision_with_spaces<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const MAX_SPACES: usize,
+>(
+    proc_table: &ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    task_table: &TaskTable<MAX_TASKS>,
+    spaces: &ProcessAddressSpaceTable<MAX_SPACES>,
+    decision: ScheduleDecision,
+) -> Result<Option<AddressSpaceSwitch>, ProcError> {
+    match decision {
+        ScheduleDecision::Switched { prev_tid, next_tid } => {
+            let next_task = task_table.get(next_tid)?;
+            let next_process = proc_table.get(next_task.owner_pid)?;
+            let next_satp = match next_process.address_space_id {
+                Some(id) => spaces.satp(id).map_err(address_space_error_to_proc_error)?,
+                None => next_process.satp,
+            };
+            Ok(Some(AddressSpaceSwitch {
+                prev_tid: prev_tid,
+                next_tid: next_tid,
+                next_satp,
+            }))
+        }
+        ScheduleDecision::Idle { .. } => Ok(None),
+    }
+}
+
+fn address_space_error_to_proc_error(error: AddressSpaceTableError) -> ProcError {
+    match error {
+        AddressSpaceTableError::TableFull => ProcError::TableFull,
+        AddressSpaceTableError::MissingAddressSpace => ProcError::MissingAddressSpace,
     }
 }
 

@@ -86,7 +86,8 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_G, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::task_vm::{
-        address_space_switch_for_decision, apply_address_space_switch,
+        address_space_switch_for_decision, address_space_switch_for_decision_with_spaces,
+        apply_address_space_switch,
         prepare_rooted_satp_commit_sequence, prepare_rooted_user_launch_csr_sequence, prepare_satp_commit,
         prepare_satp_hardware_commit, prepare_user_launch_csr_sequence,
         SatpHardwareCommitError,
@@ -130,7 +131,7 @@ mod tests {
         build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
         install_user_vm_plan_in_root, is_kernel_mapping, is_leaf_user_mapping,
         preflight_satp_commit, KernelRuntimeSatpGuard, KernelRuntimeSatpGuardError,
-        ProcessAddressSpace, SatpCommitPreflight, SatpCommitPreflightError,
+        ProcessAddressSpace, ProcessAddressSpaceTable, SatpCommitPreflight, SatpCommitPreflightError,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
@@ -1847,6 +1848,85 @@ mod tests {
         assert_ne!(first_space.satp, second_space.satp);
         assert!(is_leaf_user_mapping(roots[0].entries[1]));
         assert!(is_leaf_user_mapping(roots[1].entries[1]));
+    }
+
+    #[test]
+    fn pcb_address_space_handle_resolves_switch_satp_from_space_table() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut first_stack = [0u8; 512];
+        let mut second_stack = [0u8; 512];
+        let first_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345_000,
+            &mut first_stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let second_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12346_000,
+            &mut second_stack,
+            &["/sbin/worker"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        let mut spaces = ProcessAddressSpaceTable::<4>::new();
+        let second_space_id = spaces.create_empty().unwrap();
+        let mut second_root = RootPageTable::new();
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let second_root_frame = allocator.alloc().unwrap();
+        let second_install = spaces
+            .install_user_image(second_space_id, &loaded, second_root_frame, &mut second_root)
+            .unwrap();
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let first = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            first_launch,
+        )
+        .unwrap();
+        let second = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            Some(first.pid),
+            VmSpace::<4>::new(),
+            second_launch,
+        )
+        .unwrap();
+
+        proc_table
+            .bind_address_space(second.pid, second_space_id)
+            .unwrap();
+        scheduler.on_tick();
+        scheduler.set_state(first.tid, TaskState::Blocked);
+        let decision =
+            schedule_after_blocked_syscall(&first_launch.trapframe, &mut scheduler).unwrap();
+        let switch = address_space_switch_for_decision_with_spaces(
+            &proc_table,
+            &task_table,
+            &spaces,
+            decision,
+        )
+        .unwrap()
+        .unwrap();
+
+        let second_pcb = proc_table.get(second.pid).unwrap();
+        assert_eq!(second_pcb.address_space_id, Some(second_space_id));
+        assert_eq!(second_pcb.satp, second_launch.satp);
+        assert_eq!(spaces.satp(second_space_id).unwrap(), second_install.satp);
+        assert_eq!(switch.next_tid, second.tid);
+        assert_eq!(switch.next_satp, second_install.satp);
+        assert_ne!(switch.next_satp, second_pcb.satp);
     }
 
     #[test]

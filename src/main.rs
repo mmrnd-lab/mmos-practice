@@ -79,6 +79,9 @@ use core::panic::PanicInfo;
 
 static mut USER_ADDRESS_SPACE: user_vm::ProcessAddressSpace =
     user_vm::ProcessAddressSpace::empty();
+static mut USER_ADDRESS_SPACES: user_vm::ProcessAddressSpaceTable<2> =
+    user_vm::ProcessAddressSpaceTable::new();
+static mut PCB_ADDRESS_SPACE_HANDLE_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -662,6 +665,7 @@ pub extern "C" fn rust_main() -> ! {
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
     run_process_address_space_root_demo();
+    run_pcb_address_space_handle_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -692,6 +696,12 @@ fn run_kernel_satp_guard_demo() {
 fn run_process_address_space_root_demo() {
     if ch79_process_address_space_root() {
         console::puts("[chapter] ch79 process address space root\n");
+    }
+}
+
+fn run_pcb_address_space_handle_demo() {
+    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(PCB_ADDRESS_SPACE_HANDLE_READY)) } {
+        console::puts("[chapter] ch80 pcb address space handle\n");
     }
 }
 
@@ -1150,6 +1160,78 @@ fn run_user_launch_demo() {
                                                                                                                                 console::puts(
                                                                                                                                     "[chapter] ch77 rooted satp commit sequence\n",
                                                                                                                                 );
+                                                                                                                                let spaces = unsafe {
+                                                                                                                                    &mut *core::ptr::addr_of_mut!(
+                                                                                                                                        USER_ADDRESS_SPACES
+                                                                                                                                    )
+                                                                                                                                };
+                                                                                                                                *spaces = user_vm::ProcessAddressSpaceTable::new();
+                                                                                                                                if let Ok(space_id) =
+                                                                                                                                    spaces.create_empty()
+                                                                                                                                {
+                                                                                                                                    let space_root_frame_pa =
+                                                                                                                                        pmm.alloc().unwrap();
+                                                                                                                                    let space_root = unsafe {
+                                                                                                                                        user_vm::root_page_table_from_identity_frame_mut(
+                                                                                                                                            space_root_frame_pa,
+                                                                                                                                        )
+                                                                                                                                    };
+                                                                                                                                    if let Ok(space_install) =
+                                                                                                                                        spaces.install_user_image(
+                                                                                                                                            space_id,
+                                                                                                                                            &loaded,
+                                                                                                                                            space_root_frame_pa,
+                                                                                                                                            space_root,
+                                                                                                                                        )
+                                                                                                                                    {
+                                                                                                                                        if proc_table
+                                                                                                                                            .bind_address_space(
+                                                                                                                                                second
+                                                                                                                                                    .pid,
+                                                                                                                                                space_id,
+                                                                                                                                            )
+                                                                                                                                            .is_ok()
+                                                                                                                                        {
+                                                                                                                                            if let Ok(Some(handle_space)) =
+                                                                                                                                                task_vm::address_space_switch_for_decision_with_spaces(
+                                                                                                                                                    &proc_table,
+                                                                                                                                                    &task_table,
+                                                                                                                                                    spaces,
+                                                                                                                                                    decision,
+                                                                                                                                                )
+                                                                                                                                            {
+                                                                                                                                                if proc_table
+                                                                                                                                                    .get(
+                                                                                                                                                        second
+                                                                                                                                                            .pid,
+                                                                                                                                                    )
+                                                                                                                                                    .map(|pcb| {
+                                                                                                                                                        pcb.address_space_id
+                                                                                                                                                            == Some(
+                                                                                                                                                                space_id,
+                                                                                                                                                            )
+                                                                                                                                                    })
+                                                                                                                                                    .unwrap_or(
+                                                                                                                                                        false,
+                                                                                                                                                    )
+                                                                                                                                                    && handle_space
+                                                                                                                                                        .next_satp
+                                                                                                                                                        == space_install
+                                                                                                                                                            .satp
+                                                                                                                                                {
+                                                                                                                                                    unsafe {
+                                                                                                                                                        core::ptr::write_volatile(
+                                                                                                                                                            core::ptr::addr_of_mut!(
+                                                                                                                                                                PCB_ADDRESS_SPACE_HANDLE_READY
+                                                                                                                                                            ),
+                                                                                                                                                            true,
+                                                                                                                                                        );
+                                                                                                                                                    }
+                                                                                                                                                }
+                                                                                                                                            }
+                                                                                                                                        }
+                                                                                                                                    }
+                                                                                                                                }
                                                                                                                             }
                                                                                                                         }
                                                                                                                     }

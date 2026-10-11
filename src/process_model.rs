@@ -17,6 +17,7 @@ pub enum ProcError {
     ChildListFull,
     NotZombie,
     TableFull,
+    MissingAddressSpace,
     MissingProcess,
     MissingTask,
 }
@@ -29,6 +30,7 @@ pub struct ProcessControlBlock<const MAX_CHILDREN: usize, const MAX_AREAS: usize
     pub exit_code: Option<i32>,
     pub state: ProcState,
     pub vm: VmSpace<MAX_AREAS>,
+    pub address_space_id: Option<usize>,
     pub satp: usize,
 }
 
@@ -41,6 +43,7 @@ impl<const MAX_CHILDREN: usize, const MAX_AREAS: usize> ProcessControlBlock<MAX_
             exit_code: None,
             state: ProcState::Alive,
             vm,
+            address_space_id: None,
             satp,
         }
     }
@@ -139,6 +142,16 @@ impl<const MAX_PROCS: usize, const MAX_CHILDREN: usize, const MAX_AREAS: usize>
     pub fn update_satp(&mut self, pid: usize, satp: usize) -> Result<(), ProcError> {
         let process = self.get_mut(pid)?;
         process.satp = satp;
+        Ok(())
+    }
+
+    pub fn bind_address_space(
+        &mut self,
+        pid: usize,
+        address_space_id: usize,
+    ) -> Result<(), ProcError> {
+        let process = self.get_mut(pid)?;
+        process.address_space_id = Some(address_space_id);
         Ok(())
     }
 
