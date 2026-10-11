@@ -1652,6 +1652,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=current process wait syscall surface reaps a zombie child and copies out status",
     ),
     ChapterSet(
+        key="ch97_blocking_wait_wakeup",
+        label="Ch97 Blocking Wait Wakeup",
+        commit_candidates=["d31c79c"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch97 blocking wait wakeup",
+                    "[syscall] wait blocked parent=1 child=2 wake=1 status=13",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=parent waits before child exit, blocks, and wakes when child becomes zombie",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

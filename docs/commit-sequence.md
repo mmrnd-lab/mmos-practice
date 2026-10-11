@@ -349,6 +349,11 @@
     - `ProcessTrapRuntime`에서 current task의 owner PID를 parent로 해석해 `wait_reap_current_child()`로 연결
     - QEMU runtime marker에서 `[chapter] ch96 wait syscall surface`, `[syscall] wait parent=1 child=2 status=9` 확인
 
+87. `d31c79c` `feat(ch97): wake parent blocked in wait`
+    - parent PID와 waiter TID를 함께 저장하는 process wait queue를 trap runtime에 추가
+    - zombie child가 아직 없을 때 current parent task를 blocked 상태로 전환하고 scheduler handoff 수행
+    - child exit path가 parent waiter를 깨워 runnable로 만들고 QEMU marker에서 `[chapter] ch97 blocking wait wakeup`, `[syscall] wait blocked parent=1 child=2 wake=1 status=13` 확인
+
 
 ## Reproduce Example
 
