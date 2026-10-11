@@ -374,6 +374,12 @@
     - syscall surface에서는 성공한 `execv` adapter가 0을 반환하는 최소 규칙을 먼저 검증
     - QEMU runtime marker에서 `[chapter] ch103 minimal execv adapter`, `[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0` 확인
 
+91. `36ba2d7` `feat(ch104): copy execv user args`
+    - checked user memory에서 `execv` pathname과 `argv` pointer table을 읽어 kernel arg block에 복사하는 경로 추가
+    - `argv` null terminator와 argument 개수 상한을 검증해 user pointer surface의 경계를 먼저 고정
+    - 복사한 argument block을 새 user stack의 `argc`/`argv`/empty `envp` layout으로 materialize하는 helper 추가
+    - QEMU runtime marker에서 `[chapter] ch104 execv user arg copyin`, `[syscall] execv path=/sbin/init argc=2 argv0=/sbin/init stack_argc=2` 확인
+
 
 ## Reproduce Example
 

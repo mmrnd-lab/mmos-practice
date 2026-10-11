@@ -1744,7 +1744,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch104_execv_user_arg_copyin",
         label="Ch104 Execv User Arg Copyin",
-        commit_candidates=["HEAD"],
+        commit_candidates=["36ba2d7"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
