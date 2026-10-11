@@ -756,3 +756,11 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 exec apply 결과의 `ProcessExecRuntime.shared_object`에 CRT shared object path/base/entry/mapped page count가 보존되는지 검증
     - `make exec-apply-shared-object-runtime` 타깃이 exec apply 경로가 shared object metadata를 process runtime으로 전달하는 상태를 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch165 exec apply shared object runtime`, `[user-link] exec apply path passes loaded shared object metadata into process runtime` 확인
+
+150. `9c88059` `feat(ch166): dispatch exec shared object runtime`
+    - `CurrentExecvSharedObjectRuntimeContext`를 추가해 syscall dispatch 경계가 shared object dependency load에 필요한 VFS, scratch, PMM, page table 자원을 함께 받을 수 있게 함
+    - `dispatch_current_execv_shared_object_syscall_from_runtime()`가 decoded `execve` syscall을 shared object aware exec apply 경로로 전달
+    - frame 기반 helper가 trap frame의 `a7/a0/a1/a2` 값을 decode한 뒤 shared object aware dispatch helper로 연결
+    - unit test가 shared object 파일이 있을 때 dispatch 경로가 `/sbin/init` 실행 image와 shared object leaf mapping을 설치하고, dependency 파일이 없으면 `-EIO`로 실패하는 경계를 검증
+    - `make exec-dispatch-shared-object-runtime` 타깃이 dispatch 경계가 shared object aware exec apply를 선택하는 상태를 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch166 exec dispatch shared object runtime`, `[user-link] exec dispatch path can select the shared object aware apply runtime` 확인

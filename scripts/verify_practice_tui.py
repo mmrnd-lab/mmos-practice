@@ -2947,6 +2947,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec apply path passes loaded shared object metadata into process runtime",
     ),
     ChapterSet(
+        key="ch166_exec_dispatch_shared_object_runtime",
+        label="Ch166 Exec Dispatch Shared Object Runtime",
+        commit_candidates=["9c88059"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "exec-dispatch-shared-object-runtime",
+                "make exec-dispatch-shared-object-runtime PROFILE=release",
+                must_contain=(
+                    "[user-link] exec-dispatch-runtime selects shared-object=/lib/libmmos_user_crt.so",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch166 exec dispatch shared object runtime",
+                    "[user-link] exec dispatch path can select the shared object aware apply runtime",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=exec dispatch path can select the shared object aware apply runtime",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
