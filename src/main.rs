@@ -1008,6 +1008,43 @@ fn run_user_launch_demo() {
                                                                                                     console::puts(
                                                                                                         "[chapter] ch74 root page table storage\n",
                                                                                                     );
+                                                                                                    let rooted_applied =
+                                                                                                        task_vm::AppliedAddressSpaceSwitch {
+                                                                                                            prev_tid: first.tid,
+                                                                                                            next_tid: second.tid,
+                                                                                                            active_satp: root_install.satp,
+                                                                                                        };
+                                                                                                    let rooted_commit =
+                                                                                                        task_vm::prepare_satp_commit(
+                                                                                                            p.satp,
+                                                                                                            rooted_applied,
+                                                                                                        );
+                                                                                                    if let Ok(rooted_seq) =
+                                                                                                        task_vm::prepare_rooted_user_launch_csr_sequence(
+                                                                                                            &probe_frame,
+                                                                                                            enter_scratch,
+                                                                                                            rooted_commit,
+                                                                                                            root_install.satp,
+                                                                                                        )
+                                                                                                    {
+                                                                                                        if rooted_seq.root_satp
+                                                                                                            == root_install.satp
+                                                                                                            && rooted_seq
+                                                                                                                .sequence
+                                                                                                                .satp
+                                                                                                                == root_install
+                                                                                                                    .satp
+                                                                                                            && rooted_seq
+                                                                                                                .sequence
+                                                                                                                .sepc
+                                                                                                                == probe_frame
+                                                                                                                    .sepc
+                                                                                                        {
+                                                                                                            console::puts(
+                                                                                                                "[chapter] ch75 rooted user launch satp\n",
+                                                                                                            );
+                                                                                                        }
+                                                                                                    }
                                                                                                 }
                                                                                             }
                                                                                         }

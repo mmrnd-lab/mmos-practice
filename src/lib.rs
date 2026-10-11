@@ -87,7 +87,8 @@ mod tests {
     };
     use super::task_vm::{
         address_space_switch_for_decision, apply_address_space_switch,
-        prepare_satp_commit, prepare_satp_hardware_commit, prepare_user_launch_csr_sequence,
+        prepare_rooted_user_launch_csr_sequence, prepare_satp_commit,
+        prepare_satp_hardware_commit, prepare_user_launch_csr_sequence,
         SatpHardwareCommitError,
     };
     use super::syscall::{
@@ -2454,6 +2455,32 @@ mod tests {
         assert!(sequence.sfence_vma_after_satp);
         assert_eq!(sequence.sepc, frame.sepc);
         assert_eq!(sequence.user_sp, frame.sp());
+    }
+
+    #[test]
+    fn rooted_user_launch_csr_sequence_uses_root_storage_satp() {
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4001_0000;
+        frame.set_sp(0x4010_0000);
+        let scratch = prepare_enter_user_scratch(&frame).unwrap();
+        let root_satp = make_satp(0x22222, 0);
+        let commit = prepare_satp_commit(
+            make_satp(0x11111, 0),
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 2,
+                active_satp: root_satp,
+            },
+        );
+
+        let rooted =
+            prepare_rooted_user_launch_csr_sequence(&frame, scratch, commit, root_satp).unwrap();
+
+        assert_eq!(rooted.root_satp, root_satp);
+        assert_eq!(rooted.sequence.satp, root_satp);
+        assert_eq!(rooted.sequence.sscratch, scratch.sscratch);
+        assert_eq!(rooted.sequence.sepc, frame.sepc);
+        assert_eq!(rooted.sequence.user_sp, frame.sp());
     }
 
     #[test]

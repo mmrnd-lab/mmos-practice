@@ -129,10 +129,22 @@ pub struct UserLaunchCsrSequence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RootedUserLaunchCsrSequence {
+    pub root_satp: usize,
+    pub sequence: UserLaunchCsrSequence,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserLaunchCsrError {
     Scratch(KernelTrapStackError),
     UserSpMismatch { frame_sp: usize, scratch_user_sp: usize },
     Satp(SatpHardwareCommitError),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootedUserLaunchCsrError {
+    Sequence(UserLaunchCsrError),
+    SatpMismatch { root_satp: usize, sequence_satp: usize },
 }
 
 pub fn prepare_user_launch_csr_sequence(
@@ -155,6 +167,28 @@ pub fn prepare_user_launch_csr_sequence(
         sfence_vma_after_satp: hardware.flush_after_write,
         sepc: frame.sepc,
         user_sp: frame.sp(),
+    })
+}
+
+pub fn prepare_rooted_user_launch_csr_sequence(
+    frame: &TrapFrame,
+    scratch: TrapEntryScratch,
+    commit: SatpCommitPlan,
+    root_satp: usize,
+) -> Result<RootedUserLaunchCsrSequence, RootedUserLaunchCsrError> {
+    let sequence = prepare_user_launch_csr_sequence(frame, scratch, commit)
+        .map_err(RootedUserLaunchCsrError::Sequence)?;
+
+    if sequence.satp != root_satp {
+        return Err(RootedUserLaunchCsrError::SatpMismatch {
+            root_satp,
+            sequence_satp: sequence.satp,
+        });
+    }
+
+    Ok(RootedUserLaunchCsrSequence {
+        root_satp,
+        sequence,
     })
 }
 
