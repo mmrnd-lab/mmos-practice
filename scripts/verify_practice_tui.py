@@ -1298,6 +1298,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user launch sequence is bound to the satp derived from root storage",
     ),
     ChapterSet(
+        key="ch76_process_root_satp_token",
+        label="Ch76 Process Root SATP Token",
+        commit_candidates=["5bb0358"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch76 process root satp token",
+                    "[chapter] ch75 rooted user launch satp",
+                    "[chapter] ch74 root page table storage",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=process address-space token is rebound to root storage satp",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

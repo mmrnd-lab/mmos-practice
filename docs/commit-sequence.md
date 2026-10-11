@@ -254,6 +254,11 @@
     - root storage 기반 `satp`와 launch sequence `satp`가 어긋나면 user 진입 경계로 넘기지 않도록 테스트와 런타임 probe로 검증
 
 
+68. `5bb0358` `feat(ch76): rebind process token to root satp`
+    - process table이 보관하는 address-space token을 root page table storage에서 나온 `satp`로 갱신하는 경로를 추가
+    - scheduler가 고른 next task의 owner process를 따라 조회한 `satp`가 root storage 기반 값으로 바뀌는지 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
