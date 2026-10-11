@@ -224,6 +224,11 @@
     - 첫 trap entry stack swap이 kernel stack을 활성화하고 user sp를 보존해야 함을 테스트와 런타임 probe로 검증
 
 
+62. `bf7fec6` `feat(ch70): switch trap entry to kernel stack`
+    - RISC-V trap entry assembly의 첫 동작을 `csrrw sp, sscratch, sp` 기반 stack switch로 교체
+    - trap return 직전에 `sscratch`를 kernel frame sp로 복구해 다음 user trap이 같은 계약으로 다시 진입할 수 있음을 검증
+
+
 ## Reproduce Example
 
 ```bash
