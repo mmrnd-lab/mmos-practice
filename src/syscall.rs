@@ -705,6 +705,37 @@ pub fn dispatch_current_execv_syscall_from_runtime<
     }
 }
 
+pub fn dispatch_current_execv_frame_from_runtime<
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &crate::trap::TrapFrame,
+    ctx: CurrentExecvRuntimeContext<
+        '_,
+        '_,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+) -> SyscallResult {
+    let Some(syscall) = decode_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()) else {
+        return SyscallResult::Unsupported;
+    };
+    dispatch_current_execv_syscall_from_runtime::<
+        MAX_ARGS,
+        ARG_BYTES,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(syscall, ctx)
+}
+
 pub fn handle_process_execv_syscall(
     _report: crate::trap_runtime::ProcessExecRuntime,
 ) -> SyscallResult {

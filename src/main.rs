@@ -127,6 +127,10 @@ static mut CH110_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
     [0; demo_user_init::DEMO_INIT_ELF_SIZE];
 static mut CH110_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
     [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+static mut CH111_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
+    [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+static mut CH111_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
+    [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -725,6 +729,7 @@ pub extern "C" fn rust_main() -> ! {
     run_current_execv_syscall_runtime_demo();
     run_execv_dispatch_context_demo();
     run_execv_runtime_context_demo();
+    run_execv_frame_dispatch_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1858,6 +1863,87 @@ fn run_execv_runtime_context_demo() {
     {
         console::puts("[chapter] ch110 execv runtime context lookup\n");
         console::puts("[syscall] execve runtime-vm current=1 ret=0 entry=0x40000000\n");
+    }
+}
+
+fn run_execv_frame_dispatch_demo() {
+    const BASE: usize = 0x7000_0000;
+    const PATH: usize = BASE;
+    const ARG0: usize = BASE + 0x40;
+    const ARGV: usize = BASE + 0x100;
+    let mut user_mem = [0u8; 512];
+    put_cstr(&mut user_mem, PATH - BASE, b"/sbin/init");
+    put_cstr(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+    put_usize(&mut user_mem, ARGV - BASE, ARG0);
+    put_usize(
+        &mut user_mem,
+        ARGV - BASE + core::mem::size_of::<usize>(),
+        0,
+    );
+
+    let (elf, image) = unsafe { (&mut CH111_INIT_ELF, &mut CH111_EXT4_IMAGE) };
+    let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
+        return;
+    };
+    if demo_user_init::build_demo_ext4_image(image, &elf[..elf_len]).is_err() {
+        return;
+    }
+    let dev = ramdisk::RamDisk::new("ramblk0", image, 512);
+    let Ok(vfs) = vfs::Vfs::mount_ext4(&dev) else {
+        return;
+    };
+
+    let mut process_vm = vm::VmSpace::<2>::new();
+    if process_vm
+        .map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R)
+        .is_err()
+    {
+        return;
+    }
+
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(pid) = runtime.create_process(None, process_vm) else {
+        return;
+    };
+    let mut frame = trap::TrapFrame::default();
+    frame.sepc = 0x4000_1000;
+    frame.set_sp(0x4010_1000);
+    if runtime.add_runnable_task(1, pid, frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let mut syscall_frame = trap::TrapFrame::default();
+    syscall_frame.set_a7(syscall::SYS_EXECVE);
+    syscall_frame.set_a0(PATH);
+    syscall_frame.set_a1(ARGV);
+    syscall_frame.set_a2(0);
+
+    let mut scratch = [0u8; 512];
+    let mut stack = [0u8; 256];
+    let result = syscall::dispatch_current_execv_frame_from_runtime::<4, 64, 4, 2, 2, 5>(
+        &syscall_frame,
+        syscall::CurrentExecvRuntimeContext {
+            runtime: &mut runtime,
+            user_bytes: &user_mem,
+            user_base: BASE,
+            vfs: &vfs,
+            scratch: &mut scratch,
+            stack_bytes: &mut stack,
+            stack_top_va: 0x4010_0000,
+            new_vm: vm::VmSpace::<2>::new(),
+        },
+    );
+
+    let Some(exec_frame) = runtime.task_frame(1) else {
+        return;
+    };
+    if result.is_ok_continue_zero()
+        && syscall_frame.a7() == syscall::SYS_EXECVE
+        && exec_frame.sepc == 0x4000_0000
+    {
+        console::puts("[chapter] ch111 execv frame dispatch\n");
+        console::puts("[syscall] execve frame a7=221 ret=0 entry=0x40000000\n");
     }
 }
 

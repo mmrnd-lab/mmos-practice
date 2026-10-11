@@ -1868,6 +1868,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve dispatch builds checked user memory from the current process VM",
     ),
     ChapterSet(
+        key="ch111_execv_frame_dispatch",
+        label="Ch111 Execv Frame Dispatch",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch111 execv frame dispatch",
+                    "[syscall] execve frame a7=221 ret=0 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve dispatch decodes syscall arguments from a trap frame register snapshot",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
