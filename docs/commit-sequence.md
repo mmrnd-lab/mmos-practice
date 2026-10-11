@@ -464,6 +464,12 @@
     - state는 boot/runtime 보관소로 올라갈 수 있는 재사용 재료를 들고, process runtime은 current process/task 경계를 처리
     - QEMU runtime marker에서 `[chapter] ch118 execv dispatch state`, `[trap] execve dispatch state routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+106. `2c1dde9` `feat(ch119): prepare execve trap dispatch plan`
+    - `ExecvTrapDispatchPlan`을 추가해 stack top과 buffer 크기 상수를 boot/runtime 준비 값으로 분리
+    - plan이 VFS를 받아 `ExecvTrapDispatchState`를 준비하도록 연결해 state 생성 위치를 한 단계 더 명확히 함
+    - caller는 dispatch state를 직접 생성하지 않고 plan을 준비한 뒤 `prepare(&vfs)`로 state를 만든다
+    - QEMU runtime marker에서 `[chapter] ch119 execv dispatch plan`, `[trap] execve dispatch plan routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
