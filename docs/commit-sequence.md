@@ -561,3 +561,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - recipe가 `into_input()`으로 `ExecvPreparedEntryInput`을 만들도록 하고, store의 `entry_input()`은 recipe 하나만 받도록 변경
     - demo와 unit test는 source/replacement VM을 recipe로 구성한 뒤 helper input으로 변환
     - QEMU runtime marker에서 `[chapter] ch131 execv entry recipe`, `[trap] execve entry recipe routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
+119. `4241e97` `feat(ch132): build execve entry recipe at store boundary`
+    - `PreparedExecvEntryStore::entry_recipe()`를 추가해 prepared entry recipe 생성 책임을 store 경계로 이동
+    - demo와 unit test는 `ExecvPreparedEntryRecipe::new()`를 직접 호출하지 않고 store helper를 통해 recipe를 구성
+    - `entry_input()`은 계속 recipe 하나만 받아 최종 `ExecvPreparedEntryInput`으로 변환
+    - QEMU runtime marker에서 `[chapter] ch132 execv recipe store boundary`, `[trap] execve recipe store boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
