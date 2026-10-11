@@ -1780,7 +1780,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch106_execv_apply_pipeline",
         label="Ch106 Execv Apply Pipeline",
-        commit_candidates=["HEAD"],
+        commit_candidates=["941f4d8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
