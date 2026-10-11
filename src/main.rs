@@ -3093,6 +3093,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] exec dispatch path can select the shared object aware apply runtime\n");
     console::puts("[chapter] ch168 user crt entry main\n");
     console::puts("[user-crt] _start decodes initial stack before app main\n");
+    console::puts("[chapter] ch169 user main startup args\n");
+    console::puts("[user-crt] app main can observe argv and envp pointers from CRT\n");
 }
 
 fn run_kernel_satp_guard_demo() {

@@ -22,6 +22,7 @@ const SYS_EXIT: usize = 93;
 const AT_FDCWD: usize = (-100isize) as usize;
 const O_RDONLY: usize = 0;
 const O_WRONLY: usize = 1;
+const STARTUP_CSTR_MAX: usize = 256;
 
 unsafe extern "C" {
     fn main(argc: usize, argv: *const *const u8, envp: *const *const u8) -> i32;
@@ -70,6 +71,20 @@ pub fn openat(dirfd: usize, path: &[u8], flags: usize) -> isize {
 
 pub fn write(fd: usize, bytes: &[u8]) -> isize {
     syscall3(SYS_WRITE, fd, bytes.as_ptr() as usize, bytes.len()) as isize
+}
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn write_startup_cstr(fd: usize, ptr: *const u8) -> isize {
+    if ptr.is_null() {
+        return 0;
+    }
+
+    let mut len = 0usize;
+    while len < STARTUP_CSTR_MAX && unsafe { ptr.add(len).read() } != 0 {
+        len += 1;
+    }
+    let bytes = unsafe { core::slice::from_raw_parts(ptr, len) };
+    write(fd, bytes)
 }
 
 pub fn init_stdio_console() {
