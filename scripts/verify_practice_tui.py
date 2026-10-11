@@ -629,6 +629,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=copyin checks the current user VM area permissions before copying",
     ),
     ChapterSet(
+        key="ch39_fd_write_syscall",
+        label="Ch39 FD Write Syscall",
+        commit_candidates=["9e538dd"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch39 fd write syscall",
+                    "[chapter] ch38 vm checked copyin",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=write(fd, user_buf, len) uses process fd table after checked copyin",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

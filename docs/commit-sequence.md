@@ -98,6 +98,9 @@
 32. `dc4ae0e` `feat(ch38): check copyin against user vm areas`
     - `VmSpace::allows_range()`와 `CheckedUserSlice`를 추가해 copyin 전에 user VM area 권한을 확인
     - read 권한이 없는 영역과 영역 밖으로 넘어가는 copyin을 거부하도록 syscall helper 테스트 보강
+33. `9e538dd` `feat(ch39): route checked write syscall through fd table`
+    - `write(fd, user_buf, len)` 형태의 syscall helper를 추가해 checked copyin 결과를 현재 process fd table의 open file write로 전달
+    - bad fd, 권한 오류, user pointer 오류를 syscall errno 형태로 구분해 반환하도록 테스트 보강
 
 
 ## Reproduce Example
