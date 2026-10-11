@@ -67,8 +67,9 @@ mod tests {
     use super::device::{Device, DeviceKind};
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
     use super::elf_loader::{
+        calculate_relative_relocation, calculate_relative_relocation_plan,
         collect_shared_object_relocations, inspect_shared_object_dynamic, load_init_from_vfs,
-        load_user_elf, parse_elf_header,
+        load_user_elf, parse_elf_header, SharedObjectRelocationCandidate,
         pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load, ElfError,
         ElfFileType,
     };
@@ -2933,6 +2934,44 @@ mod tests {
         write_le64_at(&mut elf, 0x1d8, 0);
         let plan = collect_shared_object_relocations(&elf).unwrap();
         assert_eq!(plan.candidate_count, 0);
+    }
+
+    #[test]
+    fn relative_relocation_candidate_calculates_base_plus_addend() {
+        let candidate = SharedObjectRelocationCandidate {
+            offset: 0x1f08,
+            reloc_type: 3,
+            symbol_index: 0,
+            addend: 0x40,
+        };
+        let apply = calculate_relative_relocation(candidate, 0x5000_0000).unwrap();
+        assert_eq!(apply.target_offset, 0x1f08);
+        assert_eq!(apply.value, 0x5000_0040);
+    }
+
+    #[test]
+    fn relative_relocation_rejects_symbol_based_candidate() {
+        let candidate = SharedObjectRelocationCandidate {
+            offset: 0x1f08,
+            reloc_type: 3,
+            symbol_index: 2,
+            addend: 0x40,
+        };
+        assert_eq!(
+            calculate_relative_relocation(candidate, 0x5000_0000),
+            Err(ElfError::RelocationRequiresSymbol)
+        );
+    }
+
+    #[test]
+    fn relative_relocation_plan_calculates_supported_candidates() {
+        let mut elf = build_test_relocation_metadata_elf();
+        write_le64_at(&mut elf, 0x208, 3);
+        let plan = collect_shared_object_relocations(&elf).unwrap();
+        let applies = calculate_relative_relocation_plan(&plan, 0x5000_0000).unwrap();
+
+        assert_eq!(applies[0].unwrap().target_offset, 0x1f08);
+        assert_eq!(applies[0].unwrap().value, 0x5000_0040);
     }
 
     #[test]

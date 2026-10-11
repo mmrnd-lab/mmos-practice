@@ -2647,6 +2647,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=turns RELA records into relocation apply candidates without writing memory yet",
     ),
     ChapterSet(
+        key="ch154_relative_relocation_apply_value",
+        label="Ch154 Relative Relocation Apply Value",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-relative-apply",
+                "make shared-object-relative-apply PROFILE=release",
+                must_contain=(
+                    "[user-link] relative-relocation=R_RISCV_RELATIVE formula=base+addend",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch154 relative relocation apply value",
+                    "[user-link] R_RISCV_RELATIVE computes relocation value as base plus addend",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=calculates R_RISCV_RELATIVE relocation values without writing memory yet",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

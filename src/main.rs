@@ -3065,6 +3065,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] dynamic segment exposes RELA metadata before relocation apply\n");
     console::puts("[chapter] ch153 shared object relocation candidates\n");
     console::puts("[user-link] RELA records are scanned into relocation apply candidates\n");
+    console::puts("[chapter] ch154 relative relocation apply value\n");
+    console::puts("[user-link] R_RISCV_RELATIVE computes relocation value as base plus addend\n");
 }
 
 fn run_kernel_satp_guard_demo() {

@@ -22,6 +22,7 @@ const MAX_LOAD_SEGMENTS: usize = 4;
 const DYNAMIC_ENTRY_SIZE: usize = 16;
 const RELA_ENTRY_SIZE: usize = 24;
 const MAX_RELOCATION_CANDIDATES: usize = 8;
+const R_RISCV_RELATIVE: u32 = 3;
 const DT_NULL: i64 = 0;
 const DT_RELA: i64 = 7;
 const DT_RELASZ: i64 = 8;
@@ -45,6 +46,8 @@ pub enum ElfError {
     BadDynamicEntry,
     BadRelocationEntry,
     TooManyRelocations,
+    UnsupportedRelocationType,
+    RelocationRequiresSymbol,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -155,6 +158,12 @@ pub struct SharedObjectRelocationCandidate {
 pub struct SharedObjectRelocationPlan {
     pub candidates: [Option<SharedObjectRelocationCandidate>; MAX_RELOCATION_CANDIDATES],
     pub candidate_count: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectRelocationApply {
+    pub target_offset: usize,
+    pub value: usize,
 }
 
 impl SharedObjectDynamicInfo {
@@ -319,6 +328,37 @@ pub fn inspect_shared_object_dynamic(bytes: &[u8]) -> Result<SharedObjectDynamic
     }
 
     Err(ElfError::NoDynamicSegment)
+}
+
+pub fn calculate_relative_relocation(
+    candidate: SharedObjectRelocationCandidate,
+    load_base: usize,
+) -> Result<SharedObjectRelocationApply, ElfError> {
+    if candidate.reloc_type != R_RISCV_RELATIVE {
+        return Err(ElfError::UnsupportedRelocationType);
+    }
+    if candidate.symbol_index != 0 {
+        return Err(ElfError::RelocationRequiresSymbol);
+    }
+
+    Ok(SharedObjectRelocationApply {
+        target_offset: candidate.offset,
+        value: load_base.wrapping_add(candidate.addend as usize),
+    })
+}
+
+pub fn calculate_relative_relocation_plan(
+    plan: &SharedObjectRelocationPlan,
+    load_base: usize,
+) -> Result<[Option<SharedObjectRelocationApply>; MAX_RELOCATION_CANDIDATES], ElfError> {
+    let mut applies = [None; MAX_RELOCATION_CANDIDATES];
+    let mut index = 0usize;
+    while index < plan.candidate_count {
+        let candidate = plan.candidates[index].ok_or(ElfError::BadRelocationEntry)?;
+        applies[index] = Some(calculate_relative_relocation(candidate, load_base)?);
+        index += 1;
+    }
+    Ok(applies)
 }
 
 pub fn collect_shared_object_relocations(bytes: &[u8]) -> Result<SharedObjectRelocationPlan, ElfError> {
