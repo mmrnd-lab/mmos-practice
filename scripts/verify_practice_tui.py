@@ -2998,6 +2998,33 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=CRT _start decodes initial stack before app main",
     ),
     ChapterSet(
+        key="ch169_user_main_startup_args",
+        label="Ch169 User Main Startup Args",
+        commit_candidates=["c80683e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-main-startup-args",
+                "make user-main-startup-args PROFILE=release",
+                must_contain=(
+                    "[user-crt] main-observes=argv0+env0 startup-cstr-bound=256",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch169 user main startup args",
+                    "[user-crt] app main can observe argv and envp pointers from CRT",
+                    "[user-init] argv0=/sbin/init",
+                    "[user-init] env0=PATH=/bin",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=user main prints argv0 and env0 from startup ABI pointers",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

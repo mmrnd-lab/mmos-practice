@@ -771,3 +771,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `user/init`은 `_start()` 대신 `main()`을 구현하고 반환 코드는 CRT `exit()` 경로로 처리
     - `make user-crt-entry` 타깃과 verifier가 `_start`/`main` symbol 및 runtime handoff marker를 함께 확인
     - QEMU runtime marker에서 `[chapter] ch168 user crt entry main`, `[user-init] main reached through crt entry` 확인
+
+152. `c80683e` `feat(ch169): print user main startup args`
+    - CRT가 startup ABI pointer에서 bounded NUL-terminated bytes를 출력하는 `write_startup_cstr()` helper를 제공
+    - `user/init::main()`이 `argc`, `argv[0]`, `envp[0]`를 직접 받아 first launch stack의 argument와 environment를 관찰
+    - `make user-main-startup-args` 타깃과 verifier가 startup C-string helper 및 runtime output을 확인
+    - QEMU runtime marker에서 `[chapter] ch169 user main startup args`, `[user-init] argv0=/sbin/init`, `[user-init] env0=PATH=/bin` 확인
