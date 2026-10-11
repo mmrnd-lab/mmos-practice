@@ -79,6 +79,10 @@
     - `OpenFile`과 `FileDescriptorTable`을 추가해 fd가 프로세스별 open file 슬롯 인덱스임을 코드로 고정
     - `stdin/stdout/stderr`를 console 문자 장치에 preopen하고 `write(1, ...)`이 fd table을 거치도록 변경
 
+28. `6fcbf7a` `feat(ch34): add devfs namespace device nodes`
+    - `/`, `/dev`, `/dev/console`을 해석하는 최소 devfs namespace를 추가
+    - character/block device node를 표현하고 console device node를 `OpenFile`로 연결
+
 
 ## Reproduce Example
 

@@ -534,6 +534,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=write(1, ...) resolves through the preopened fd table stdout slot",
     ),
     ChapterSet(
+        key="ch34_devfs_device_nodes",
+        label="Ch34 DevFS Namespace and Device Nodes",
+        commit_candidates=["6fcbf7a"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch34 devfs device nodes",
+                    "[chapter] ch33 fd table stdio",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=/dev/console resolves through the devfs namespace model",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
