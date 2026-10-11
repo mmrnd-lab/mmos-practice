@@ -22,5 +22,20 @@ pub fn console_putchar(ch: u8) {
     let _ = sbi_call(1, ch as usize, 0, 0);
 }
 
+#[cfg(target_arch = "riscv64")]
+pub fn console_getchar() -> Option<u8> {
+    let value = sbi_call(2, 0, 0, 0);
+    if value == usize::MAX {
+        None
+    } else {
+        Some(value as u8)
+    }
+}
+
 #[cfg(not(target_arch = "riscv64"))]
 pub fn console_putchar(_ch: u8) {}
+
+#[cfg(not(target_arch = "riscv64"))]
+pub fn console_getchar() -> Option<u8> {
+    None
+}

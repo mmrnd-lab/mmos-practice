@@ -4,6 +4,7 @@
 
 
 const SYS_OPENAT: usize = 56;
+const SYS_READ: usize = 63;
 const SYS_WRITE: usize = 64;
 const SYS_EXIT: usize = 93;
 const AT_FDCWD: usize = (-100isize) as usize;
@@ -62,6 +63,10 @@ pub fn openat(dirfd: usize, path: &[u8], flags: usize) -> isize {
 
 pub fn write(fd: usize, bytes: &[u8]) -> isize {
     syscall3(SYS_WRITE, fd, bytes.as_ptr() as usize, bytes.len()) as isize
+}
+
+pub fn read(fd: usize, bytes: &mut [u8]) -> isize {
+    syscall3(SYS_READ, fd, bytes.as_mut_ptr() as usize, bytes.len()) as isize
 }
 
 #[unsafe(no_mangle)]

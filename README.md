@@ -55,6 +55,22 @@ make boot-disk PROFILE=release
 - 현재 링크 모델은 `init=ET_EXEC`, `crt=rlib`, `libc=rlib`, `shared-object=no`이다.
 - shared object loader 실습에서 runtime dependency로 다루는 대상은 CRT가 아니라 `/lib/libmmos_user_libc.so`이다.
 
+## Console stdin 연결 (108장 진행)
+
+108장은 실제 QEMU console 입력이 user program의 `read(0, ...)`까지 도달하는 경로를 연결한다.
+`SerialDevice::read()`는 선택된 console backend에서 한 byte를 받고, 최초 user process가 사용하는
+간단한 syscall dispatcher도 `SYS_READ`를 user buffer copyout과 함께 처리한다.
+
+기존 `/sbin/init` 회귀 검증은 입력을 기다리지 않도록 유지한다. 별도 `user/stdin-probe` ELF를
+`/sbin/init` 위치에 넣은 `build/stdin-probe.img`로 interactive 경로를 독립 검증한다.
+
+```bash
+make run-stdin-probe PROFILE=release INPUT_BYTE=K RUN_SECONDS=6
+```
+
+성공 기준은 `[stdin-probe] received=K`와 `[user-init] exit=0`이다. 다음 단계에서는 이 raw byte 입력을
+line reader와 shell prompt로 확장한다.
+
 ## 실제 `/sbin/init` 로딩 경로 (27장 이후)
 
 현재 런타임 통합 경로는 메모리 안에서 만든 데모 ext4 이미지를 주 경로로 사용하지 않는다.

@@ -37,8 +37,22 @@ impl Device for SerialDevice {
 }
 
 impl CharacterDevice for SerialDevice {
-    fn read(&self, _out: &mut [u8]) -> Result<usize, CharError> {
-        Err(CharError::Unsupported)
+    fn read(&self, out: &mut [u8]) -> Result<usize, CharError> {
+        if out.is_empty() {
+            return Ok(0);
+        }
+
+        #[cfg(target_arch = "riscv64")]
+        {
+            out[0] = crate::uart::read_byte_at(self.base);
+            Ok(1)
+        }
+
+        #[cfg(not(target_arch = "riscv64"))]
+        {
+            let _ = out;
+            Err(CharError::Unsupported)
+        }
     }
 
     fn write(&self, bytes: &[u8]) -> Result<usize, CharError> {

@@ -39,6 +39,18 @@ impl Uart {
         core::ptr::write_volatile(thr, c);
     }
 
+    #[inline(always)]
+    unsafe fn try_read_byte(&mut self) -> Option<u8> {
+        let lsr = (self.base + 0x05) as *const u8;
+        let rbr = (self.base + 0x00) as *const u8;
+
+        if core::ptr::read_volatile(lsr) & 0x01 == 0 {
+            None
+        } else {
+            Some(core::ptr::read_volatile(rbr))
+        }
+    }
+
     pub unsafe fn init(&mut self) {
         let lcr = (self.base + 0x03) as *mut u8;
         let ier = (self.base + 0x01) as *mut u8;
@@ -89,6 +101,16 @@ pub fn put_bytes(bytes: &[u8]) {
     put_bytes_at(0, bytes);
 }
 
+#[cfg(feature = "console-sbi")]
+pub fn read_byte_at(_base: usize) -> u8 {
+    loop {
+        if let Some(byte) = sbi::console_getchar() {
+            return byte;
+        }
+        core::hint::spin_loop();
+    }
+}
+
 #[cfg(feature = "console-mmio")]
 pub fn put_byte_at(base: usize, byte: u8) {
     let mut uart = unsafe { Uart::from_base(base) };
@@ -127,4 +149,20 @@ pub fn put_bytes_at(base: usize, bytes: &[u8]) {
 #[cfg(feature = "console-mmio")]
 pub fn put_bytes(bytes: &[u8]) {
     put_bytes_at(UART0_BASE, bytes);
+}
+
+#[cfg(feature = "console-mmio")]
+pub fn read_byte_at(base: usize) -> u8 {
+    let mut uart = unsafe { Uart::from_base(base) };
+
+    if !UART_READY.swap(true, Ordering::AcqRel) {
+        unsafe { uart.init() };
+    }
+
+    loop {
+        if let Some(byte) = unsafe { uart.try_read_byte() } {
+            return byte;
+        }
+        core::hint::spin_loop();
+    }
 }

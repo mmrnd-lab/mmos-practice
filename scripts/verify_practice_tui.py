@@ -3076,6 +3076,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=libc helper resolves PATH value from envp table",
     ),
     ChapterSet(
+        key="ch108_console_stdin",
+        label="Ch108 Console Stdin to User Read",
+        commit_candidates=["ch108_console_stdin"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-stdin-probe",
+                "make run-stdin-probe PROFILE=release INPUT_BYTE=K RUN_SECONDS=6",
+                must_contain=(
+                    "[stdin-probe] type one byte:",
+                    "[stdin-probe] received=K",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=QEMU console byte reaches user read(0) buffer",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

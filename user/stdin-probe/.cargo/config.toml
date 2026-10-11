@@ -1,0 +1,5 @@
+# Copyright 2026 Sungjae Park
+# SPDX-License-Identifier: Apache-2.0
+
+[build]
+target = "riscv64gc-unknown-none-elf"

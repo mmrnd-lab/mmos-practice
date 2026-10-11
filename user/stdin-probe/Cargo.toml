@@ -1,0 +1,17 @@
+# Copyright 2026 Sungjae Park
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "mmos-user-stdin-probe"
+version = "0.1.0"
+edition = "2021"
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
+
+[dependencies]
+mmos-user-crt = { path = "../crt" }
+mmos-user-libc = { path = "../libc" }

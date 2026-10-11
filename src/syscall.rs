@@ -132,13 +132,39 @@ pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResu
     match decode_syscall(id, a0, a1, a2) {
         Some(Syscall::OpenAt { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Close { .. }) => SyscallResult::Unsupported,
-        Some(Syscall::Read { .. }) => SyscallResult::Unsupported,
+        Some(Syscall::Read { fd, ptr, len }) => handle_read(fd, ptr, len),
         Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
         Some(Syscall::Clone { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Execv { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Wait4 { .. }) => SyscallResult::Unsupported,
         None => SyscallResult::Unsupported,
+    }
+}
+
+#[cfg(target_arch = "riscv64")]
+fn handle_read(fd: usize, ptr: usize, len: usize) -> SyscallResult {
+    if len == 0 {
+        return SyscallResult::Continue(0);
+    }
+
+    let result = crate::user_access::with_user_memory_access(|| {
+        let out = unsafe { core::slice::from_raw_parts_mut(ptr as *mut u8, 1) };
+        let table = crate::fd_table::stdio_table(crate::console::device());
+        table.read(fd, out)
+    });
+    match result {
+        Ok(read) => SyscallResult::Continue(read as isize),
+        Err(error) => errno_result(file_error_errno(error)),
+    }
+}
+
+#[cfg(not(target_arch = "riscv64"))]
+fn handle_read(fd: usize, _ptr: usize, len: usize) -> SyscallResult {
+    if fd == 0 && len == 0 {
+        SyscallResult::Continue(0)
+    } else {
+        SyscallResult::Unsupported
     }
 }
 
