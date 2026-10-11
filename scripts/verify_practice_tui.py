@@ -1798,7 +1798,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch107_execv_syscall_surface",
         label="Ch107 Execv Syscall Surface",
-        commit_candidates=["HEAD"],
+        commit_candidates=["669b534"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
