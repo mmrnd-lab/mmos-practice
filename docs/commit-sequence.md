@@ -334,6 +334,11 @@
     - runtime-owned state에서 exit dispatch를 수행해 owner PCB/TCB 상태 갱신과 next frame restore를 한 경로로 확인
     - QEMU runtime marker에서 `[chapter] ch93 process trap runtime exit`, `[proc] runtime exit owner=1 next=3 restored=0x40003000` 확인
 
+84. `44d1aa1` `feat(ch94): reap process trap runtime zombies`
+    - process-aware trap runtime에 zombie process reap 경로를 추가하고 exit code를 회수
+    - reaped process owner의 TCB와 scheduler slot을 제거해 다음 process만 runnable table에 남는지 확인
+    - QEMU runtime marker에서 `[chapter] ch94 process trap runtime reap`, `[proc] runtime reap pid=1 code=0 tasks=2 sched=2 next=3` 확인
+
 
 ## Reproduce Example
 

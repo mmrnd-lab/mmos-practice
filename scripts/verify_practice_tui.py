@@ -1598,6 +1598,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-aware trap runtime owns process/task tables and dispatches exit to the next process frame",
     ),
     ChapterSet(
+        key="ch94_process_trap_runtime_reap",
+        label="Ch94 Process Trap Runtime Reap",
+        commit_candidates=["44d1aa1"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch94 process trap runtime reap",
+                    "[proc] runtime reap pid=1 code=0 tasks=2 sched=2 next=3",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process-aware trap runtime reaps the exited owner and removes its task slots",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
