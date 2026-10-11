@@ -777,3 +777,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `user/init::main()`이 `argc`, `argv[0]`, `envp[0]`를 직접 받아 first launch stack의 argument와 environment를 관찰
     - `make user-main-startup-args` 타깃과 verifier가 startup C-string helper 및 runtime output을 확인
     - QEMU runtime marker에서 `[chapter] ch169 user main startup args`, `[user-init] argv0=/sbin/init`, `[user-init] env0=PATH=/bin` 확인
+
+153. `9f618e5` `feat(ch170): copy execve envp into user stack`
+    - `ExecvArgBlock`이 `envp` pointer table에서 environment C string 값을 copyin하고 env count/length를 보존
+    - `materialize_execv_stack()`이 `argc`, `argv[]`, `argv NULL`, `envp[]`, `envp NULL` 순서로 replacement stack을 구성
+    - syscall/exec apply 경로가 decoded `envp_ptr`를 더 이상 버리지 않고 argument copy/materialize 단계까지 전달
+    - null `envp_ptr`는 기존 호출 호환성을 위해 empty environment로 처리
+    - QEMU runtime marker에서 `[chapter] ch170 execve envp copyin`, `[syscall] execve envp0=PATH=/bin stack_envc=1` 확인

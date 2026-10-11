@@ -3025,6 +3025,32 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user main prints argv0 and env0 from startup ABI pointers",
     ),
     ChapterSet(
+        key="ch170_execve_envp_copyin",
+        label="Ch170 Execve Envp Copyin",
+        commit_candidates=["9f618e5"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "execve-envp-copyin",
+                "make execve-envp-copyin PROFILE=release",
+                must_contain=(
+                    "[syscall] execve-envp-copyin=path+argv+envp stack-envp-table",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch170 execve envp copyin",
+                    "[syscall] execve envp0=PATH=/bin stack_envc=1",
+                    "[user-init] env0=PATH=/bin",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve copies envp table into replacement user stack",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
