@@ -537,3 +537,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
 
 - SATP 활성화 + per-process 주소공간 전환까지 포함한 full context switch 연결
 - 사용자 포인터 검증(경계/권한 검사)과 copyin/copyout 헬퍼 계층 분리
+
+115. `76e85f8` `feat(ch128): prepare execve entry input at store boundary`
+    - `PreparedExecvEntryStore::entry_input()`을 추가해 dispatch input 생성을 prepared entry store 경계로 이동
+    - demo와 unit test는 `ExecvPreparedEntryInput` literal 대신 store가 만든 input을 helper에 전달
+    - verifier는 `ch128_execv_entry_input_boundary` 세트를 추가하고 QEMU marker를 확인
+    - QEMU runtime marker에서 `[chapter] ch128 execv entry input boundary`, `[trap] execve entry input boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인

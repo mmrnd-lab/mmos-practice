@@ -2176,7 +2176,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch128_execv_entry_input_boundary",
         label="Ch128 Execv Entry Input Boundary",
-        commit_candidates=["HEAD"],
+        commit_candidates=["76e85f8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
