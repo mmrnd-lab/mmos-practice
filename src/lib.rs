@@ -102,7 +102,7 @@ mod tests {
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall, BlockingReadResult,
-        handle_process_wait4_checked_user_syscall,
+        handle_process_fork_syscall, handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
@@ -2240,6 +2240,65 @@ mod tests {
         assert_eq!(process_wait_errno(ProcError::NoChild), ECHILD);
         assert_eq!(runtime.task_state(1), Some(TaskState::Running));
         assert_eq!(runtime.current_tid(), Some(1));
+    }
+
+    #[test]
+    fn process_trap_runtime_fork_current_process_links_child_and_wait() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        let mut parent_frame = TrapFrame::default();
+        parent_frame.sepc = 0x4000_0000;
+        parent_frame.set_sp(0x4010_0000);
+        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut child_frame = TrapFrame::default();
+        child_frame.sepc = 0x4000_1000;
+        child_frame.set_sp(0x4010_1000);
+        child_frame.set_a0(0xfeed);
+        let fork = runtime
+            .fork_current_process(2, child_frame, VmSpace::<2>::new())
+            .unwrap();
+
+        assert_eq!(fork.parent_pid, parent_pid);
+        assert_eq!(fork.child_tid, 2);
+        assert_eq!(
+            handle_process_fork_syscall(fork),
+            SyscallResult::Continue(fork.child_pid as isize)
+        );
+        assert_eq!(runtime.current_process_has_children(), Ok(true));
+        assert_eq!(runtime.task_state(2), Some(TaskState::Runnable));
+        assert_eq!(runtime.task_frame(2).unwrap().a0(), 0);
+
+        let mut waiting_parent_frame = TrapFrame::default();
+        assert_eq!(
+            runtime
+                .wait_reap_current_child_or_block(&mut waiting_parent_frame)
+                .unwrap(),
+            ProcessWaitSyscallRuntime::Blocked(TrapDispatchResult::Switched(
+                ScheduleDecision::Switched {
+                    prev_tid: 1,
+                    next_tid: 2,
+                }
+            ))
+        );
+
+        let mut exiting_child_frame = TrapFrame::default();
+        assert_eq!(
+            runtime.dispatch_exit(&mut exiting_child_frame, 2, 23),
+            TrapDispatchResult::Switched(ScheduleDecision::Switched {
+                prev_tid: 2,
+                next_tid: 1,
+            })
+        );
+
+        let wait = runtime.wait_reap_current_child().unwrap();
+        assert_eq!(wait.parent_pid, parent_pid);
+        assert_eq!(wait.child_pid, fork.child_pid);
+        assert_eq!(wait.exit_code, 23);
     }
 
     #[test]

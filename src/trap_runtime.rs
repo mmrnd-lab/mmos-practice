@@ -82,6 +82,13 @@ pub enum ProcessWaitSyscallRuntime {
     Blocked(TrapDispatchResult),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessForkRuntime {
+    pub parent_pid: usize,
+    pub child_pid: usize,
+    pub child_tid: usize,
+}
+
 pub struct TrapRuntime<const MAX_TASKS: usize> {
     scheduler: Scheduler<MAX_TASKS>,
 }
@@ -181,6 +188,23 @@ impl<
             self.processes.get_mut(parent_pid)?.add_child(pid)?;
         }
         Ok(pid)
+    }
+
+    pub fn fork_current_process(
+        &mut self,
+        child_tid: usize,
+        mut child_frame: TrapFrame,
+        child_vm: VmSpace<MAX_AREAS>,
+    ) -> Result<ProcessForkRuntime, ProcError> {
+        let parent_pid = self.current_process_id()?;
+        let child_pid = self.create_process(Some(parent_pid), child_vm)?;
+        child_frame.set_a0(0);
+        self.add_runnable_task(child_tid, child_pid, child_frame)?;
+        Ok(ProcessForkRuntime {
+            parent_pid,
+            child_pid,
+            child_tid,
+        })
     }
 
     pub fn add_runnable_task(
@@ -295,6 +319,10 @@ impl<
 
     pub fn task_state(&self, tid: usize) -> Option<TaskState> {
         self.scheduler.task_state(tid)
+    }
+
+    pub fn task_frame(&self, tid: usize) -> Option<TrapFrame> {
+        self.scheduler.task_frame(tid)
     }
 
     pub fn current_tid(&self) -> Option<usize> {

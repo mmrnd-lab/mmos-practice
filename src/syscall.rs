@@ -391,3 +391,9 @@ pub fn handle_process_wait4_checked_user_syscall<const A: usize>(
 
     SyscallResult::Continue(report.child_pid as isize)
 }
+
+pub fn handle_process_fork_syscall(
+    report: crate::trap_runtime::ProcessForkRuntime,
+) -> SyscallResult {
+    SyscallResult::Continue(report.child_pid as isize)
+}

@@ -685,6 +685,7 @@ pub extern "C" fn rust_main() -> ! {
     run_wait_syscall_surface_demo();
     run_blocking_wait_wakeup_demo();
     run_wait_no_child_boundary_demo();
+    run_minimal_fork_adapter_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1108,6 +1109,74 @@ fn run_wait_no_child_boundary_demo() {
             console::puts("[chapter] ch98 wait no child boundary\n");
             console::puts("[syscall] wait no-child parent=1 errno=10 blocked=0\n");
         }
+    }
+}
+
+fn run_minimal_fork_adapter_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut parent_frame = trap::TrapFrame::default();
+    parent_frame.sepc = 0x4000_0000;
+    parent_frame.set_sp(0x4010_0000);
+    if runtime.add_runnable_task(1, parent_pid, parent_frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let mut child_frame = trap::TrapFrame::default();
+    child_frame.sepc = 0x4000_1000;
+    child_frame.set_sp(0x4010_1000);
+    child_frame.set_a0(0xfeed);
+    let Ok(fork) = runtime.fork_current_process(2, child_frame, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    if syscall::handle_process_fork_syscall(fork)
+        != syscall::SyscallResult::Continue(fork.child_pid as isize)
+    {
+        return;
+    }
+    let Some(child_a0) = runtime.task_frame(2).map(|frame| frame.a0()) else {
+        return;
+    };
+
+    let mut wait_frame = trap::TrapFrame::default();
+    let Ok(trap_runtime::ProcessWaitSyscallRuntime::Blocked(wait_dispatch)) =
+        runtime.wait_reap_current_child_or_block(&mut wait_frame)
+    else {
+        return;
+    };
+    if wait_dispatch
+        != trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+            prev_tid: 1,
+            next_tid: 2,
+        })
+    {
+        return;
+    }
+
+    let mut exit_frame = trap::TrapFrame::default();
+    if runtime.dispatch_exit(&mut exit_frame, 2, 23)
+        != trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+            prev_tid: 2,
+            next_tid: 1,
+        })
+    {
+        return;
+    }
+    let Ok(wait) = runtime.wait_reap_current_child() else {
+        return;
+    };
+
+    if fork.parent_pid == parent_pid
+        && wait.child_pid == fork.child_pid
+        && wait.exit_code == 23
+        && child_a0 == 0
+    {
+        console::puts("[chapter] ch101 minimal fork adapter\n");
+        console::puts("[syscall] fork parent=1 child=2 child_a0=0 wait_status=23\n");
     }
 }
 
