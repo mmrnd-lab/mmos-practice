@@ -6,6 +6,7 @@ use crate::{
     scheduler::ScheduleDecision,
 };
 use crate::sv39::SATP_MODE_SV39;
+use crate::trap::{KernelTrapStackError, TrapEntryScratch, TrapFrame};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct AddressSpaceSwitch {
@@ -116,6 +117,45 @@ pub unsafe fn commit_satp_hardware(plan: SatpHardwareCommitPlan) -> SatpHardware
         active_satp: plan.next_satp,
         flushed_tlb: plan.flush_after_write,
     }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UserLaunchCsrSequence {
+    pub sscratch: usize,
+    pub satp: usize,
+    pub sfence_vma_after_satp: bool,
+    pub sepc: usize,
+    pub user_sp: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserLaunchCsrError {
+    Scratch(KernelTrapStackError),
+    UserSpMismatch { frame_sp: usize, scratch_user_sp: usize },
+    Satp(SatpHardwareCommitError),
+}
+
+pub fn prepare_user_launch_csr_sequence(
+    frame: &TrapFrame,
+    scratch: TrapEntryScratch,
+    commit: SatpCommitPlan,
+) -> Result<UserLaunchCsrSequence, UserLaunchCsrError> {
+    if scratch.user_sp != frame.sp() {
+        return Err(UserLaunchCsrError::UserSpMismatch {
+            frame_sp: frame.sp(),
+            scratch_user_sp: scratch.user_sp,
+        });
+    }
+
+    let hardware = prepare_satp_hardware_commit(commit).map_err(UserLaunchCsrError::Satp)?;
+
+    Ok(UserLaunchCsrSequence {
+        sscratch: scratch.sscratch,
+        satp: hardware.next_satp,
+        sfence_vma_after_satp: hardware.flush_after_write,
+        sepc: frame.sepc,
+        user_sp: frame.sp(),
+    })
 }
 
 #[cfg(target_arch = "riscv64")]

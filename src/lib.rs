@@ -87,7 +87,8 @@ mod tests {
     };
     use super::task_vm::{
         address_space_switch_for_decision, apply_address_space_switch,
-        prepare_satp_commit, prepare_satp_hardware_commit, SatpHardwareCommitError,
+        prepare_satp_commit, prepare_satp_hardware_commit, prepare_user_launch_csr_sequence,
+        SatpHardwareCommitError,
     };
     use super::syscall::{
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
@@ -2405,6 +2406,30 @@ mod tests {
             prepare_satp_hardware_commit(bare),
             Err(SatpHardwareCommitError::UnsupportedMode { mode: 0 })
         );
+    }
+
+    #[test]
+    fn user_launch_csr_sequence_orders_scratch_satp_flush_and_sret_state() {
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4001_0000;
+        frame.set_sp(0x4010_0000);
+        let scratch = prepare_enter_user_scratch(&frame).unwrap();
+        let commit = prepare_satp_commit(
+            make_satp(0x11111, 0),
+            super::task_vm::AppliedAddressSpaceSwitch {
+                prev_tid: 1,
+                next_tid: 2,
+                active_satp: make_satp(0x22222, 0),
+            },
+        );
+
+        let sequence = prepare_user_launch_csr_sequence(&frame, scratch, commit).unwrap();
+
+        assert_eq!(sequence.sscratch, scratch.sscratch);
+        assert_eq!(sequence.satp, make_satp(0x22222, 0));
+        assert!(sequence.sfence_vma_after_satp);
+        assert_eq!(sequence.sepc, frame.sepc);
+        assert_eq!(sequence.user_sp, frame.sp());
     }
 
     #[test]

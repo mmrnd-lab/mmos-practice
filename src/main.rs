@@ -953,6 +953,29 @@ fn run_user_launch_demo() {
                                                                                         console::puts(
                                                                                             "[chapter] ch72 satp hardware commit gate\n",
                                                                                         );
+                                                                                        if let Ok(seq) =
+                                                                                            task_vm::prepare_user_launch_csr_sequence(
+                                                                                                &probe_frame,
+                                                                                                enter_scratch,
+                                                                                                commit,
+                                                                                            )
+                                                                                        {
+                                                                                            if seq.sscratch
+                                                                                                == enter_scratch
+                                                                                                    .sscratch
+                                                                                                && seq.satp
+                                                                                                    == hw.next_satp
+                                                                                                && seq
+                                                                                                    .sfence_vma_after_satp
+                                                                                                && seq.sepc
+                                                                                                    == probe_frame
+                                                                                                        .sepc
+                                                                                            {
+                                                                                                console::puts(
+                                                                                                    "[chapter] ch73 user launch csr sequence\n",
+                                                                                                );
+                                                                                            }
+                                                                                        }
                                                                                     }
                                                                                 }
                                                                             }
