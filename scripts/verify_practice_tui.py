@@ -2897,6 +2897,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=exec image preparation carries the CRT shared object dependency into the loader boundary",
     ),
     ChapterSet(
+        key="ch164_process_exec_shared_object_runtime",
+        label="Ch164 Process Exec Shared Object Runtime",
+        commit_candidates=["6f5addd"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "process-exec-shared-object-runtime",
+                "make process-exec-shared-object-runtime PROFILE=release",
+                must_contain=(
+                    "[user-link] process-exec-runtime preserves shared-object=/lib/libmmos_user_crt.so",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch164 process exec shared object runtime",
+                    "[user-link] process exec result preserves loaded shared object metadata",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process exec result preserves loaded shared object metadata",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

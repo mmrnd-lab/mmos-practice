@@ -742,3 +742,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `ExecPathError::SharedObject`를 추가하고 syscall errno 변환에서 shared object load 실패를 I/O 오류 경계로 분리
     - `make exec-shared-object-dependency` 타깃이 boot disk 안 `/sbin/init`과 CRT shared object dependency가 함께 준비된 상태를 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch163 exec shared object dependency`, `[user-link] exec image preparation carries the CRT shared object dependency` 확인
+
+148. `6f5addd` `feat(ch164): preserve exec shared object runtime`
+    - `ProcessSharedObjectRuntime`을 추가해 process exec 결과에 loaded shared object path, base, entry, mapped page count를 보존
+    - 기존 `exec_task_image()`는 shared object 정보가 없는 경로로 유지하고, `exec_task_image_with_shared_object()`가 shared object metadata를 함께 반환
+    - unit test가 exec context replacement 이후 `ProcessExecRuntime.shared_object`에 CRT shared object load 정보가 남는지 검증
+    - `make process-exec-shared-object-runtime` 타깃이 exec runtime 결과가 shared object metadata를 보존하는 상태를 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch164 process exec shared object runtime`, `[user-link] process exec result preserves loaded shared object metadata` 확인
