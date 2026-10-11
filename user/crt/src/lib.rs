@@ -87,6 +87,52 @@ pub unsafe extern "C" fn write_startup_cstr(fd: usize, ptr: *const u8) -> isize 
     write(fd, bytes)
 }
 
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn write_env_value(
+    fd: usize,
+    envp: *const *const u8,
+    key: *const u8,
+) -> isize {
+    if envp.is_null() || key.is_null() {
+        return 0;
+    }
+
+    let key_len = startup_cstr_len(key);
+    let mut idx = 0usize;
+    while idx < STARTUP_CSTR_MAX {
+        let entry = unsafe { envp.add(idx).read() };
+        if entry.is_null() {
+            return 0;
+        }
+
+        if env_matches_key(entry, key, key_len) {
+            return unsafe { write_startup_cstr(fd, entry.add(key_len + 1)) };
+        }
+        idx += 1;
+    }
+    0
+}
+
+fn startup_cstr_len(ptr: *const u8) -> usize {
+    let mut len = 0usize;
+    while len < STARTUP_CSTR_MAX && unsafe { ptr.add(len).read() } != 0 {
+        len += 1;
+    }
+    len
+}
+
+fn env_matches_key(entry: *const u8, key: *const u8, key_len: usize) -> bool {
+    let mut idx = 0usize;
+    while idx < key_len {
+        if unsafe { entry.add(idx).read() } != unsafe { key.add(idx).read() } {
+            return false;
+        }
+        idx += 1;
+    }
+    let separator = unsafe { entry.add(key_len).read() };
+    separator == b'='
+}
+
 pub fn init_stdio_console() {
     let console = b"/dev/console\0";
     let _ = openat(AT_FDCWD, console, O_RDONLY);

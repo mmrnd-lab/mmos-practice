@@ -3119,6 +3119,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-crt] _start decodes initial stack before app main\n");
     console::puts("[chapter] ch169 user main startup args\n");
     console::puts("[user-crt] app main can observe argv and envp pointers from CRT\n");
+    console::puts("[chapter] ch171 user crt env lookup\n");
+    console::puts("[user-crt] app can ask CRT to print an env value by key\n");
 }
 
 fn run_kernel_satp_guard_demo() {

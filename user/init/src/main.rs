@@ -30,6 +30,10 @@ pub extern "C" fn main(
         let _ = unsafe { crt::write_startup_cstr(1, first_env) };
         let _ = crt::write(1, b"\n");
     }
+    let msg = b"[user-init] getenv PATH=";
+    let _ = crt::write(1, msg);
+    let _ = unsafe { crt::write_env_value(1, envp, b"PATH\0".as_ptr()) };
+    let _ = crt::write(1, b"\n");
     0
 }
 
