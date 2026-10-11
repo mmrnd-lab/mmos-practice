@@ -209,6 +209,11 @@
     - user root에 supervisor-only/global kernel mapping을 함께 둘 수 있음을 검증
 
 
+59. `59ce40a` `feat(ch67): add satp commit preflight`
+    - user entry/stack mapping과 supervisor-only kernel mapping이 함께 준비되었는지 commit 전 조건을 확인
+    - 실제 CSR write 전에 trap stack 전환이 남아 있음을 런타임 probe로 드러냄
+
+
 ## Reproduce Example
 
 ```bash

@@ -1127,6 +1127,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=user space is moved away from the kernel identity mapping slot",
     ),
     ChapterSet(
+        key="ch67_satp_commit_preflight",
+        label="Ch67 SATP Commit Preflight",
+        commit_candidates=["59ce40a"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch67 satp commit preflight",
+                    "[chapter] ch66 user address relocation",
+                    "[chapter] ch65 satp commit boundary",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=user/kernel mappings pass the satp commit preflight",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
