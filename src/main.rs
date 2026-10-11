@@ -8,6 +8,9 @@
 mod block;
 #[allow(dead_code)]
 mod block_io;
+mod serial;
+mod console;
+mod char_device;
 #[allow(dead_code)]
 mod ramdisk;
 #[allow(dead_code)]
@@ -80,9 +83,10 @@ pub extern "C" fn rust_main() -> ! {
     trap::install_trap_vector();
     trap::enable_supervisor_interrupts();
 
-    uart::puts("[mmos-practice] console backend=");
-    uart::puts(CONSOLE_KIND);
-    uart::puts("\n");
+    console::puts("[mmos-practice] console backend=");
+    console::puts(CONSOLE_KIND);
+    console::puts("\n");
+    console::puts("[chapter] ch32 serial character device\n");
 
     let mut boot_tf = trap::TrapFrame::default();
     boot_tf.set_sp(0x8050_0000);
@@ -95,12 +99,12 @@ pub extern "C" fn rust_main() -> ! {
 
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
-        uart::puts("[mmos-practice] user init context prepared (SPP=U)\n");
+        console::puts("[mmos-practice] user init context prepared (SPP=U)\n");
     }
 
     run_scheduler_runtime_demo();
     run_process_runtime_demo();
-    uart::puts("[mmos-practice] trap/irq scaffold ready\n");
+    console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
@@ -109,18 +113,18 @@ pub extern "C" fn rust_main() -> ! {
 
 fn run_scheduler_runtime_demo() {
     // Keep runtime stack footprint small on early boot path.
-    uart::puts("[sched] tick current=1\n");
-    uart::puts("[sched] switch prev=1 next=2\n");
-    uart::puts("[chapter] ch20 scheduler switch\n");
+    console::puts("[sched] tick current=1\n");
+    console::puts("[sched] switch prev=1 next=2\n");
+    console::puts("[chapter] ch20 scheduler switch\n");
 }
 
 fn run_process_runtime_demo() {
     // Keep runtime stack footprint small on early boot path.
-    uart::puts("[chapter] ch21 process model\n");
-    uart::puts("[chapter] ch22 fork exec wait demo\n");
-    uart::puts("[proc] fork parent=1 child=2\n");
-    uart::puts("[proc] exec pid=2 path=/bin/sh\n");
-    uart::puts("[proc] wait reap pid=2 code=0\n");
+    console::puts("[chapter] ch21 process model\n");
+    console::puts("[chapter] ch22 fork exec wait demo\n");
+    console::puts("[proc] fork parent=1 child=2\n");
+    console::puts("[proc] exec pid=2 path=/bin/sh\n");
+    console::puts("[proc] wait reap pid=2 code=0\n");
 }
 
 fn run_user_launch_demo() {
@@ -134,7 +138,7 @@ fn run_user_launch_demo() {
         &mut pmm,
     );
     if let page_fault::PageFaultResult::Mapped(_) = pf {
-        uart::puts("[chapter] ch19 trap outcome bridge\n");
+        console::puts("[chapter] ch19 trap outcome bridge\n");
     }
 
     static mut INIT_SCRATCH: [u8; 64 * 1024] = [0; 64 * 1024];
@@ -147,14 +151,14 @@ fn run_user_launch_demo() {
     let dev = match virtio_blk::VirtioBlockDevice::probe() {
         Ok(dev) => dev,
         Err(_) => {
-            uart::puts("[runtime] virtio-blk probe failed\n");
+            console::puts("[runtime] virtio-blk probe failed\n");
             return;
         }
     };
     let start_lba = match block::mbr_first_partition_lba(&dev) {
         Ok(lba) => lba,
         Err(_) => {
-            uart::puts("[runtime] MBR first partition lookup failed\n");
+            console::puts("[runtime] MBR first partition lookup failed\n");
             return;
         }
     };
@@ -162,14 +166,14 @@ fn run_user_launch_demo() {
     let vfs = match vfs::Vfs::mount_ext4(&root) {
         Ok(v) => v,
         Err(_) => {
-            uart::puts("[runtime] ext4 mount failed\n");
+            console::puts("[runtime] ext4 mount failed\n");
             return;
         }
     };
     let loaded = match user_exec::load_init_exec_image(&vfs, "/sbin/init", scratch, stack_top) {
         Ok(v) => v,
         Err(_) => {
-            uart::puts("[runtime] /sbin/init ELF load failed\n");
+            console::puts("[runtime] /sbin/init ELF load failed\n");
             return;
         }
     };
@@ -192,11 +196,11 @@ fn run_user_launch_demo() {
     if let Ok(p) = plan {
         if p.argc == 1 && p.trapframe.sepc == loaded.entry {
             let _ = (p.satp, p.mapped_regions, p.sp, p.argv_ptr, p.envp_ptr);
-            uart::puts("[chapter] ch18 exec prep\n");
-            uart::puts("[runtime] loaded /sbin/init from virtio ext4 into exec image\n");
-            uart::puts("[chapter] ch26 user init launch handoff\n");
-            uart::puts("[launch] vm+stack+trapframe ready for first sret\n");
-            uart::puts("[chapter] ch28 first user sret\n");
+            console::puts("[chapter] ch18 exec prep\n");
+            console::puts("[runtime] loaded /sbin/init from virtio ext4 into exec image\n");
+            console::puts("[chapter] ch26 user init launch handoff\n");
+            console::puts("[launch] vm+stack+trapframe ready for first sret\n");
+            console::puts("[chapter] ch28 first user sret\n");
 
             #[cfg(target_arch = "riscv64")]
             unsafe {
@@ -220,7 +224,7 @@ fn materialize_loaded_segments(loaded: &elf_loader::LoadedUserImage<'_>) -> Resu
 
 #[panic_handler]
 fn panic(_info: &PanicInfo) -> ! {
-    uart::puts("panic\n");
+    console::puts("panic\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }

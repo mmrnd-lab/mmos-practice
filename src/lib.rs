@@ -7,6 +7,8 @@ pub mod block;
 pub mod ramdisk;
 pub mod block_io;
 pub mod char_device;
+pub mod serial;
+pub mod console;
 pub mod context_switch;
 pub mod demo_user_init;
 pub mod device;
@@ -61,6 +63,7 @@ mod tests {
     use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
     use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
+    use super::serial::{SerialDevice, UART0_BASE};
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
@@ -152,6 +155,22 @@ mod tests {
         assert_eq!(region.end(), 0x9001_0000);
     }
 
+
+
+    #[test]
+    fn serial_device_is_a_named_character_device() {
+        let serial = SerialDevice::new("ttyS0", UART0_BASE);
+        assert_eq!(serial.name(), "ttyS0");
+        assert_eq!(serial.kind(), DeviceKind::Char);
+        assert_eq!(serial.base(), UART0_BASE);
+    }
+
+    #[test]
+    fn serial_device_read_is_unsupported_for_now() {
+        let serial = SerialDevice::new("ttyS0", UART0_BASE);
+        let mut out = [0u8; 1];
+        assert_eq!(serial.read(&mut out), Err(CharError::Unsupported));
+    }
 
     #[test]
     fn mock_char_device_is_registered_as_char_kind() {

@@ -9,7 +9,7 @@ use core::sync::atomic::{AtomicBool, Ordering};
 use crate::sbi;
 
 #[cfg(feature = "console-mmio")]
-const UART0_BASE: usize = 0x1000_0000;
+pub const UART0_BASE: usize = 0x1000_0000;
 #[cfg(feature = "console-mmio")]
 static UART_READY: AtomicBool = AtomicBool::new(false);
 
@@ -66,6 +66,11 @@ impl Write for Uart {
 }
 
 #[cfg(feature = "console-sbi")]
+pub fn put_byte_at(_base: usize, byte: u8) {
+    sbi::console_putchar(byte);
+}
+
+#[cfg(feature = "console-sbi")]
 pub fn puts(s: &str) {
     for b in s.bytes() {
         sbi::console_putchar(b);
@@ -73,10 +78,26 @@ pub fn puts(s: &str) {
 }
 
 #[cfg(feature = "console-sbi")]
-pub fn put_bytes(bytes: &[u8]) {
+pub fn put_bytes_at(base: usize, bytes: &[u8]) {
     for &b in bytes {
-        sbi::console_putchar(b);
+        put_byte_at(base, b);
     }
+}
+
+#[cfg(feature = "console-sbi")]
+pub fn put_bytes(bytes: &[u8]) {
+    put_bytes_at(0, bytes);
+}
+
+#[cfg(feature = "console-mmio")]
+pub fn put_byte_at(base: usize, byte: u8) {
+    let mut uart = unsafe { Uart::from_base(base) };
+
+    if !UART_READY.swap(true, Ordering::AcqRel) {
+        unsafe { uart.init() };
+    }
+
+    unsafe { uart.write_byte(byte) };
 }
 
 #[cfg(feature = "console-mmio")]
@@ -91,8 +112,8 @@ pub fn puts(s: &str) {
 }
 
 #[cfg(feature = "console-mmio")]
-pub fn put_bytes(bytes: &[u8]) {
-    let mut uart = unsafe { Uart::from_base(UART0_BASE) };
+pub fn put_bytes_at(base: usize, bytes: &[u8]) {
+    let mut uart = unsafe { Uart::from_base(base) };
 
     if !UART_READY.swap(true, Ordering::AcqRel) {
         unsafe { uart.init() };
@@ -101,4 +122,9 @@ pub fn put_bytes(bytes: &[u8]) {
     for &b in bytes {
         unsafe { uart.write_byte(b) };
     }
+}
+
+#[cfg(feature = "console-mmio")]
+pub fn put_bytes(bytes: &[u8]) {
+    put_bytes_at(UART0_BASE, bytes);
 }

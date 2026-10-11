@@ -48,8 +48,10 @@ fn handle_write(fd: usize, ptr: usize, len: usize) -> SyscallResult {
 
     let capped = core::cmp::min(len, 1024);
     let bytes = unsafe { core::slice::from_raw_parts(ptr as *const u8, capped) };
-    crate::uart::put_bytes(bytes);
-    SyscallResult::Continue(capped as isize)
+    match crate::console::write(bytes) {
+        Ok(written) => SyscallResult::Continue(written as isize),
+        Err(_) => SyscallResult::Continue(-1),
+    }
 }
 
 #[cfg(not(target_arch = "riscv64"))]
