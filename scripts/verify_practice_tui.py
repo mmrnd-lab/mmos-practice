@@ -1562,6 +1562,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process-wide exit removes sibling tasks from scheduler and hands off to another process",
     ),
     ChapterSet(
+        key="ch92_trap_exit_process_dispatch",
+        label="Ch92 Trap Exit Process Dispatch",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch92 trap exit process dispatch",
+                    "[proc] trap exit dispatch prev=1 next=3 restored=0x40003000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=TrapOutcome::Exit-style dispatch applies process exit and restores the next process frame",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

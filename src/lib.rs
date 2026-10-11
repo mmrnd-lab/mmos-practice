@@ -109,8 +109,8 @@ mod tests {
     };
     use super::trap::{
         apply_schedule_decision, dispatch_trap_outcome,
-        dispatch_trap_outcome_with_global_runtime, handle_blocking_syscall_result,
-        handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
+        dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome_with_global_runtime,
+        handle_blocking_syscall_result, handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
         handle_user_page_fault_outcome, prepare_enter_user_scratch,
         prepare_kernel_trap_stack_switch,
         prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
@@ -1846,6 +1846,58 @@ mod tests {
         assert_eq!(scheduler.task_state(3), Some(TaskState::Running));
         assert_eq!(scheduler.current_tid(), Some(3));
         assert_eq!(processes.get(owner_pid).unwrap().exit_code, Some(9));
+    }
+
+    #[test]
+    fn trap_exit_outcome_dispatches_process_runtime_and_restores_next_frame() {
+        let mut processes = ProcessTable::<3, 2, 2>::new();
+        let mut tasks = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let owner_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            frame.set_a0(tid);
+            frame.set_sp(0x4010_0000 + tid * 0x1000);
+            tasks
+                .add_task(TaskControlBlock::new(tid, pid, frame))
+                .unwrap();
+            scheduler.add_runnable(tid, frame).unwrap();
+        }
+        let _ = scheduler.on_tick();
+
+        let mut live = TrapFrame::default();
+        live.sepc = 0xfeed_0000;
+        live.set_sp(0xdead_0000);
+        let result = dispatch_exit_outcome_with_process_runtime(
+            &mut live,
+            &mut processes,
+            &mut tasks,
+            &mut scheduler,
+            1,
+            11,
+        );
+
+        assert_eq!(
+            result,
+            TrapDispatchResult::Switched(ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 3
+            })
+        );
+        assert_eq!(live.sepc, 0x4000_3000);
+        assert_eq!(live.a0(), 3);
+        assert_eq!(live.sp(), 0x4010_3000);
+        assert_eq!(scheduler.task_state(1), Some(TaskState::Zombie));
+        assert_eq!(scheduler.task_state(2), Some(TaskState::Zombie));
+        assert_eq!(scheduler.task_state(3), Some(TaskState::Running));
+        assert_eq!(processes.get(owner_pid).unwrap().exit_code, Some(11));
     }
 
     #[test]

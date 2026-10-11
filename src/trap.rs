@@ -428,6 +428,40 @@ pub fn dispatch_trap_outcome_with_global_runtime(
     }
 }
 
+pub fn dispatch_exit_outcome_with_process_runtime<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCHED_TASKS: usize,
+>(
+    frame: &mut TrapFrame,
+    processes: &mut crate::process_model::ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    tasks: &mut crate::process_model::TaskTable<MAX_TASKS>,
+    scheduler: &mut Scheduler<SCHED_TASKS>,
+    current_tid: usize,
+    code: i32,
+) -> TrapDispatchResult {
+    let Ok(report) = crate::process_model::exit_process_from_task_with_scheduler(
+        processes,
+        tasks,
+        scheduler,
+        current_tid,
+        code,
+    ) else {
+        return TrapDispatchResult::MissingScheduleState;
+    };
+
+    if let Some(action) = idle_action_for_schedule_decision(report.decision) {
+        return TrapDispatchResult::Idle(action);
+    }
+
+    match apply_schedule_decision(frame, scheduler, report.decision) {
+        Some(decision) => TrapDispatchResult::Switched(decision),
+        None => TrapDispatchResult::MissingScheduleState,
+    }
+}
+
 pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapOutcome {
     match scause {
         SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL => handle_syscall_result(
