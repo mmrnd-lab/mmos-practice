@@ -2446,7 +2446,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch146_user_init_runtime_split",
         label="Ch146 User Init Runtime Split",
-        commit_candidates=["HEAD"],
+        commit_candidates=["42be3f4"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

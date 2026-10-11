@@ -627,3 +627,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - demo/user init 코드가 먼저 `/dev/console`을 `openat`으로 세 번 열어 fd 0, 1, 2를 만든 뒤 `write(1, ...)`을 호출하도록 변경
     - unit test는 빈 fd table에서 fd 0/1/2가 `BadFd`로 시작하고 init-style open 순서가 0, 1, 2를 만드는지 검증
     - QEMU runtime marker에서 `[chapter] ch145 empty fd table init stdio`, `[init] opened stdio fds 0,1,2 from empty table wrote=10` 확인
+
+130. `42be3f4` `feat(ch146): split user init runtime helpers`
+    - `user/init/src/rt.rs`를 추가해 syscall wrapper, console stdio bootstrap, `exit()` helper를 init 본문 밖으로 분리
+    - `user/init/src/main.rs`는 `_start()`에서 runtime helper를 호출한 뒤 app 메시지를 쓰는 구조로 단순화
+    - 아직 shared library는 아니지만, 반복될 user entry runtime을 CRT 후보 모듈로 볼 수 있게 경계를 만든다
+    - QEMU runtime marker에서 `[chapter] ch146 user init runtime split`, `[user-rt] init owns stdio open/write/exit wrappers before CRT extraction` 확인
