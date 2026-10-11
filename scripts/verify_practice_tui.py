@@ -743,6 +743,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=read(fd, user_buf, len) checks VM write permission and copyout path",
     ),
     ChapterSet(
+        key="ch45_console_read_bytes",
+        label="Ch46 Console Read Bytes",
+        commit_candidates=["7b75884"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch45 console read bytes",
+                    "[chapter] ch44 read fd copyout",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=console read path returns real bytes that are copied out to user memory",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

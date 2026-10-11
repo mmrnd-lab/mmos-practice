@@ -122,6 +122,10 @@
     - mutable user buffer view와 checked copyout을 추가해 VM write 권한을 확인한 뒤 user memory로 복사
     - `read(fd, user_buf, len)` helper를 추가해 fd table read 결과를 copyout하고 오류를 errno로 매핑
 
+39. `7b75884` `feat(ch45): add buffered console read path`
+    - runtime 검증용 buffered console character device를 추가해 실제 byte read가 가능하도록 구성
+    - `read(fd, user_buf, len)`이 console input bytes를 copyout해 user memory에 저장하는 경로를 검증
+
 
 ## Reproduce Example
 
