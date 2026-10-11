@@ -30,6 +30,8 @@ LOCAL_REPO_DEFAULT = str(Path(__file__).resolve().parents[1])
 REMOTE_REPO_DEFAULT = "/home/nicesj/workspace/mmrnd-lab/mmos-practice"
 
 HOSTS = ["localhost", "", ""]
+CONSOLES = ["sbi", "mmio"]
+BOOT_CHAINS = ["smode", "spl"]
 ANSI_CSI_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 ANSI_OSC_RE = re.compile(r"\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)")
 ANSI_ESC_RE = re.compile(r"\x1B[@-Z\\-_]")
@@ -148,6 +150,10 @@ class AppState:
     source_view: SourceViewerState = field(default_factory=SourceViewerState)
     sync_before_run: bool = True
     rebuild_image_before_run: bool = True
+    console_idx: int = 0
+    boot_chain_idx: int = 0
+    focus_idx: int = 0  # 0=chapters, 1=menu, 2=logs
+    menu_idx: int = 0
 
 
 CHAPTERS: List[ChapterSet] = [
@@ -418,6 +424,45 @@ def host_exec_argv(host: str, shell_cmd: str) -> List[str]:
     return ["ssh", host, f"bash -lc {shlex.quote(shell_cmd)}"]
 
 
+def selected_console(state: AppState) -> str:
+    return CONSOLES[state.console_idx]
+
+
+def selected_boot_chain(state: AppState) -> str:
+    return BOOT_CHAINS[state.boot_chain_idx]
+
+
+def focus_name(state: AppState) -> str:
+    return ("chapters", "menu", "logs")[state.focus_idx]
+
+
+def menu_items(state: AppState) -> List[Tuple[str, str]]:
+    return [
+        ("Host", HOSTS[state.host_idx]),
+        ("Console", selected_console(state)),
+        ("Boot Chain", selected_boot_chain(state)),
+        ("Sync Before Run", "ON" if state.sync_before_run else "OFF"),
+        ("Rebuild Image", "ON" if state.rebuild_image_before_run else "OFF"),
+        ("Run Selected", "execute"),
+        ("Show History", "inspect"),
+        ("Show Changes", "inspect"),
+        ("Source View", "open"),
+        ("Stop", "request"),
+        ("Clear Logs", "reset"),
+        ("Search Logs", "input"),
+    ]
+
+
+def apply_build_options(inner_cmd: str, state: AppState) -> str:
+    # Inject selected build options for every make invocation.
+    # Example: "make test && make run-u-boot" ->
+    #          "make CONSOLE=sbi BOOT_CHAIN=smode test && make CONSOLE=sbi BOOT_CHAIN=smode run-u-boot"
+    console = selected_console(state)
+    boot_chain = selected_boot_chain(state)
+    opt = f"make CONSOLE={console} BOOT_CHAIN={boot_chain}"
+    return re.sub(r"\bmake(?=\s)", opt, inner_cmd)
+
+
 def sanitize_log_line(raw: str) -> str:
     # Normalize line first so CR-based progress output cannot overwrite borders.
     s = raw.replace("\r", "")
@@ -449,6 +494,87 @@ def fit_line(text: str, width: int) -> str:
     if width <= 3:
         return "." * width
     return text[: width - 3] + "..."
+
+
+def run_selected_action(state: AppState, stdscr: curses.window) -> None:
+    state.log_lines.clear()
+    state.log_follow = True
+    state.log_anchor = 0
+    rebuild_search_hits(state)
+    state.results.clear()
+    state.resolved_commits.clear()
+    run_selected(stdscr, state, CHAPTERS)
+
+
+def run_inspect_action(state: AppState, stdscr: curses.window, mode: str) -> None:
+    state.log_follow = True
+    chapter = CHAPTERS[state.selected_idx]
+    run_inspect_command(
+        HOSTS[state.host_idx],
+        repo_path_for_host(HOSTS[state.host_idx]),
+        chapter,
+        state.selected_idx,
+        mode,
+        state,
+        stdscr,
+    )
+    rebuild_search_hits(state)
+
+
+def open_source_action(state: AppState, stdscr: curses.window) -> None:
+    open_source_view_for_selected(state, stdscr)
+
+
+def search_logs_action(state: AppState, stdscr: curses.window) -> None:
+    query = prompt_input(stdscr, "Search (/): ", state.log_search)
+    if query is not None:
+        state.log_search = query.strip()
+        rebuild_search_hits(state)
+        if state.log_search and state.search_hits:
+            jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
+        elif state.log_search:
+            state.status_line = f"No match: {state.log_search}"
+        else:
+            state.status_line = "Search cleared"
+            state.log_follow = True
+
+
+def apply_menu_action(state: AppState, stdscr: curses.window, delta: int = 0) -> None:
+    idx = state.menu_idx
+    if idx == 0:
+        state.host_idx = (state.host_idx + (1 if delta >= 0 else -1)) % len(HOSTS)
+        state.status_line = f"Host switched to {HOSTS[state.host_idx]}"
+    elif idx == 1:
+        state.console_idx = (state.console_idx + (1 if delta >= 0 else -1)) % len(CONSOLES)
+        state.status_line = f"Console switched to {selected_console(state)}"
+    elif idx == 2:
+        state.boot_chain_idx = (state.boot_chain_idx + (1 if delta >= 0 else -1)) % len(BOOT_CHAINS)
+        state.status_line = f"Boot chain switched to {selected_boot_chain(state)}"
+    elif idx == 3:
+        state.sync_before_run = not state.sync_before_run
+        state.status_line = f"sync-before-run={'ON' if state.sync_before_run else 'OFF'}"
+    elif idx == 4:
+        state.rebuild_image_before_run = not state.rebuild_image_before_run
+        state.status_line = f"rebuild-image-before-run={'ON' if state.rebuild_image_before_run else 'OFF'}"
+    elif idx == 5:
+        run_selected_action(state, stdscr)
+    elif idx == 6:
+        run_inspect_action(state, stdscr, "history")
+    elif idx == 7:
+        run_inspect_action(state, stdscr, "changes")
+    elif idx == 8:
+        open_source_action(state, stdscr)
+    elif idx == 9:
+        state.stop_requested = True
+        state.status_line = "Nothing running"
+    elif idx == 10:
+        state.log_lines.clear()
+        state.log_follow = True
+        state.log_anchor = 0
+        rebuild_search_hits(state)
+        state.status_line = "Logs cleared"
+    elif idx == 11:
+        search_logs_action(state, stdscr)
 
 
 def append_log(state: AppState, line: str) -> None:
@@ -1089,7 +1215,10 @@ def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[Chap
     repo = repo_path_for_host(host)
     state.running = True
     state.stop_requested = False
-    state.status_line = f"Running {len(selected)} chapter set(s) on {host}: {repo}"
+    state.status_line = (
+        f"Running {len(selected)} chapter set(s) on {host}: {repo} "
+        f"[CONSOLE={selected_console(state)} BOOT_CHAIN={selected_boot_chain(state)}]"
+    )
     state.resolved_commits.clear()
 
     if not preflight_prepare(host, repo, state, stdscr):
@@ -1139,7 +1268,8 @@ def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[Chap
                 continue
 
             state.current_action = f"{chapter.label} [{commit}] -> {step.name}"
-            step_shell = wrap_checkout_command(repo, commit, step.cmd)
+            step_cmd = apply_build_options(step.cmd, state)
+            step_shell = wrap_checkout_command(repo, commit, step_cmd)
             start = time.time()
             rc, out = run_streaming(host, step_shell, state, stdscr)
             elapsed = time.time() - start
@@ -1172,7 +1302,7 @@ def run_selected(stdscr: curses.window, state: AppState, chapters: Sequence[Chap
                     status=status,
                     elapsed_sec=elapsed,
                     commit=commit,
-                    cmd=step.cmd,
+                    cmd=step_cmd,
                     detail=detail,
                 )
             )
@@ -1534,11 +1664,12 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         header.bkgd(" ", state.theme.header)
     except curses.error:
         pass
-    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [Y] sync  [I] rebuild-img  [R] run  [L] history  [D] changes  [F] source  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
+    hotkeys = "[Tab/Shift-Tab] focus  [Enter/Space] select/toggle  [Arrows/PgUp/PgDn] navigate  [/] search  [n/N] next/prev  [Q] quit"
     header.addnstr(1, 2, hotkeys, w - 4)
 
     draw_box(left, "Chapter Sets")
-    left.addnstr(0, 2, " Chapter Sets ", left_w - 4, state.theme.panel_title)
+    left_title_attr = state.theme.panel_title | (curses.A_REVERSE if state.focus_idx == 0 else 0)
+    left.addnstr(0, 2, " Chapter Sets ", left_w - 4, left_title_attr)
     max_items = top_h - 2
     start = 0
     if state.selected_idx >= max_items:
@@ -1550,32 +1681,55 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         cursor = ">" if idx == state.selected_idx else " "
         line = f"{cursor} [{mark}] {ch.label}"
         attr = state.theme.selected_item if idx == state.selected_idx else curses.A_NORMAL
+        if idx == state.selected_idx and state.focus_idx == 0:
+            attr |= curses.A_REVERSE
         left.addnstr(1 + row, 1, line, left_w - 2, attr)
 
-    draw_box(right, "Run Status")
-    right.addnstr(0, 2, " Run Status ", right_w - 4, state.theme.panel_title)
+    draw_box(right, "Menu / Status")
+    right_title_attr = state.theme.panel_title | (curses.A_REVERSE if state.focus_idx == 1 else 0)
+    right.addnstr(0, 2, " Menu / Status ", right_w - 4, right_title_attr)
     p, f, wcnt, s = summarize_results(state.results)
     selected = CHAPTERS[state.selected_idx]
     cached = state.resolved_commits.get(selected.key, "(not resolved)")
-    right.addnstr(1, 2, f"Host: {host}", right_w - 4)
-    right.addnstr(2, 2, f"Repo: {repo}", right_w - 4)
-    right.addnstr(
-        3,
+    menu = menu_items(state)
+    menu_h = min(len(menu), max(4, top_h // 2))
+    menu_start = 0
+    if state.menu_idx >= menu_h:
+        menu_start = state.menu_idx - menu_h + 1
+    for row, idx in enumerate(range(menu_start, min(len(menu), menu_start + menu_h))):
+        name, val = menu[idx]
+        prefix = ">" if idx == state.menu_idx else " "
+        line = fit_line(f"{prefix} {name:<14} : {val}", right_w - 2)
+        attr = state.theme.selected_item if idx == state.menu_idx else curses.A_NORMAL
+        if idx == state.menu_idx and state.focus_idx == 1:
+            attr |= curses.A_REVERSE
+        right.addnstr(1 + row, 1, line, right_w - 2, attr)
+
+    def right_put(y: int, x: int, txt: str, width: int, attr: int = curses.A_NORMAL) -> None:
+        if 0 <= y < top_h - 1:
+            right.addnstr(y, x, txt, width, attr)
+
+    y = 1 + menu_h + 1
+    right_put(y, 2, f"Repo: {repo}", right_w - 4)
+    y += 1
+    right_put(
+        y,
         2,
         f"State: {'RUNNING' if state.running else 'IDLE'}",
         right_w - 4,
         state.theme.running_state if state.running else state.theme.idle_state,
     )
-    right.addnstr(4, 2, "Summary:", right_w - 4)
-    right.addnstr(4, 11, f"PASS={p}", right_w - 13, state.theme.pass_text)
-    right.addnstr(4, 20, f"FAIL={f}", right_w - 22, state.theme.fail_text)
-    right.addnstr(4, 29, f"WARN={wcnt}", right_w - 31, state.theme.warn_text)
-    right.addnstr(4, 40, f"SKIP={s}", right_w - 42, state.theme.skip_text)
-    right.addnstr(5, 2, f"Selected: {selected.label}", right_w - 4)
-    right.addnstr(6, 2, f"Commit: {cached}", right_w - 4)
-    right.addnstr(7, 2, f"Preflight: sync={'ON' if state.sync_before_run else 'OFF'} image-rebuild={'ON' if state.rebuild_image_before_run else 'OFF'}", right_w - 4)
-
-    y = 9
+    y += 1
+    right_put(y, 2, "Summary:", right_w - 4)
+    right_put(y, 11, f"PASS={p}", right_w - 13, state.theme.pass_text)
+    right_put(y, 20, f"FAIL={f}", right_w - 22, state.theme.fail_text)
+    right_put(y, 29, f"WARN={wcnt}", right_w - 31, state.theme.warn_text)
+    right_put(y, 40, f"SKIP={s}", right_w - 42, state.theme.skip_text)
+    y += 1
+    right_put(y, 2, f"Selected: {selected.label}", right_w - 4)
+    y += 1
+    right_put(y, 2, f"Commit: {cached}", right_w - 4)
+    y += 2
     y += render_wrapped(right, y, 2, f"Action: {state.current_action}", right_w - 4, 2)
     y += render_wrapped(right, y, 2, f"Cmd: {state.current_cmd}", right_w - 4, 4)
     if y < top_h - 2 and selected.note:
@@ -1592,12 +1746,13 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
 
     draw_box(logs, f"Live Logs ({'tail' if state.log_follow else 'scroll'})")
     log_h, log_w = logs.getmaxyx()
+    log_title_attr = state.theme.panel_title | (curses.A_REVERSE if state.focus_idx == 2 else 0)
     logs.addnstr(
         0,
         2,
         f" Live Logs ({'tail' if state.log_follow else 'scroll'}) ",
         max(1, log_w - 4),
-        state.theme.panel_title,
+        log_title_attr,
     )
     visible = bottom_h - 2
     lines = list(state.log_lines)
@@ -1683,88 +1838,66 @@ def main(stdscr: curses.window) -> int:
         if ch in (ord("q"), ord("Q")) and not state.running:
             break
 
-        if ch in (curses.KEY_UP, ord("k"), ord("K")):
-            state.selected_idx = (state.selected_idx - 1) % len(CHAPTERS)
-        elif ch in (curses.KEY_DOWN, ord("j"), ord("J")):
-            state.selected_idx = (state.selected_idx + 1) % len(CHAPTERS)
-        elif ch == ord(" "):
-            state.checked[state.selected_idx] = not state.checked[state.selected_idx]
+        if ch == 9:  # Tab
+            state.focus_idx = (state.focus_idx + 1) % 3
+            state.status_line = f"Focus moved to {focus_name(state)}"
+        elif ch == curses.KEY_BTAB:
+            state.focus_idx = (state.focus_idx - 1) % 3
+            state.status_line = f"Focus moved to {focus_name(state)}"
         elif ch in (ord("a"), ord("A")):
             state.checked = [True] * len(CHAPTERS)
         elif ch in (ord("c"), ord("C")):
             state.checked = [False] * len(CHAPTERS)
-        elif ch in (ord("h"), ord("H")):
-            state.host_idx = (state.host_idx + 1) % len(HOSTS)
-            state.status_line = f"Host switched to {HOSTS[state.host_idx]}"
-        elif ch in (ord("y"), ord("Y")):
-            state.sync_before_run = not state.sync_before_run
-            state.status_line = f"sync-before-run={'ON' if state.sync_before_run else 'OFF'}"
-        elif ch in (ord("i"), ord("I")):
-            state.rebuild_image_before_run = not state.rebuild_image_before_run
-            state.status_line = f"rebuild-image-before-run={'ON' if state.rebuild_image_before_run else 'OFF'}"
-        elif ch in (ord("r"), ord("R")):
-            state.log_lines.clear()
-            state.log_follow = True
-            state.log_anchor = 0
-            rebuild_search_hits(state)
-            state.results.clear()
-            state.resolved_commits.clear()
-            run_selected(stdscr, state, CHAPTERS)
-        elif ch in (ord("l"), ord("L")):
-            state.log_follow = True
-            chapter = CHAPTERS[state.selected_idx]
-            run_inspect_command(
-                HOSTS[state.host_idx],
-                repo_path_for_host(HOSTS[state.host_idx]),
-                chapter,
-                state.selected_idx,
-                "history",
-                state,
-                stdscr,
-            )
-            rebuild_search_hits(state)
-        elif ch in (ord("d"), ord("D")):
-            state.log_follow = True
-            chapter = CHAPTERS[state.selected_idx]
-            run_inspect_command(
-                HOSTS[state.host_idx],
-                repo_path_for_host(HOSTS[state.host_idx]),
-                chapter,
-                state.selected_idx,
-                "changes",
-                state,
-                stdscr,
-            )
-            rebuild_search_hits(state)
-        elif ch in (ord("f"), ord("F")):
-            open_source_view_for_selected(state, stdscr)
-        elif ch in (ord("s"), ord("S")):
-            state.stop_requested = True
-            state.status_line = "Nothing running"
-        elif ch in (curses.KEY_PPAGE,):
-            adjust_log_scroll(state, -8, max(1, stdscr.getmaxyx()[0] - 8))
-        elif ch in (curses.KEY_NPAGE,):
-            adjust_log_scroll(state, 8, max(1, stdscr.getmaxyx()[0] - 8))
-        elif ch in (curses.KEY_HOME, ord("g")):
-            scroll_log_top(state)
-        elif ch in (curses.KEY_END, ord("G")):
-            scroll_log_bottom(state)
-        elif ch == ord("/"):
-            query = prompt_input(stdscr, "Search (/): ", state.log_search)
-            if query is not None:
-                state.log_search = query.strip()
-                rebuild_search_hits(state)
-                if state.log_search and state.search_hits:
-                    jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
-                elif state.log_search:
-                    state.status_line = f"No match: {state.log_search}"
-                else:
-                    state.status_line = "Search cleared"
-                    state.log_follow = True
-        elif ch == ord("n"):
-            jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
-        elif ch == ord("N"):
-            jump_search(state, -1, max(1, stdscr.getmaxyx()[0] - 8))
+        elif state.focus_idx == 0:
+            if ch in (curses.KEY_UP, ord("k"), ord("K")):
+                state.selected_idx = (state.selected_idx - 1) % len(CHAPTERS)
+            elif ch in (curses.KEY_DOWN, ord("j"), ord("J")):
+                state.selected_idx = (state.selected_idx + 1) % len(CHAPTERS)
+            elif ch in (ord(" "), curses.KEY_ENTER, 10, 13):
+                state.checked[state.selected_idx] = not state.checked[state.selected_idx]
+            elif ch in (curses.KEY_NPAGE,):
+                state.selected_idx = min(len(CHAPTERS) - 1, state.selected_idx + 8)
+            elif ch in (curses.KEY_PPAGE,):
+                state.selected_idx = max(0, state.selected_idx - 8)
+            elif ch in (curses.KEY_HOME, ord("g")):
+                state.selected_idx = 0
+            elif ch in (curses.KEY_END, ord("G")):
+                state.selected_idx = len(CHAPTERS) - 1
+        elif state.focus_idx == 1:
+            items = menu_items(state)
+            if ch in (curses.KEY_UP, ord("k"), ord("K")):
+                state.menu_idx = (state.menu_idx - 1) % len(items)
+            elif ch in (curses.KEY_DOWN, ord("j"), ord("J")):
+                state.menu_idx = (state.menu_idx + 1) % len(items)
+            elif ch in (curses.KEY_RIGHT, ord("l"), ord("L")):
+                apply_menu_action(state, stdscr, +1)
+            elif ch in (curses.KEY_LEFT, ord("h"), ord("H")):
+                apply_menu_action(state, stdscr, -1)
+            elif ch in (ord(" "), curses.KEY_ENTER, 10, 13):
+                apply_menu_action(state, stdscr, +1)
+            elif ch in (curses.KEY_HOME, ord("g")):
+                state.menu_idx = 0
+            elif ch in (curses.KEY_END, ord("G")):
+                state.menu_idx = len(items) - 1
+        elif state.focus_idx == 2:
+            if ch in (curses.KEY_UP, ord("k"), ord("K")):
+                adjust_log_scroll(state, -1, max(1, stdscr.getmaxyx()[0] - 8))
+            elif ch in (curses.KEY_DOWN, ord("j"), ord("J")):
+                adjust_log_scroll(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
+            elif ch in (curses.KEY_PPAGE,):
+                adjust_log_scroll(state, -8, max(1, stdscr.getmaxyx()[0] - 8))
+            elif ch in (curses.KEY_NPAGE,):
+                adjust_log_scroll(state, 8, max(1, stdscr.getmaxyx()[0] - 8))
+            elif ch in (curses.KEY_HOME, ord("g")):
+                scroll_log_top(state)
+            elif ch in (curses.KEY_END, ord("G")):
+                scroll_log_bottom(state)
+            elif ch == ord("/"):
+                search_logs_action(state, stdscr)
+            elif ch == ord("n"):
+                jump_search(state, +1, max(1, stdscr.getmaxyx()[0] - 8))
+            elif ch == ord("N"):
+                jump_search(state, -1, max(1, stdscr.getmaxyx()[0] - 8))
 
         draw_ui(stdscr, state)
 

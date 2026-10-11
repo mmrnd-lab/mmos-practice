@@ -7,6 +7,7 @@ QEMU_VIRTIO_MODERN ?= -global virtio-mmio.force-legacy=false
 RUN_SECONDS ?= 5
 TEST_TARGET ?= x86_64-unknown-linux-gnu
 CONSOLE ?= sbi
+BOOT_CHAIN ?= smode
 CROSS_COMPILE ?= riscv64-linux-gnu-
 KERNEL_ELF := target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-practice
 BUILD_DIR := build
@@ -16,6 +17,10 @@ BOOT_DISK := $(BUILD_DIR)/drive0.img
 USER_INIT_ELF := $(BUILD_DIR)/user-init.elf
 UBOOT_BUILD := $(BUILD_DIR)/u-boot
 UBOOT_BIN := $(UBOOT_BUILD)/u-boot.bin
+UBOOT_SPL := $(UBOOT_BUILD)/spl/u-boot-spl
+UBOOT_ITB := $(UBOOT_BUILD)/u-boot.itb
+OPENSBI_FW_DYNAMIC := $(CURDIR)/external/opensbi/build/platform/generic/firmware/fw_dynamic.bin
+ITB_ADDR ?= 0x80200000
 
 ifeq ($(CONSOLE),sbi)
 CARGO_CONSOLE_FLAGS := --no-default-features --features console-sbi
@@ -25,7 +30,17 @@ else
 $(error unsupported CONSOLE=$(CONSOLE) (expected sbi or mmio))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-init uImage boot-disk u-boot run-nographic run-monitor run-u-boot
+ifeq ($(BOOT_CHAIN),smode)
+BOOT_CHAIN_OK := 1
+endif
+ifeq ($(BOOT_CHAIN),spl)
+BOOT_CHAIN_OK := 1
+endif
+ifndef BOOT_CHAIN_OK
+$(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
+endif
+
+.PHONY: require-container image shell test mmos.bin user-init uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -81,7 +96,28 @@ $(UBOOT_BIN): require-container | $(BUILD_DIR)
 	$(MAKE) -C external/u-boot O=$(CURDIR)/$(UBOOT_BUILD) CROSS_COMPILE=$(CROSS_COMPILE) qemu-riscv64_smode_defconfig
 	$(MAKE) -C external/u-boot O=$(CURDIR)/$(UBOOT_BUILD) CROSS_COMPILE=$(CROSS_COMPILE) -j$$(nproc)
 
-u-boot: $(UBOOT_BIN)
+u-boot-smode: $(UBOOT_BIN)
+
+$(UBOOT_SPL): require-container | $(BUILD_DIR)
+	@if [ ! -d external/u-boot ]; then \
+		echo "error: missing external/u-boot (run ./scripts/init-submodules.sh first)"; \
+		exit 1; \
+	fi
+	@if [ ! -d external/opensbi ]; then \
+		echo "error: missing external/opensbi (run ./scripts/init-submodules.sh first)"; \
+		exit 1; \
+	fi
+	$(MAKE) -C external/opensbi PLATFORM=generic CROSS_COMPILE=$(CROSS_COMPILE)
+	$(MAKE) -C external/u-boot O=$(CURDIR)/$(UBOOT_BUILD) CROSS_COMPILE=$(CROSS_COMPILE) qemu-riscv64_spl_defconfig
+	$(MAKE) -C external/u-boot O=$(CURDIR)/$(UBOOT_BUILD) CROSS_COMPILE=$(CROSS_COMPILE) OPENSBI=$(OPENSBI_FW_DYNAMIC) -j$$(nproc)
+
+u-boot-spl: $(UBOOT_SPL)
+
+ifeq ($(BOOT_CHAIN),spl)
+u-boot: u-boot-spl
+else
+u-boot: u-boot-smode
+endif
 
 run-nographic: require-container $(BOOT_DISK)
 	@echo "running QEMU (nographic) with $(KERNEL_ELF)"
@@ -115,10 +151,25 @@ run-monitor: require-container
 		-smp 1 \
 		-m 512M || test $$? -eq 124
 
-run-u-boot: require-container $(UBOOT_BIN) $(BOOT_DISK)
-	@echo "running QEMU via OpenSBI -> U-Boot -> MMOS"
+run-u-boot: require-container u-boot $(BOOT_DISK)
+	@echo "running QEMU via BOOT_CHAIN=$(BOOT_CHAIN)"
+	@echo "tip: BOOT_CHAIN=smode uses OpenSBI -> u-boot.bin"
+	@echo "tip: BOOT_CHAIN=spl uses SPL -> u-boot.itb (+ OpenSBI fw_dynamic)"
 	@echo "tip: this path exercises ext4 + extlinux + legacy uImage boot"
 	@echo "tip: set RUN_SECONDS=<sec> to adjust runtime window"
+ifeq ($(BOOT_CHAIN),spl)
+	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
+		-machine virt \
+		-nographic \
+		-bios $(UBOOT_SPL) \
+		-device loader,file=$(UBOOT_ITB),addr=$(ITB_ADDR) \
+		-drive file=$(BOOT_DISK),format=raw,id=drive0 \
+		-device virtio-blk-device,drive=drive0 \
+		-device virtio-rng-pci \
+		-no-reboot \
+		-smp 1 \
+		-m 1024M || test $$? -eq 124
+else
 	@timeout --foreground $(RUN_SECONDS)s $(QEMU) \
 		$(QEMU_VIRTIO_MODERN) \
 		-machine virt \
@@ -131,3 +182,4 @@ run-u-boot: require-container $(UBOOT_BIN) $(BOOT_DISK)
 		-no-reboot \
 		-smp 1 \
 		-m 512M || test $$? -eq 124
+endif

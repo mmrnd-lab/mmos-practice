@@ -14,6 +14,25 @@
 2. 해당 단계 커밋을 checkout하여 상태를 재현한다.
 3. 같은 흐름으로 로컬에서 다시 구현하고 커밋한다.
 
+## U-Boot 부트 체인 선택 (mmos 방식 / practice 방식)
+
+`run-u-boot`는 `BOOT_CHAIN` 변수로 두 가지 체인을 선택할 수 있다.
+
+```bash
+# practice 기본 방식: OpenSBI -> u-boot.bin -> MMOS
+make run-u-boot PROFILE=release BOOT_CHAIN=smode
+
+# mmos 유사 방식: SPL -> u-boot.itb -> MMOS
+make run-u-boot PROFILE=release BOOT_CHAIN=spl
+```
+
+- `BOOT_CHAIN=smode`:
+  - `qemu-riscv64_smode_defconfig` 기반 `u-boot.bin` 사용
+  - QEMU `-bios default` + `-kernel build/u-boot/u-boot.bin`
+- `BOOT_CHAIN=spl`:
+  - OpenSBI `fw_dynamic.bin` + `qemu-riscv64_spl_defconfig` 기반 SPL/ITB 사용
+  - QEMU `-bios build/u-boot/spl/u-boot-spl` + `-device loader,file=build/u-boot/u-boot.itb,addr=0x80200000`
+
 ## User App 최소 빌드 (24장 준비)
 
 실제 user ELF를 만드는 최소 파이프라인은 아래 명령으로 확인할 수 있다.
