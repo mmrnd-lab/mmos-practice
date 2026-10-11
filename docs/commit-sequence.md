@@ -264,6 +264,11 @@
     - root storage 기반 `satp`가 commit 직전 sequence 전체에서 일관되게 유지되는지 테스트와 런타임 probe로 검증
 
 
+70. `7a8ef72` `feat(ch78): guard kernel runtime under satp`
+    - `satp` 전환 직후에도 kernel code, kernel stack, trap entry가 새 root 아래에서 supervisor mapping으로 유지되는지 확인하는 guard를 추가
+    - root page table storage를 boot stack 밖 static storage로 옮기고 kernel runtime guard를 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash

@@ -1336,6 +1336,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=PCB token flows through commit plan and rooted launch sequence",
     ),
     ChapterSet(
+        key="ch78_kernel_satp_runtime_guard",
+        label="Ch78 Kernel SATP Runtime Guard",
+        commit_candidates=["7a8ef72"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch78 kernel satp runtime guard",
+                    "[chapter] ch77 rooted satp commit sequence",
+                    "[chapter] ch76 process root satp token",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=kernel code, stack, and trap entry remain mapped under the satp root",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
