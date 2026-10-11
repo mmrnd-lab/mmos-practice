@@ -356,6 +356,31 @@ pub fn handle_syscall_result(frame: &mut TrapFrame, result: syscall::SyscallResu
     }
 }
 
+pub fn handle_current_clone_frame_from_runtime<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &mut TrapFrame,
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    child_tid: usize,
+    child_vm: crate::vm::VmSpace<MAX_AREAS>,
+) -> TrapOutcome {
+    let result = syscall::dispatch_current_clone_frame_from_runtime::<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >(frame, runtime, child_tid, child_vm);
+    handle_syscall_result(frame, result)
+}
+
 pub fn handle_current_execv_frame_from_runtime<
     const MAX_ARGS: usize,
     const ARG_BYTES: usize,

@@ -445,6 +445,34 @@ pub fn handle_current_process_clone_syscall<
     }
 }
 
+pub fn dispatch_current_clone_frame_from_runtime<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &crate::trap::TrapFrame,
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    child_tid: usize,
+    child_vm: crate::vm::VmSpace<MAX_AREAS>,
+) -> SyscallResult {
+    let Some(syscall) = decode_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()) else {
+        return SyscallResult::Unsupported;
+    };
+
+    match syscall {
+        Syscall::Clone { .. } => {
+            handle_current_process_clone_syscall(runtime, syscall, frame, child_tid, child_vm)
+        }
+        _ => SyscallResult::Unsupported,
+    }
+}
+
 pub fn execv_arg_errno(error: crate::exec_args::ExecvArgError) -> isize {
     match error {
         crate::exec_args::ExecvArgError::Copy(error) => user_copy_errno(error),

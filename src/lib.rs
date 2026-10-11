@@ -108,7 +108,8 @@ mod tests {
     };
     use super::syscall::{
         dispatch_current_execv_frame_from_runtime, dispatch_current_execv_syscall, dispatch_current_execv_syscall_from_runtime,
-        decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
+        dispatch_current_clone_frame_from_runtime, decode_syscall,
+        handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
         handle_current_process_write_checked_user_syscall,
         handle_current_process_clone_syscall, handle_current_process_execv_checked_user_syscall, handle_process_execv_checked_user_syscall, BlockingReadResult, CurrentExecvDispatchContext, CurrentExecvRuntimeContext,
@@ -125,7 +126,8 @@ mod tests {
         apply_schedule_decision, dispatch_trap_outcome,
         dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome_with_global_runtime,
         handle_blocking_syscall_result, handle_current_execv_frame_from_runtime,
-        handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
+        handle_current_clone_frame_from_runtime, handle_syscall_result,
+        handle_timer_tick_with_scheduler, handle_trap,
         handle_trap_with_current_execv_runtime, handle_trap_with_execv_resources,
         handle_user_page_fault_outcome, prepare_enter_user_scratch,
         prepare_kernel_trap_stack_switch,
@@ -3007,6 +3009,49 @@ mod tests {
         let child_frame = runtime.task_frame(2).unwrap();
         assert_eq!(child_frame.a0(), 0);
         assert_eq!(child_frame.sp(), 0x4010_2000);
+    }
+
+    #[test]
+    fn clone_frame_dispatch_writes_back_parent_and_child_registers() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4000_0000;
+        frame.set_sp(0x4010_0000);
+        frame.set_a7(SYS_CLONE);
+        frame.set_a0(0);
+        frame.set_a1(0x4010_2000);
+        runtime.add_runnable_task(1, parent_pid, frame).unwrap();
+        runtime.start_first_task();
+
+        let result = dispatch_current_clone_frame_from_runtime(
+            &frame,
+            &mut runtime,
+            2,
+            VmSpace::<2>::new(),
+        );
+        assert_eq!(result, SyscallResult::Continue(2));
+
+        let outcome = handle_current_clone_frame_from_runtime(
+            &mut frame,
+            &mut runtime,
+            3,
+            VmSpace::<2>::new(),
+        );
+
+        assert_eq!(outcome, TrapOutcome::Resume);
+        assert_eq!(frame.a0(), 3);
+        assert_eq!(frame.sepc, 0x4000_0004);
+        assert_eq!(runtime.current_process_has_children(), Ok(true));
+
+        let child_from_dispatch = runtime.task_frame(2).unwrap();
+        assert_eq!(child_from_dispatch.a0(), 0);
+        assert_eq!(child_from_dispatch.sp(), 0x4010_2000);
+
+        let child_from_trap = runtime.task_frame(3).unwrap();
+        assert_eq!(child_from_trap.a0(), 0);
+        assert_eq!(child_from_trap.sp(), 0x4010_2000);
     }
 
     #[test]

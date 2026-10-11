@@ -733,6 +733,7 @@ pub extern "C" fn rust_main() -> ! {
     run_wait_no_child_boundary_demo();
     run_minimal_fork_adapter_demo();
     run_clone_syscall_surface_demo();
+    run_clone_trap_dispatch_demo();
     run_minimal_execv_adapter_demo();
     run_execv_user_arg_copyin_demo();
     run_execv_path_vfs_image_demo();
@@ -1276,6 +1277,46 @@ fn run_clone_syscall_surface_demo() {
 ");
         console::puts("[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000
 ");
+    }
+}
+
+fn run_clone_trap_dispatch_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut frame = trap::TrapFrame::default();
+    frame.sepc = 0x4000_0000;
+    frame.set_sp(0x4010_0000);
+    frame.set_a7(syscall::SYS_CLONE);
+    frame.set_a0(0);
+    frame.set_a1(0x4010_2000);
+    if runtime.add_runnable_task(1, parent_pid, frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let outcome = trap::handle_current_clone_frame_from_runtime(
+        &mut frame,
+        &mut runtime,
+        2,
+        vm::VmSpace::<2>::new(),
+    );
+    let Some(child_frame) = runtime.task_frame(2) else {
+        return;
+    };
+
+    if outcome == trap::TrapOutcome::Resume
+        && frame.a0() == 2
+        && frame.sepc == 0x4000_0004
+        && child_frame.a0() == 0
+        && child_frame.sp() == 0x4010_2000
+    {
+        console::puts("[chapter] ch135 clone trap dispatch\n");
+        console::puts(
+            "[trap] clone dispatched parent_a0=2 parent_sepc=0x40000004 child_a0=0 child_sp=0x40102000\n",
+        );
     }
 }
 
