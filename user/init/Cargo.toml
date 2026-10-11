@@ -14,3 +14,4 @@ panic = "abort"
 
 [dependencies]
 mmos-user-crt = { path = "../crt" }
+mmos-user-libc = { path = "../libc" }

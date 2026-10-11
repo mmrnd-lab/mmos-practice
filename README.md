@@ -46,6 +46,15 @@ make boot-disk PROFILE=release
 - `build/user-init.elf`: `no_std + no_main + _start` 기반 최소 user app ELF
 - `build/drive0.img`: `/sbin/init`로 user ELF가 주입된 ext4 부트 이미지
 
+## User CRT/libc 경계 (105~107장 정리)
+
+후반부 user runtime 흐름은 CRT와 minimal libc를 분리해서 설명한다.
+
+- `user/crt`: final user ELF의 `_start`를 제공하고 initial stack에서 `argc/argv/envp`를 읽어 app `main()`을 호출한다. `main()`의 return code는 libc `exit()`로 넘긴다.
+- `user/libc`: syscall wrapper, stdio bootstrap, startup C-string 출력, environment lookup helper를 제공한다.
+- 현재 링크 모델은 `init=ET_EXEC`, `crt=rlib`, `libc=rlib`, `shared-object=no`이다.
+- shared object loader 실습에서 runtime dependency로 다루는 대상은 CRT가 아니라 `/lib/libmmos_user_libc.so`이다.
+
 ## 실제 `/sbin/init` 로딩 경로 (27장 이후)
 
 현재 런타임 통합 경로는 메모리 안에서 만든 데모 ext4 이미지를 주 경로로 사용하지 않는다.

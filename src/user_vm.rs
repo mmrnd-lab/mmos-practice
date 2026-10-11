@@ -105,8 +105,8 @@ pub struct SharedObjectDependency {
     pub preferred_base: usize,
 }
 
-pub const USER_CRT_SHARED_OBJECT_DEPENDENCY: SharedObjectDependency = SharedObjectDependency {
-    path: "/lib/libmmos_user_crt.so",
+pub const USER_LIBC_SHARED_OBJECT_DEPENDENCY: SharedObjectDependency = SharedObjectDependency {
+    path: "/lib/libmmos_user_libc.so",
     preferred_base: 0x5000_0000,
 };
 

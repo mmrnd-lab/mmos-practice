@@ -66,7 +66,7 @@ if [ -n "${SHARED_OBJECT}" ]; then
     exit 1
   fi
   mkdir -p "${TMPDIR}/lib"
-  cp "${SHARED_OBJECT}" "${TMPDIR}/lib/libmmos_user_crt.so"
+  cp "${SHARED_OBJECT}" "${TMPDIR}/lib/libmmos_user_libc.so"
 fi
 
 rm -f "${IMAGE}"
@@ -80,7 +80,7 @@ FS_SIZE_KB=$(((SIZE_MB - 1) * 1024))
 mkfs.ext4 -F -b 1024 -d "${TMPDIR}" -O ^extent,^metadata_csum,^64bit -E offset="${OFFSET_BYTES}" "${IMAGE}" "${FS_SIZE_KB}" >/dev/null
 
 if [ -n "${USER_ELF}" ] && [ -n "${SHARED_OBJECT}" ]; then
-  echo "created bootable ext4 image with /sbin/init and /lib/libmmos_user_crt.so: ${IMAGE}"
+  echo "created bootable ext4 image with /sbin/init and /lib/libmmos_user_libc.so: ${IMAGE}"
 elif [ -n "${USER_ELF}" ]; then
   echo "created bootable ext4 image with /sbin/init: ${IMAGE}"
 else

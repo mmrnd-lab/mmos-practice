@@ -16,3 +16,4 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+mmos-user-libc = { path = "../libc" }

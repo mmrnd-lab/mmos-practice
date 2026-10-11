@@ -2459,16 +2459,16 @@ CHAPTERS: List[ChapterSet] = [
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch146 user init runtime split",
-                    "[user-rt] init owns stdio open/write/exit wrappers before CRT extraction",
+                    "[user-rt] init owns stdio open/write/exit wrappers before libc extraction",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=user/init factors syscall wrappers and stdio bootstrap into a small runtime module before CRT extraction",
+        note="runtime signature=user/init factors syscall wrappers and stdio bootstrap before moving them into minimal libc",
     ),
     ChapterSet(
         key="ch147_user_crt_library_boundary",
-        label="Ch147 User CRT Library Boundary",
+        label="Ch147 User libc Library Boundary",
         commit_candidates=["a1445af"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
@@ -2481,23 +2481,23 @@ CHAPTERS: List[ChapterSet] = [
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
-                    "[chapter] ch147 user crt library boundary",
-                    "[user-crt] init links shared runtime API from user/crt crate",
+                    "[chapter] ch147 user libc library boundary",
+                    "[user-libc] init links syscall and stdio API from user/libc crate",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=init links the reusable user runtime API from the user/crt crate",
+        note="runtime signature=init links reusable syscall and stdio API from the user/libc crate",
     ),
     ChapterSet(
         key="ch148_user_crt_static_link_artifact",
-        label="Ch148 User CRT Static Link Artifact",
+        label="Ch148 User libc Static Link Artifact",
         commit_candidates=["228c31d"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
-                "user-crt-build",
-                "make user-crt PROFILE=release && test -f user/crt/target/riscv64gc-unknown-none-elf/release/libmmos_user_crt.rlib",
+                "user-libc-build",
+                "make user-libc PROFILE=release && test -f user/libc/target/riscv64gc-unknown-none-elf/release/libmmos_user_libc.rlib",
             ),
             Step(
                 "user-init-build",
@@ -2508,13 +2508,13 @@ CHAPTERS: List[ChapterSet] = [
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
-                    "[chapter] ch148 user crt static link artifact",
-                    "[user-crt] build produces libmmos_user_crt.rlib before shared object support",
+                    "[chapter] ch148 user libc static link artifact",
+                    "[user-libc] build produces libmmos_user_libc.rlib before shared object support",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=CRT is currently a static rlib artifact, not a runtime-mapped shared object",
+        note="runtime signature=libc is currently a static rlib artifact, not a runtime-mapped shared object",
     ),
     ChapterSet(
         key="ch149_user_link_model_classification",
@@ -2525,14 +2525,14 @@ CHAPTERS: List[ChapterSet] = [
             Step(
                 "user-link-model",
                 "make user-link-model PROFILE=release",
-                must_contain=("[user-link] init=ET_EXEC crt=rlib shared-object=no",),
+                must_contain=("[user-link] init=ET_EXEC crt=rlib libc=rlib shared-object=no",),
             ),
             Step(
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch149 user link model classification",
-                    "[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent",
+                    "[user-link] init is ET_EXEC, crt and libc are rlibs, runtime shared object is absent",
                     "[user-init] exit=0",
                 ),
             ),
@@ -2571,17 +2571,17 @@ CHAPTERS: List[ChapterSet] = [
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
-                "user-crt-shared-object",
-                "make user-crt-shared-object PROFILE=release",
+                "user-libc-shared-object",
+                "make user-libc-shared-object PROFILE=release",
                 must_contain=(
-                    "[user-link] crt-shared-object=ET_DYN path=/lib/libmmos_user_crt.so",
+                    "[user-link] libc-shared-object=ET_DYN path=/lib/libmmos_user_libc.so",
                 ),
             ),
             Step(
                 "user-image-shared-object",
                 "make user-image-shared-object PROFILE=release",
                 must_contain=(
-                    "[user-link] image-shared-object=/lib/libmmos_user_crt.so readable=yes",
+                    "[user-link] image-shared-object=/lib/libmmos_user_libc.so readable=yes",
                 ),
             ),
             Step(
@@ -2589,12 +2589,12 @@ CHAPTERS: List[ChapterSet] = [
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch151 user image shared object artifact",
-                    "[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate",
+                    "[user-link] /lib/libmmos_user_libc.so is packaged as an ET_DYN candidate",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=packages a tiny ET_DYN CRT shared object candidate into the user image under /lib",
+        note="runtime signature=packages a tiny ET_DYN libc shared object candidate into the user image under /lib",
     ),
     ChapterSet(
         key="ch152_shared_object_dynamic_metadata",
@@ -2831,7 +2831,7 @@ CHAPTERS: List[ChapterSet] = [
                 "shared-object-path-load",
                 "make shared-object-path-load PROFILE=release",
                 must_contain=(
-                    "[user-link] shared-object-path-load=/lib/libmmos_user_crt.so pipeline=ready",
+                    "[user-link] shared-object-path-load=/lib/libmmos_user_libc.so pipeline=ready",
                 ),
             ),
             Step(
@@ -2856,7 +2856,7 @@ CHAPTERS: List[ChapterSet] = [
                 "shared-object-dependency-load",
                 "make shared-object-dependency-load PROFILE=release",
                 must_contain=(
-                    "[user-link] shared-object-dependency=/lib/libmmos_user_crt.so base=0x50000000",
+                    "[user-link] shared-object-dependency=/lib/libmmos_user_libc.so base=0x50000000",
                 ),
             ),
             Step(
@@ -2864,7 +2864,7 @@ CHAPTERS: List[ChapterSet] = [
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch162 shared object dependency load",
-                    "[user-link] exec dependency names /lib/libmmos_user_crt.so before path load",
+                    "[user-link] exec dependency names /lib/libmmos_user_libc.so before path load",
                     "[user-init] exit=0",
                 ),
             ),
@@ -2881,7 +2881,7 @@ CHAPTERS: List[ChapterSet] = [
                 "exec-shared-object-dependency",
                 "make exec-shared-object-dependency PROFILE=release",
                 must_contain=(
-                    "[user-link] exec-dependency=/sbin/init requires /lib/libmmos_user_crt.so",
+                    "[user-link] exec-dependency=/sbin/init requires /lib/libmmos_user_libc.so",
                 ),
             ),
             Step(
@@ -2889,12 +2889,12 @@ CHAPTERS: List[ChapterSet] = [
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch163 exec shared object dependency",
-                    "[user-link] exec image preparation carries the CRT shared object dependency",
+                    "[user-link] exec image preparation carries the libc shared object dependency",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=exec image preparation carries the CRT shared object dependency into the loader boundary",
+        note="runtime signature=exec image preparation carries the libc shared object dependency into the loader boundary",
     ),
     ChapterSet(
         key="ch164_process_exec_shared_object_runtime",
@@ -2906,7 +2906,7 @@ CHAPTERS: List[ChapterSet] = [
                 "process-exec-shared-object-runtime",
                 "make process-exec-shared-object-runtime PROFILE=release",
                 must_contain=(
-                    "[user-link] process-exec-runtime preserves shared-object=/lib/libmmos_user_crt.so",
+                    "[user-link] process-exec-runtime preserves shared-object=/lib/libmmos_user_libc.so",
                 ),
             ),
             Step(
@@ -2931,7 +2931,7 @@ CHAPTERS: List[ChapterSet] = [
                 "exec-apply-shared-object-runtime",
                 "make exec-apply-shared-object-runtime PROFILE=release",
                 must_contain=(
-                    "[user-link] exec-apply-runtime carries shared-object=/lib/libmmos_user_crt.so",
+                    "[user-link] exec-apply-runtime carries shared-object=/lib/libmmos_user_libc.so",
                 ),
             ),
             Step(
@@ -2956,7 +2956,7 @@ CHAPTERS: List[ChapterSet] = [
                 "exec-dispatch-shared-object-runtime",
                 "make exec-dispatch-shared-object-runtime PROFILE=release",
                 must_contain=(
-                    "[user-link] exec-dispatch-runtime selects shared-object=/lib/libmmos_user_crt.so",
+                    "[user-link] exec-dispatch-runtime selects shared-object=/lib/libmmos_user_libc.so",
                 ),
             ),
             Step(
@@ -3007,7 +3007,7 @@ CHAPTERS: List[ChapterSet] = [
                 "user-main-startup-args",
                 "make user-main-startup-args PROFILE=release",
                 must_contain=(
-                    "[user-crt] main-observes=argv0+env0 startup-cstr-bound=256",
+                    "[user-libc] main-observes=argv0+env0 startup-cstr-bound=256",
                 ),
             ),
             Step(
@@ -3015,7 +3015,7 @@ CHAPTERS: List[ChapterSet] = [
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch169 user main startup args",
-                    "[user-crt] app main can observe argv and envp pointers from CRT",
+                    "[user-libc] app main can print argv and envp through libc helpers",
                     "[user-init] argv0=/sbin/init",
                     "[user-init] env0=PATH=/bin",
                     "[user-init] exit=0",
@@ -3052,27 +3052,27 @@ CHAPTERS: List[ChapterSet] = [
     ),
     ChapterSet(
         key="ch171_user_crt_env_lookup",
-        label="Ch171 User CRT Env Lookup",
+        label="Ch171 User libc Env Lookup",
             commit_candidates=["28e01ce"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
-                "user-crt-env-lookup",
-                "make user-crt-env-lookup PROFILE=release",
-                must_contain=("[user-crt] env-lookup=KEY=VALUE value-writer",),
+                "user-libc-env-lookup",
+                "make user-libc-env-lookup PROFILE=release",
+                must_contain=("[user-libc] env-lookup=KEY=VALUE value-writer",),
             ),
             Step(
                 "run-nographic",
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
-                    "[chapter] ch171 user crt env lookup",
-                    "[user-crt] app can ask CRT to print an env value by key",
+                    "[chapter] ch171 user libc env lookup",
+                    "[user-libc] app can ask libc to print an env value by key",
                     "[user-init] getenv PATH=/bin",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=CRT helper resolves PATH value from envp table",
+        note="runtime signature=libc helper resolves PATH value from envp table",
     ),
     ChapterSet(
         key="live_ch26_launch_handoff",

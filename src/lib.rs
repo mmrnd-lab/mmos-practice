@@ -185,7 +185,7 @@ mod tests {
         KernelRuntimeSatpGuard,
         KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
         SatpCommitPreflight, SatpCommitPreflightError, SharedObjectFramePlanError,
-        SharedObjectDependency, USER_CRT_SHARED_OBJECT_DEPENDENCY,
+        SharedObjectDependency, USER_LIBC_SHARED_OBJECT_DEPENDENCY,
         UserFrameBackedImageError,
     };
     use super::vfs::Vfs;
@@ -1033,7 +1033,7 @@ mod tests {
             &mut exec_scratch,
             &mut shared_scratch,
             0x4010_0000,
-            USER_CRT_SHARED_OBJECT_DEPENDENCY,
+            USER_LIBC_SHARED_OBJECT_DEPENDENCY,
             &mut pmm,
             &mut root,
             &mut l1,
@@ -1047,8 +1047,8 @@ mod tests {
         assert_eq!(exec.entry, 0x4000_0000);
         assert_eq!(report.exec.path_len, 10);
         assert_eq!(report.exec.argc, 1);
-        assert_eq!(report.dependency_path, "/lib/libmmos_user_crt.so");
-        assert_eq!(report.dependency_base, USER_CRT_SHARED_OBJECT_DEPENDENCY.preferred_base);
+        assert_eq!(report.dependency_path, "/lib/libmmos_user_libc.so");
+        assert_eq!(report.dependency_base, USER_LIBC_SHARED_OBJECT_DEPENDENCY.preferred_base);
         assert_eq!(report.dependency_entry, shared.entry_vaddr);
         assert_eq!(report.dependency_mapped_pages, 1);
         assert!(is_leaf_user_mapping(shared_entry));
@@ -1192,7 +1192,7 @@ mod tests {
             &mut stack,
             0x4010_0000,
             VmSpace::<2>::new(),
-            USER_CRT_SHARED_OBJECT_DEPENDENCY,
+            USER_LIBC_SHARED_OBJECT_DEPENDENCY,
             &mut pmm,
             &mut root,
             &mut l1,
@@ -1206,7 +1206,7 @@ mod tests {
         assert_eq!(report.entry, 0x4000_0000);
         assert_eq!(report.pid, fork.child_pid);
         assert_eq!(report.tid, fork.child_tid);
-        assert_eq!(shared_object.path, "/lib/libmmos_user_crt.so");
+        assert_eq!(shared_object.path, "/lib/libmmos_user_libc.so");
         assert_eq!(shared_object.base, 0x5000_0000);
         assert_eq!(shared_object.entry, 0x9000_0000);
         assert_eq!(shared_object.mapped_pages, 1);
@@ -1576,7 +1576,7 @@ mod tests {
                 stack_bytes: &mut stack,
                 stack_top_va: 0x4010_0000,
                 new_vm: VmSpace::<2>::new(),
-                dependency: USER_CRT_SHARED_OBJECT_DEPENDENCY,
+                dependency: USER_LIBC_SHARED_OBJECT_DEPENDENCY,
                 pmm: &mut pmm,
                 root: &mut root,
                 l1: &mut l1,
@@ -1647,7 +1647,7 @@ mod tests {
                 stack_bytes: &mut stack,
                 stack_top_va: 0x4010_0000,
                 new_vm: VmSpace::<2>::new(),
-                dependency: USER_CRT_SHARED_OBJECT_DEPENDENCY,
+                dependency: USER_LIBC_SHARED_OBJECT_DEPENDENCY,
                 pmm: &mut pmm,
                 root: &mut root,
                 l1: &mut l1,
@@ -3431,11 +3431,11 @@ mod tests {
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let mut scratch = [0u8; 512];
 
-        let copied = vfs.read_all("/lib/libmmos_user_crt.so", &mut scratch).unwrap();
+        let copied = vfs.read_all("/lib/libmmos_user_libc.so", &mut scratch).unwrap();
         assert_eq!(copied, build_test_shared_object().len());
         let plan = plan_shared_object_from_vfs(
             &vfs,
-            "/lib/libmmos_user_crt.so",
+            "/lib/libmmos_user_libc.so",
             &mut scratch,
             0x5000_0000,
         ).unwrap();
@@ -4382,7 +4382,7 @@ mod tests {
             ],
         };
         let shared_object = ProcessSharedObjectRuntime {
-            path: "/lib/libmmos_user_crt.so",
+            path: "/lib/libmmos_user_libc.so",
             base: 0x5000_0000,
             entry: 0x9000_0000,
             mapped_pages: 1,
@@ -5804,7 +5804,7 @@ mod tests {
 
         let loaded = load_shared_object_from_vfs_in_tables(
             &vfs,
-            "/lib/libmmos_user_crt.so",
+            "/lib/libmmos_user_libc.so",
             &mut scratch,
             0x5000_0000,
             &mut pmm,
@@ -5839,8 +5839,8 @@ mod tests {
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let dependency = SharedObjectDependency {
-            path: USER_CRT_SHARED_OBJECT_DEPENDENCY.path,
-            preferred_base: USER_CRT_SHARED_OBJECT_DEPENDENCY.preferred_base,
+            path: USER_LIBC_SHARED_OBJECT_DEPENDENCY.path,
+            preferred_base: USER_LIBC_SHARED_OBJECT_DEPENDENCY.preferred_base,
         };
         let mut scratch = [0u8; 1024];
         let mut pmm =
@@ -5863,7 +5863,7 @@ mod tests {
         .unwrap();
 
         let shared_entry = l0.entries[vpn0(0x9000_0000)];
-        assert_eq!(dependency.path, "/lib/libmmos_user_crt.so");
+        assert_eq!(dependency.path, "/lib/libmmos_user_libc.so");
         assert_eq!(loaded.base, dependency.preferred_base);
         assert_eq!(loaded.entry_vaddr, 0x9000_0000);
         assert_eq!(loaded.mapped_pages, 1);

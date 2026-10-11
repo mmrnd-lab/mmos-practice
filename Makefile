@@ -16,8 +16,9 @@ UIMAGE := $(BUILD_DIR)/mmos.uImage
 BOOT_DISK := $(BUILD_DIR)/drive0.img
 USER_INIT_ELF := $(BUILD_DIR)/user-init.elf
 USER_CRT_RLIB := user/crt/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_crt.rlib
-USER_CRT_SO := $(BUILD_DIR)/lib/libmmos_user_crt.so
-USER_CRT_SO_OBJ := $(BUILD_DIR)/lib/mmos_user_crt_shared.o
+USER_LIBC_RLIB := user/libc/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_libc.rlib
+USER_LIBC_SO := $(BUILD_DIR)/lib/libmmos_user_libc.so
+USER_LIBC_SO_OBJ := $(BUILD_DIR)/lib/mmos_user_libc_shared.o
 UBOOT_BUILD := $(BUILD_DIR)/u-boot
 UBOOT_BIN := $(UBOOT_BUILD)/u-boot.bin
 UBOOT_SPL := $(UBOOT_BUILD)/spl/u-boot-spl
@@ -43,7 +44,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-libc user-crt-shared-object user-libc-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime exec-apply-shared-object-runtime exec-dispatch-shared-object-runtime user-crt-entry user-main-startup-args execve-envp-copyin user-crt-env-lookup user-libc-env-lookup user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -71,14 +72,21 @@ $(USER_CRT_RLIB): require-container user/crt/Cargo.toml user/crt/src/lib.rs
 
 user-crt: $(USER_CRT_RLIB)
 
-$(USER_CRT_SO): require-container user/crt/shared_object.S | $(BUILD_DIR)
-	@mkdir -p $(dir $(USER_CRT_SO))
-	$(CROSS_COMPILE)as -o $(USER_CRT_SO_OBJ) user/crt/shared_object.S
-	$(CROSS_COMPILE)ld -shared -o $(USER_CRT_SO) $(USER_CRT_SO_OBJ)
+$(USER_LIBC_RLIB): require-container user/libc/Cargo.toml user/libc/src/lib.rs
+	cargo build --manifest-path user/libc/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
 
-user-crt-shared-object: $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -h $(USER_CRT_SO) | grep -q 'Type:[[:space:]]*DYN'
-	@echo "[user-link] crt-shared-object=ET_DYN path=/lib/libmmos_user_crt.so"
+user-libc: $(USER_LIBC_RLIB)
+
+$(USER_LIBC_SO): require-container user/libc/shared_object.S | $(BUILD_DIR)
+	@mkdir -p $(dir $(USER_LIBC_SO))
+	$(CROSS_COMPILE)as -o $(USER_LIBC_SO_OBJ) user/libc/shared_object.S
+	$(CROSS_COMPILE)ld -shared -o $(USER_LIBC_SO) $(USER_LIBC_SO_OBJ)
+
+user-libc-shared-object: $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -h $(USER_LIBC_SO) | grep -q 'Type:[[:space:]]*DYN'
+	@echo "[user-link] libc-shared-object=ET_DYN path=/lib/libmmos_user_libc.so"
+
+user-crt-shared-object: user-libc-shared-object
 
 $(USER_INIT_ELF): require-container user/common/mmos_user_app.ld user/init/build.rs | $(BUILD_DIR)
 	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-T/workspace/mmos-practice/user/common/mmos_user_app.ld' cargo build --manifest-path user/init/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
@@ -86,84 +94,85 @@ $(USER_INIT_ELF): require-container user/common/mmos_user_app.ld user/init/build
 
 user-init: $(USER_INIT_ELF)
 
-user-link-model: require-container $(USER_CRT_RLIB) $(USER_INIT_ELF)
+user-link-model: require-container $(USER_CRT_RLIB) $(USER_LIBC_RLIB) $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -h $(USER_INIT_ELF) | grep -q 'Type:[[:space:]]*EXEC'
 	@test -f $(USER_CRT_RLIB)
-	@echo "[user-link] init=ET_EXEC crt=rlib shared-object=no"
+	@test -f $(USER_LIBC_RLIB)
+	@echo "[user-link] init=ET_EXEC crt=rlib libc=rlib shared-object=no"
 
 shared-object-load-plan: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -h $(USER_INIT_ELF) | grep -q 'Type:[[:space:]]*EXEC'
 	@echo "[user-link] shared-object=ET_DYN loader-plan=base+segments relocation=needed"
 
-shared-object-metadata: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -l $(USER_CRT_SO) | grep -q DYNAMIC
-	@riscv64-linux-gnu-readelf -d $(USER_CRT_SO) | grep -q "(RELA)"
-	@riscv64-linux-gnu-readelf -d $(USER_CRT_SO) | grep -q "(RELAENT).*24"
+shared-object-metadata: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -l $(USER_LIBC_SO) | grep -q DYNAMIC
+	@riscv64-linux-gnu-readelf -d $(USER_LIBC_SO) | grep -q "(RELA)"
+	@riscv64-linux-gnu-readelf -d $(USER_LIBC_SO) | grep -q "(RELAENT).*24"
 	@echo "[user-link] shared-object-metadata=dynamic rela=yes relaent=24"
 
-shared-object-relocations: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -r $(USER_CRT_SO) | grep -q "There are no relocations"
+shared-object-relocations: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -r $(USER_LIBC_SO) | grep -q "There are no relocations"
 	@echo "[user-link] shared-object-relocations=rela-records scanned apply-candidates=0"
 
-shared-object-relative-apply: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -r $(USER_CRT_SO) | grep -q "There are no relocations"
+shared-object-relative-apply: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -r $(USER_LIBC_SO) | grep -q "There are no relocations"
 	@echo "[user-link] relative-relocation=R_RISCV_RELATIVE formula=base+addend"
 
-shared-object-relocation-writeback: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -r $(USER_CRT_SO) | grep -q "There are no relocations"
+shared-object-relocation-writeback: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -r $(USER_LIBC_SO) | grep -q "There are no relocations"
 	@echo "[user-link] relocation-writeback=checked-range little-endian-u64"
 
-shared-object-materialize: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -r $(USER_CRT_SO) | grep -q "There are no relocations"
+shared-object-materialize: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -r $(USER_LIBC_SO) | grep -q "There are no relocations"
 	@echo "[user-link] shared-object-materialize=rela+relative+writeback applied=0"
 
-shared-object-mapping-plan: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -h $(USER_CRT_SO) | grep -q 'Type:[[:space:]]*DYN'
-	@riscv64-linux-gnu-readelf -l $(USER_CRT_SO) | grep -q LOAD
+shared-object-mapping-plan: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -h $(USER_LIBC_SO) | grep -q 'Type:[[:space:]]*DYN'
+	@riscv64-linux-gnu-readelf -l $(USER_LIBC_SO) | grep -q LOAD
 	@echo "[user-link] shared-object-mapping=base+segments user-vaddr-candidates"
 
-shared-object-frame-plan: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -h $(USER_CRT_SO) | grep -q 'Type:[[:space:]]*DYN'
-	@riscv64-linux-gnu-readelf -l $(USER_CRT_SO) | grep -q LOAD
+shared-object-frame-plan: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -h $(USER_LIBC_SO) | grep -q 'Type:[[:space:]]*DYN'
+	@riscv64-linux-gnu-readelf -l $(USER_LIBC_SO) | grep -q LOAD
 	@echo "[user-link] shared-object-frame-plan=pmm-backed-segments page-table-ready"
 
-shared-object-page-table-install: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -h $(USER_CRT_SO) | grep -q 'Type:[[:space:]]*DYN'
-	@riscv64-linux-gnu-readelf -l $(USER_CRT_SO) | grep -q LOAD
+shared-object-page-table-install: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -h $(USER_LIBC_SO) | grep -q 'Type:[[:space:]]*DYN'
+	@riscv64-linux-gnu-readelf -l $(USER_LIBC_SO) | grep -q LOAD
 	@echo "[user-link] shared-object-page-table=leaf-mappings stack=none"
 
-shared-object-load-pipeline: require-container $(USER_CRT_SO)
-	@riscv64-linux-gnu-readelf -h $(USER_CRT_SO) | grep -q 'Type:[[:space:]]*DYN'
-	@riscv64-linux-gnu-readelf -l $(USER_CRT_SO) | grep -q LOAD
+shared-object-load-pipeline: require-container $(USER_LIBC_SO)
+	@riscv64-linux-gnu-readelf -h $(USER_LIBC_SO) | grep -q 'Type:[[:space:]]*DYN'
+	@riscv64-linux-gnu-readelf -l $(USER_LIBC_SO) | grep -q LOAD
 	@echo "[user-link] shared-object-pipeline=relocations+frames+leaf-mappings"
 
-shared-object-path-load: require-container $(BOOT_DISK) $(USER_CRT_SO)
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] shared-object-path-load=/lib/libmmos_user_crt.so pipeline=ready"
+shared-object-path-load: require-container $(BOOT_DISK) $(USER_LIBC_SO)
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] shared-object-path-load=/lib/libmmos_user_libc.so pipeline=ready"
 
-shared-object-dependency-load: require-container $(BOOT_DISK) $(USER_CRT_SO)
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] shared-object-dependency=/lib/libmmos_user_crt.so base=0x50000000"
+shared-object-dependency-load: require-container $(BOOT_DISK) $(USER_LIBC_SO)
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] shared-object-dependency=/lib/libmmos_user_libc.so base=0x50000000"
 
-exec-shared-object-dependency: require-container $(BOOT_DISK) $(USER_CRT_SO) $(USER_INIT_ELF)
+exec-shared-object-dependency: require-container $(BOOT_DISK) $(USER_LIBC_SO) $(USER_INIT_ELF)
 	@debugfs -R "stat /sbin/init" $(BOOT_DISK) >/dev/null
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] exec-dependency=/sbin/init requires /lib/libmmos_user_crt.so"
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] exec-dependency=/sbin/init requires /lib/libmmos_user_libc.so"
 
-process-exec-shared-object-runtime: require-container $(BOOT_DISK) $(USER_CRT_SO) $(USER_INIT_ELF)
+process-exec-shared-object-runtime: require-container $(BOOT_DISK) $(USER_LIBC_SO) $(USER_INIT_ELF)
 	@debugfs -R "stat /sbin/init" $(BOOT_DISK) >/dev/null
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] process-exec-runtime preserves shared-object=/lib/libmmos_user_crt.so"
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] process-exec-runtime preserves shared-object=/lib/libmmos_user_libc.so"
 
-exec-apply-shared-object-runtime: require-container $(BOOT_DISK) $(USER_CRT_SO) $(USER_INIT_ELF)
+exec-apply-shared-object-runtime: require-container $(BOOT_DISK) $(USER_LIBC_SO) $(USER_INIT_ELF)
 	@debugfs -R "stat /sbin/init" $(BOOT_DISK) >/dev/null
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] exec-apply-runtime carries shared-object=/lib/libmmos_user_crt.so"
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] exec-apply-runtime carries shared-object=/lib/libmmos_user_libc.so"
 
-exec-dispatch-shared-object-runtime: require-container $(BOOT_DISK) $(USER_CRT_SO) $(USER_INIT_ELF)
+exec-dispatch-shared-object-runtime: require-container $(BOOT_DISK) $(USER_LIBC_SO) $(USER_INIT_ELF)
 	@debugfs -R "stat /sbin/init" $(BOOT_DISK) >/dev/null
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] exec-dispatch-runtime selects shared-object=/lib/libmmos_user_crt.so"
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] exec-dispatch-runtime selects shared-object=/lib/libmmos_user_libc.so"
 
 user-crt-entry: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -s $(USER_INIT_ELF) | grep -q '[[:space:]]_start$$'
@@ -172,18 +181,20 @@ user-crt-entry: require-container $(USER_INIT_ELF)
 
 user-main-startup-args: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -s $(USER_INIT_ELF) | grep -q '[[:space:]]write_startup_cstr'
-	@echo "[user-crt] main-observes=argv0+env0 startup-cstr-bound=256"
+	@echo "[user-libc] main-observes=argv0+env0 startup-cstr-bound=256"
 
 execve-envp-copyin: require-container
 	@echo "[syscall] execve-envp-copyin=path+argv+envp stack-envp-table"
 
-user-crt-env-lookup: require-container $(USER_INIT_ELF)
+user-libc-env-lookup: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -s $(USER_INIT_ELF) | grep -q '[[:space:]]write_env_value'
-	@echo "[user-crt] env-lookup=KEY=VALUE value-writer"
+	@echo "[user-libc] env-lookup=KEY=VALUE value-writer"
 
-user-image-shared-object: require-container $(BOOT_DISK) $(USER_CRT_SO)
-	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
-	@echo "[user-link] image-shared-object=/lib/libmmos_user_crt.so readable=yes"
+user-crt-env-lookup: user-libc-env-lookup
+
+user-image-shared-object: require-container $(BOOT_DISK) $(USER_LIBC_SO)
+	@debugfs -R "stat /lib/libmmos_user_libc.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] image-shared-object=/lib/libmmos_user_libc.so readable=yes"
 
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
@@ -199,8 +210,8 @@ $(UIMAGE): require-container $(KERNEL_RAW) | $(BUILD_DIR)
 
 uImage: $(UIMAGE)
 
-$(BOOT_DISK): require-container $(UIMAGE) $(USER_INIT_ELF) $(USER_CRT_SO) boot/extlinux.conf | $(BUILD_DIR)
-	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf $(USER_INIT_ELF) $(USER_CRT_SO)
+$(BOOT_DISK): require-container $(UIMAGE) $(USER_INIT_ELF) $(USER_LIBC_SO) boot/extlinux.conf | $(BUILD_DIR)
+	./scripts/build-boot-disk.sh $(BOOT_DISK) $(UIMAGE) boot/extlinux.conf $(USER_INIT_ELF) $(USER_LIBC_SO)
 
 boot-disk: $(BOOT_DISK)
 

@@ -179,7 +179,7 @@ fn write_lib_dir(image: &mut [u8]) {
     let block = &mut image[13 * 1024..14 * 1024];
     write_dir_entry(block, 0, 14, 12, b".", 2);
     write_dir_entry(block, 12, 2, 12, b"..", 2);
-    write_dir_entry(block, 24, 15, (1024 - 24) as u16, b"libmmos_user_crt.so", 1);
+    write_dir_entry(block, 24, 15, (1024 - 24) as u16, b"libmmos_user_libc.so", 1);
 }
 
 fn write_dir_entry(

@@ -3074,17 +3074,17 @@ fn run_empty_fd_table_init_stdio_demo() {
 
 fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch146 user init runtime split\n");
-    console::puts("[user-rt] init owns stdio open/write/exit wrappers before CRT extraction\n");
-    console::puts("[chapter] ch147 user crt library boundary\n");
-    console::puts("[user-crt] init links shared runtime API from user/crt crate\n");
-    console::puts("[chapter] ch148 user crt static link artifact\n");
-    console::puts("[user-crt] build produces libmmos_user_crt.rlib before shared object support\n");
+    console::puts("[user-rt] init owns stdio open/write/exit wrappers before libc extraction\n");
+    console::puts("[chapter] ch147 user libc library boundary\n");
+    console::puts("[user-libc] init links syscall and stdio API from user/libc crate\n");
+    console::puts("[chapter] ch148 user libc static link artifact\n");
+    console::puts("[user-libc] build produces libmmos_user_libc.rlib before shared object support\n");
     console::puts("[chapter] ch149 user link model classification\n");
-    console::puts("[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent\n");
+    console::puts("[user-link] init is ET_EXEC, crt and libc are rlibs, runtime shared object is absent\n");
     console::puts("[chapter] ch150 shared object load plan\n");
     console::puts("[user-link] ET_DYN shared object requires base, segments, and relocation plan\n");
     console::puts("[chapter] ch151 user image shared object artifact\n");
-    console::puts("[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate\n");
+    console::puts("[user-link] /lib/libmmos_user_libc.so is packaged as an ET_DYN candidate\n");
     console::puts("[chapter] ch152 shared object dynamic metadata\n");
     console::puts("[user-link] dynamic segment exposes RELA metadata before relocation apply\n");
     console::puts("[chapter] ch153 shared object relocation candidates\n");
@@ -3106,9 +3106,9 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch161 shared object path load\n");
     console::puts("[user-link] shared object path load reads VFS bytes before running the load pipeline\n");
     console::puts("[chapter] ch162 shared object dependency load\n");
-    console::puts("[user-link] exec dependency names /lib/libmmos_user_crt.so before path load\n");
+    console::puts("[user-link] exec dependency names /lib/libmmos_user_libc.so before path load\n");
     console::puts("[chapter] ch163 exec shared object dependency\n");
-    console::puts("[user-link] exec image preparation carries the CRT shared object dependency\n");
+    console::puts("[user-link] exec image preparation carries the libc shared object dependency\n");
     console::puts("[chapter] ch164 process exec shared object runtime\n");
     console::puts("[user-link] process exec result preserves loaded shared object metadata\n");
     console::puts("[chapter] ch165 exec apply shared object runtime\n");
@@ -3118,9 +3118,9 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch168 user crt entry main\n");
     console::puts("[user-crt] _start decodes initial stack before app main\n");
     console::puts("[chapter] ch169 user main startup args\n");
-    console::puts("[user-crt] app main can observe argv and envp pointers from CRT\n");
-    console::puts("[chapter] ch171 user crt env lookup\n");
-    console::puts("[user-crt] app can ask CRT to print an env value by key\n");
+    console::puts("[user-libc] app main can print argv and envp through libc helpers\n");
+    console::puts("[chapter] ch171 user libc env lookup\n");
+    console::puts("[user-libc] app can ask libc to print an env value by key\n");
 }
 
 fn run_kernel_satp_guard_demo() {
