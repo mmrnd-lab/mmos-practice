@@ -235,7 +235,7 @@ pub fn handle_blocking_syscall_result(
 pub fn schedule_after_blocked_syscall<const N: usize>(
     frame: &TrapFrame,
     scheduler: &mut Scheduler<N>,
-) -> Option<(usize, usize)> {
+) -> Option<crate::scheduler::ScheduleDecision> {
     scheduler.schedule_after_current_blocked(*frame)
 }
 

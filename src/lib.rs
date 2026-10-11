@@ -74,7 +74,7 @@ mod tests {
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
     };
     use super::process_runtime::run_fork_exec_wait_demo;
-    use super::scheduler::{Scheduler, TaskState};
+    use super::scheduler::{ScheduleDecision, Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
     use super::serial_rx::{wake_reader_on_rx_event, SerialRxEvent};
     use super::sv39::{
@@ -992,7 +992,10 @@ mod tests {
 
         assert_eq!(
             schedule_after_blocked_syscall(&blocked_frame, &mut scheduler),
-            Some((1, 2))
+            Some(ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 2,
+            })
         );
         assert_eq!(scheduler.current_tid(), Some(2));
         assert_eq!(scheduler.task_state(1), Some(TaskState::Blocked));
@@ -1000,6 +1003,26 @@ mod tests {
         let saved = scheduler.task_frame(1).unwrap();
         assert_eq!(saved.sepc, 0x9000);
         assert_eq!(saved.a0(), 0x1234);
+    }
+
+
+    #[test]
+    fn scheduler_handoff_enters_idle_when_no_runnable_task_exists() {
+        let mut scheduler = Scheduler::<2>::new();
+        scheduler.add_runnable(1, TrapFrame::default()).unwrap();
+        let _ = scheduler.on_tick();
+        scheduler.set_state(1, TaskState::Blocked);
+
+        let mut blocked_frame = TrapFrame::default();
+        blocked_frame.sepc = 0xa000;
+
+        assert_eq!(
+            schedule_after_blocked_syscall(&blocked_frame, &mut scheduler),
+            Some(ScheduleDecision::Idle { blocked_tid: 1 })
+        );
+        assert_eq!(scheduler.current_tid(), None);
+        assert_eq!(scheduler.task_state(1), Some(TaskState::Blocked));
+        assert_eq!(scheduler.task_frame(1).unwrap().sepc, 0xa000);
     }
 
     #[test]

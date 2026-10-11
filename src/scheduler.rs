@@ -23,6 +23,12 @@ pub enum SchedError {
     Full,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ScheduleDecision {
+    Switched { prev_tid: usize, next_tid: usize },
+    Idle { blocked_tid: usize },
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct Scheduler<const MAX_TASKS: usize> {
     slots: [Option<TaskSlot>; MAX_TASKS],
@@ -108,16 +114,28 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
         false
     }
 
-    pub fn schedule_after_current_blocked(&mut self, current_tf: TrapFrame) -> Option<(usize, usize)> {
+    pub fn schedule_after_current_blocked(
+        &mut self,
+        current_tf: TrapFrame,
+    ) -> Option<ScheduleDecision> {
         let cur = self.current_idx?;
         let mut current = self.slots[cur]?;
         let prev_tid = current.tid;
         current.tf = current_tf;
         self.slots[cur] = Some(current);
 
-        let next = self.find_next_runnable((cur + 1) % MAX_TASKS)?;
+        let Some(next) = self.find_next_runnable((cur + 1) % MAX_TASKS) else {
+            self.current_idx = None;
+            return Some(ScheduleDecision::Idle {
+                blocked_tid: prev_tid,
+            });
+        };
+
         if next == cur {
-            return None;
+            self.current_idx = None;
+            return Some(ScheduleDecision::Idle {
+                blocked_tid: prev_tid,
+            });
         }
 
         if let Some(mut task) = self.slots[next] {
@@ -126,7 +144,7 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
         }
         self.current_idx = Some(next);
         let next_tid = self.slots[next].map(|task| task.tid)?;
-        Some((prev_tid, next_tid))
+        Some(ScheduleDecision::Switched { prev_tid, next_tid })
     }
 
     pub fn on_tick(&mut self) -> Option<(usize, usize)> {

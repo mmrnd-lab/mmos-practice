@@ -472,11 +472,28 @@ pub extern "C" fn rust_main() -> ! {
             let _ = handoff_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
             if blocked
                 && trap::schedule_after_blocked_syscall(&blocked_frame, &mut handoff_scheduler)
-                    == Some((input_tid, next_tid))
+                    == Some(scheduler::ScheduleDecision::Switched {
+                        prev_tid: input_tid,
+                        next_tid,
+                    })
                 && handoff_scheduler.current_tid() == Some(next_tid)
                 && handoff_scheduler.task_state(input_tid) == Some(scheduler::TaskState::Blocked)
             {
                 console::puts("[chapter] ch51 schedule next runnable task\n");
+            }
+            let mut idle_scheduler = scheduler::Scheduler::<1>::new();
+            let _ = idle_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
+            let _ = idle_scheduler.on_tick();
+            let _ = idle_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
+            if blocked
+                && trap::schedule_after_blocked_syscall(&blocked_frame, &mut idle_scheduler)
+                    == Some(scheduler::ScheduleDecision::Idle {
+                        blocked_tid: input_tid,
+                    })
+                && idle_scheduler.current_tid().is_none()
+                && idle_scheduler.task_state(input_tid) == Some(scheduler::TaskState::Blocked)
+            {
+                console::puts("[chapter] ch52 idle when no runnable task\n");
             }
         }
     }
