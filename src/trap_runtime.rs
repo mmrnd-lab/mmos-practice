@@ -261,6 +261,7 @@ pub struct ProcessTrapRuntime<
     tasks: TaskTable<MAX_TASKS>,
     scheduler: Scheduler<MAX_TASKS>,
     process_waiters: ProcessWaitQueue<MAX_TASKS>,
+    execv_stack_top_va: usize,
 }
 
 impl<
@@ -276,7 +277,33 @@ impl<
             tasks: TaskTable::new(),
             scheduler: Scheduler::new(),
             process_waiters: ProcessWaitQueue::new(),
+            execv_stack_top_va: 0,
         }
+    }
+
+    pub const fn new_with_execv_stack_top(execv_stack_top_va: usize) -> Self {
+        Self {
+            processes: ProcessTable::new(),
+            tasks: TaskTable::new(),
+            scheduler: Scheduler::new(),
+            process_waiters: ProcessWaitQueue::new(),
+            execv_stack_top_va,
+        }
+    }
+
+    pub fn set_execv_stack_top_va(&mut self, execv_stack_top_va: usize) {
+        self.execv_stack_top_va = execv_stack_top_va;
+    }
+
+    pub const fn execv_stack_top_va(&self) -> usize {
+        self.execv_stack_top_va
+    }
+
+    pub const fn execv_dispatch_plan<
+        const SCRATCH_BYTES: usize,
+        const STACK_BYTES: usize,
+    >(&self) -> ExecvTrapDispatchPlan<SCRATCH_BYTES, STACK_BYTES, MAX_AREAS> {
+        ExecvTrapDispatchPlan::new(self.execv_stack_top_va)
     }
 
     pub fn create_process(

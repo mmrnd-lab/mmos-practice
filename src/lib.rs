@@ -137,7 +137,7 @@ mod tests {
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
-        with_global_trap_runtime, ExecvTrapDispatchPlan, ExecvTrapDispatchState,
+        with_global_trap_runtime, ExecvTrapDispatchState,
         ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
@@ -1361,14 +1361,18 @@ mod tests {
         let image = build_test_ext4_image();
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
-        let execv_plan = ExecvTrapDispatchPlan::<512, 256, 2>::new(0x4010_0000);
-        let mut execv_dispatch = execv_plan.prepare(&vfs);
-
         let mut process_vm = VmSpace::<2>::new();
         process_vm
             .map_anon(BASE, BASE + user_mem.len(), PTE_R)
             .unwrap();
-        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut runtime =
+            ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
+        assert_eq!(runtime.execv_stack_top_va(), 0x4010_0000);
+        let execv_plan = runtime.execv_dispatch_plan::<512, 256>();
+        assert_eq!(execv_plan.stack_top_va, 0x4010_0000);
+        assert_eq!(execv_plan.max_areas(), 2);
+        let mut execv_dispatch = execv_plan.prepare(&vfs);
+
         let pid = runtime.create_process(None, process_vm).unwrap();
         let mut task_frame = TrapFrame::default();
         task_frame.sepc = 0x4000_1000;
