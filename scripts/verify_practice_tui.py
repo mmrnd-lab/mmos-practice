@@ -915,7 +915,7 @@ def wrap_checkout_command(repo: str, commit: str, inner_cmd: str) -> str:
         f"""
         set -e
         cd {shlex.quote(repo)}
-        if [ "${FORCE_REBUILD_IMAGE:-0}" = "1" ]; then
+        if [ "${{FORCE_REBUILD_IMAGE:-0}}" = "1" ]; then
           podman build -t mmos-practice:latest .
         elif ! podman image exists mmos-practice:latest >/dev/null 2>&1; then
           podman build -t mmos-practice:latest .
