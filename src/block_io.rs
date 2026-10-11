@@ -3,7 +3,7 @@
 
 use crate::block::{BlockDevice, BlockError};
 
-const MAX_BLOCK_SIZE: usize = 4096;
+const MAX_BLOCK_SIZE: usize = 1024;
 
 pub fn read_bytes(dev: &dyn BlockDevice, offset: u64, out: &mut [u8]) -> Result<(), BlockError> {
     if out.is_empty() {

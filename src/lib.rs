@@ -8,6 +8,7 @@ pub mod ramdisk;
 pub mod block_io;
 pub mod context_switch;
 pub mod device;
+pub mod demo_user_init;
 pub mod elf_loader;
 pub mod ext4;
 pub mod irq_guard;
@@ -722,103 +723,16 @@ mod tests {
 
     fn build_test_ext4_image() -> Vec<u8> {
         let elf = build_test_init_elf();
-        let mut image = vec![0u8; 16 * 1024];
-        write_superblock(&mut image);
-        write_group_descriptor(&mut image);
-        write_inode(&mut image, 2, 0x4000, 1024, 10);
-        write_inode(&mut image, 12, 0x4000, 1024, 11);
-        write_inode(&mut image, 13, 0x8000, elf.len() as u32, 12);
-        write_root_dir(&mut image);
-        write_sbin_dir(&mut image);
-        image[12 * 1024..12 * 1024 + elf.len()].copy_from_slice(&elf);
+        let mut image = vec![0u8; super::demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+        super::demo_user_init::build_demo_ext4_image(&mut image, &elf).unwrap();
         image
     }
 
     fn build_test_init_elf() -> Vec<u8> {
-        let mut elf = vec![0u8; 0x104];
-        elf[0..4].copy_from_slice(b"\x7fELF");
-        elf[4] = 2;
-        elf[5] = 1;
-        elf[6] = 1;
-        write_le16(&mut elf, 16, 2);
-        write_le16(&mut elf, 18, 243);
-        write_le32(&mut elf, 20, 1);
-        write_le64(&mut elf, 24, 0x8040_0000);
-        write_le64(&mut elf, 32, 64);
-        write_le16(&mut elf, 52, 64);
-        write_le16(&mut elf, 54, 56);
-        write_le16(&mut elf, 56, 1);
-
-        let ph = 64usize;
-        write_le32(&mut elf, ph, 1);
-        write_le32(&mut elf, ph + 4, 5);
-        write_le64(&mut elf, ph + 8, 0x100);
-        write_le64(&mut elf, ph + 16, 0x8040_0000);
-        write_le64(&mut elf, ph + 32, 4);
-        write_le64(&mut elf, ph + 40, 8);
-        write_le64(&mut elf, ph + 48, 0x1000);
-        elf[0x100..0x104].copy_from_slice(&[0x13, 0x00, 0x00, 0x00]);
+        let mut elf = vec![0u8; super::demo_user_init::DEMO_INIT_ELF_SIZE];
+        let len = super::demo_user_init::build_demo_init_elf(&mut elf).unwrap();
+        elf.truncate(len);
         elf
-    }
-
-    fn write_superblock(image: &mut [u8]) {
-        let sb = &mut image[1024..2048];
-        write_le32(sb, 0, 32);
-        write_le32(sb, 4, 64);
-        write_le32(sb, 24, 0);
-        write_le32(sb, 32, 16);
-        write_le32(sb, 40, 32);
-        write_le16(sb, 56, 0xEF53);
-        write_le16(sb, 88, 128);
-    }
-
-    fn write_group_descriptor(image: &mut [u8]) {
-        let gd = &mut image[2048..2080];
-        write_le32(gd, 8, 5);
-    }
-
-    fn write_inode(image: &mut [u8], inode_number: u32, mode: u16, size: u32, first_block: u32) {
-        let inode_size = 128usize;
-        let inode_table_offset = 5 * 1024usize;
-        let index = (inode_number as usize).saturating_sub(1);
-        let base = inode_table_offset + index * inode_size;
-        write_le16(&mut image[base..base + inode_size], 0, mode);
-        write_le32(&mut image[base..base + inode_size], 4, size);
-        write_le32(&mut image[base..base + inode_size], 40, first_block);
-    }
-
-    fn write_root_dir(image: &mut [u8]) {
-        let block = &mut image[10 * 1024..11 * 1024];
-        write_dir_entry(block, 0, 2, 12, b".", 2);
-        write_dir_entry(block, 12, 2, 12, b"..", 2);
-        write_dir_entry(block, 24, 12, (1024 - 24) as u16, b"sbin", 2);
-    }
-
-    fn write_sbin_dir(image: &mut [u8]) {
-        let block = &mut image[11 * 1024..12 * 1024];
-        write_dir_entry(block, 0, 12, 12, b".", 2);
-        write_dir_entry(block, 12, 2, 12, b"..", 2);
-        write_dir_entry(block, 24, 13, (1024 - 24) as u16, b"init", 1);
-    }
-
-    fn write_dir_entry(block: &mut [u8], offset: usize, inode: u32, rec_len: u16, name: &[u8], file_type: u8) {
-        write_le32(block, offset, inode);
-        write_le16(block, offset + 4, rec_len);
-        block[offset + 6] = name.len() as u8;
-        block[offset + 7] = file_type;
-        block[offset + 8..offset + 8 + name.len()].copy_from_slice(name);
-    }
-
-    fn write_le16(buf: &mut [u8], offset: usize, value: u16) {
-        buf[offset..offset + 2].copy_from_slice(&value.to_le_bytes());
-    }
-
-    fn write_le32(buf: &mut [u8], offset: usize, value: u32) {
-        buf[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
-    }
-
-    fn write_le64(buf: &mut [u8], offset: usize, value: u64) {
-        buf[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
     }
 
     fn read_usize_at(buf: &[u8], offset: usize) -> usize {

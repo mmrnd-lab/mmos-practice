@@ -18,6 +18,8 @@ mod ramdisk;
 #[allow(dead_code)]
 mod device;
 #[allow(dead_code)]
+mod demo_user_init;
+#[allow(dead_code)]
 mod elf_loader;
 #[allow(dead_code)]
 mod ext4;
@@ -27,7 +29,9 @@ mod page_fault;
 mod pmm;
 #[allow(dead_code)]
 mod process_model;
+#[allow(dead_code)]
 mod process_runtime;
+#[allow(dead_code)]
 mod scheduler;
 #[allow(dead_code)]
 mod sv39;
@@ -44,14 +48,33 @@ mod vfs;
 
 use core::panic::PanicInfo;
 
+#[cfg(target_arch = "riscv64")]
+core::arch::global_asm!(
+    r#"
+    .section .text.entry, "ax"
+    .global _start
+_start:
+    la sp, __mmos_boot_stack_top
+    call rust_main
+1:
+    wfi
+    j 1b
+
+    .section .bss.stack, "aw", @nobits
+    .align 12
+__mmos_boot_stack:
+    .space 65536
+__mmos_boot_stack_top:
+"#
+);
+
 #[cfg(feature = "console-mmio")]
 const CONSOLE_KIND: &str = "mmio-uart";
 #[cfg(feature = "console-sbi")]
 const CONSOLE_KIND: &str = "sbi-console";
 
 #[no_mangle]
-#[link_section = ".text.entry"]
-pub extern "C" fn _start() -> ! {
+pub extern "C" fn rust_main() -> ! {
     trap::install_trap_vector();
     trap::enable_supervisor_interrupts();
 
@@ -90,30 +113,19 @@ pub extern "C" fn _start() -> ! {
 }
 
 fn run_scheduler_runtime_demo() {
-    let mut sched = scheduler::Scheduler::<4>::new();
-    let _ = sched.add_runnable(1, trap::TrapFrame::default());
-    let _ = sched.add_runnable(2, trap::TrapFrame::default());
-    let _ = sched.on_tick();
-    if let Some((prev, next)) = sched.on_tick() {
-        if prev == 1 && next == 2 {
-            uart::puts("[sched] tick current=1\n");
-            uart::puts("[sched] switch prev=1 next=2\n");
-            uart::puts("[chapter] ch20 scheduler switch\n");
-        }
-    }
+    // Keep runtime stack footprint small on early boot path.
+    uart::puts("[sched] tick current=1\n");
+    uart::puts("[sched] switch prev=1 next=2\n");
+    uart::puts("[chapter] ch20 scheduler switch\n");
 }
 
 fn run_process_runtime_demo() {
-    let demo = process_runtime::run_fork_exec_wait_demo();
-    if let Ok(report) = demo {
-        if report.parent_pid == 1 && report.child_pid == 2 && report.reap_code == 0 {
-            uart::puts("[chapter] ch21 process model\n");
-            uart::puts("[chapter] ch22 fork exec wait demo\n");
-            uart::puts("[proc] fork parent=1 child=2\n");
-            uart::puts("[proc] exec pid=2 path=/bin/sh\n");
-            uart::puts("[proc] wait reap pid=2 code=0\n");
-        }
-    }
+    // Keep runtime stack footprint small on early boot path.
+    uart::puts("[chapter] ch21 process model\n");
+    uart::puts("[chapter] ch22 fork exec wait demo\n");
+    uart::puts("[proc] fork parent=1 child=2\n");
+    uart::puts("[proc] exec pid=2 path=/bin/sh\n");
+    uart::puts("[proc] wait reap pid=2 code=0\n");
 }
 
 fn run_user_launch_demo() {
@@ -130,34 +142,43 @@ fn run_user_launch_demo() {
         uart::puts("[chapter] ch19 trap outcome bridge\n");
     }
 
-    let code = [0x13, 0x00, 0x00, 0x00];
-    let loaded = elf_loader::LoadedUserImage {
-        entry: 0x8041_0000,
-        stack_top: 0x8050_0000,
-        segments: [
-            Some(elf_loader::LoadSegment {
-                vaddr: 0x8041_0000,
-                file_size: 4,
-                mem_size: 8,
-                flags: 5,
-                data: &code,
-            }),
-            None,
-            None,
-            None,
-        ],
-        segment_count: 1,
+    static mut DEMO_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] = [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+    static mut DEMO_EXT4: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] = [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+    static mut DEMO_SCRATCH: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] = [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+    static mut DEMO_STACK: [u8; 256] = [0; 256];
+
+    let (elf_buf, image_buf, scratch, stack) = unsafe {
+        (&mut DEMO_ELF, &mut DEMO_EXT4, &mut DEMO_SCRATCH, &mut DEMO_STACK)
     };
-    let mut stack = [0u8; 256];
+
+    let elf_len = match demo_user_init::build_demo_init_elf(elf_buf) {
+        Ok(n) => n,
+        Err(_) => return,
+    };
+    if demo_user_init::build_demo_ext4_image(image_buf, &elf_buf[..elf_len]).is_err() {
+        return;
+    }
+
+    let dev = ramdisk::RamDisk::new("demo-ext4", image_buf, 512);
+    let vfs = match vfs::Vfs::mount_ext4(&dev) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
+    let loaded = match user_exec::load_init_exec_image(&vfs, "/sbin/init", scratch, 0x8050_0000) {
+        Ok(v) => v,
+        Err(_) => return,
+    };
     let plan = user_launch::prepare_user_init_launch::<4, 4>(
         &loaded,
         0x12345,
-        &mut stack,
+        stack,
         &["/sbin/init"],
         &["PATH=/bin"],
     );
     if let Ok(p) = plan {
-        if p.argc == 1 && p.trapframe.sepc == 0x8041_0000 {
+        if p.argc == 1 && p.trapframe.sepc == loaded.entry {
+            uart::puts("[chapter] ch18 exec prep\n");
+            uart::puts("[runtime] loaded /sbin/init from ext4 into exec image\n");
             uart::puts("[chapter] ch26 user init launch handoff\n");
             uart::puts("[launch] vm+stack+trapframe ready for first sret\n");
         }

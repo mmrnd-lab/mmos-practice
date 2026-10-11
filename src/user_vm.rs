@@ -14,6 +14,7 @@ const PPN_GIB_SHIFT: usize = 18;
 pub enum UserVmError {
     NoSegments,
     TooManyRegions,
+    MalformedImage,
     UnalignedRootFrame,
 }
 
@@ -50,7 +51,7 @@ pub fn build_user_vm_plan(
 
     let mut seg_idx = 0usize;
     while seg_idx < loaded.segment_count {
-        let seg = loaded.segments[seg_idx].expect("segment slot must exist");
+        let seg = loaded.segments[seg_idx].ok_or(UserVmError::MalformedImage)?;
         let start = seg.vaddr;
         let end = seg.vaddr + seg.mem_size.saturating_sub(1);
         let flags = pflags_to_pte(seg.flags) | PTE_A | PTE_D;
@@ -106,7 +107,7 @@ fn install_user_mappings(
 
     let mut seg_idx = 0usize;
     while seg_idx < loaded.segment_count {
-        let seg = loaded.segments[seg_idx].expect("segment slot must exist");
+        let seg = loaded.segments[seg_idx].ok_or(UserVmError::MalformedImage)?;
         let start = seg.vaddr;
         let end = seg.vaddr + seg.mem_size.saturating_sub(1);
         let flags = pflags_to_pte(seg.flags) | PTE_A | PTE_D;

@@ -10,6 +10,7 @@ use crate::vfs::Vfs;
 pub enum ExecError {
     MissingRegion(usize),
     RegionTooSmall(usize),
+    MalformedImage,
 }
 
 #[derive(Debug)]
@@ -45,7 +46,13 @@ impl UserExecImage {
 
         let mut idx = 0usize;
         while idx < loaded.segment_count {
-            let seg = loaded.segments[idx].expect("segment slot must exist");
+            let seg = match loaded.segments[idx] {
+                Some(v) => v,
+                None => {
+                    out.segment_count = idx;
+                    break;
+                }
+            };
             out.segments[idx] = Some(SegmentPlacement {
                 vaddr: seg.vaddr,
                 file_size: seg.file_size,
@@ -72,7 +79,7 @@ pub fn materialize_segments(
 ) -> Result<(), ExecError> {
     let mut seg_idx = 0usize;
     while seg_idx < loaded.segment_count {
-        let seg = loaded.segments[seg_idx].expect("segment slot must exist");
+        let seg = loaded.segments[seg_idx].ok_or(ExecError::MalformedImage)?;
 
         let mut found = None;
         let mut ridx = 0usize;
