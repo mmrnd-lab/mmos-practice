@@ -6,6 +6,7 @@
 pub mod irq_guard;
 pub mod kheap;
 pub mod page_frame_allocator;
+pub mod syscall;
 pub mod trap;
 
 pub fn align_up(value: usize, align: usize) -> usize {
@@ -18,6 +19,8 @@ mod tests {
     use super::align_up;
     use super::kheap::init_kheap;
     use super::page_frame_allocator::PageFrameAllocator;
+    use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
+    use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
 
     #[test]
     fn align_up_keeps_aligned_values() {
@@ -42,5 +45,39 @@ mod tests {
         assert_eq!(pfa.alloc(), Some(0x8020_1000));
         assert_eq!(pfa.alloc(), Some(0x8020_2000));
         assert_eq!(pfa.alloc(), None);
+    }
+
+    #[test]
+    fn syscall_decode_maps_write_and_exit() {
+        assert_eq!(
+            decode_syscall(SYS_WRITE, 1, 0x1000, 5),
+            Some(Syscall::Write {
+                fd: 1,
+                ptr: 0x1000,
+                len: 5
+            })
+        );
+        assert_eq!(decode_syscall(SYS_EXIT, 7, 0, 0), Some(Syscall::Exit { code: 7 }));
+    }
+
+    #[test]
+    fn syscall_handler_returns_exit() {
+        assert_eq!(handle_syscall(SYS_EXIT, 3, 0, 0), SyscallResult::Exit(3));
+    }
+
+    #[test]
+    fn trap_handler_advances_sepc_on_user_ecall() {
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x8020_1000;
+        frame.set_a7(SYS_WRITE);
+        frame.set_a0(1);
+        frame.set_a1(0x9000_0000);
+        frame.set_a2(4);
+
+        assert_eq!(
+            handle_trap(&mut frame, SCAUSE_USER_ECALL, 0),
+            TrapOutcome::Resume
+        );
+        assert_eq!(frame.sepc, 0x8020_1004);
     }
 }

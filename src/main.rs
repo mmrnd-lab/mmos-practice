@@ -5,6 +5,7 @@
 #![no_main]
 
 mod sbi;
+mod syscall;
 mod trap;
 mod uart;
 
@@ -24,8 +25,16 @@ pub extern "C" fn _start() -> ! {
     uart::puts("[mmos-practice] console backend=");
     uart::puts(CONSOLE_KIND);
     uart::puts("\\n");
+
+    let mut boot_tf = trap::TrapFrame::default();
+    boot_tf.set_a7(syscall::SYS_WRITE);
+    boot_tf.set_a0(1);
+    boot_tf.set_a1(0x9000_0000);
+    boot_tf.set_a2(8);
+    let _ = trap::handle_trap(&mut boot_tf, trap::SCAUSE_USER_ECALL, 0);
+
     uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
-    uart::puts("[chapter] ch08 trap scaffold\\n");
+    uart::puts("[chapter] ch10 trap syscall\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
