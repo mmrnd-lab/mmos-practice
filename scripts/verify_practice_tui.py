@@ -2282,6 +2282,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=clone ecall is decoded from trap frame and writes back parent/child registers",
     ),
     ChapterSet(
+        key="ch136_wait4_trap_dispatch",
+        label="Ch136 Wait4 Trap Dispatch",
+        commit_candidates=["75696b5"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch136 wait4 trap dispatch",
+                    "[trap] wait4 dispatched child=2 status=19 a0=2 sepc=0x40001004",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=wait4 ecall is decoded from trap frame, reaps a zombie child, copies status, and writes back parent registers",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

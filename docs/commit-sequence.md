@@ -573,3 +573,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `handle_current_clone_frame_from_runtime()`이 clone 결과를 기존 syscall writeback 규칙으로 parent trap frame에 반영
     - parent는 child pid를 `a0`로 받고 `sepc`가 ecall 다음 주소로 진행하며, child frame은 `a0=0`과 새 stack pointer를 가진다
     - QEMU runtime marker에서 `[chapter] ch135 clone trap dispatch`, `[trap] clone dispatched parent_a0=2 parent_sepc=0x40000004 child_a0=0 child_sp=0x40102000` 확인
+
+121. `75696b5` `feat(ch136): dispatch wait4 through trap frame`
+    - `Wait4DispatchResult`와 `dispatch_current_wait4_frame_from_runtime()`을 추가해 trap frame의 `a7/a0/a1/a2`에서 `wait4` syscall을 decode
+    - zombie child가 있으면 status를 checked user memory로 copyout하고 parent frame의 `a0/sepc`를 writeback
+    - child가 아직 zombie가 아니면 기존 wait queue와 scheduler handoff 결과를 보존해 blocking wait 경로를 그대로 사용
+    - QEMU runtime marker에서 `[chapter] ch136 wait4 trap dispatch`, `[trap] wait4 dispatched child=2 status=19 a0=2 sepc=0x40001004` 확인
