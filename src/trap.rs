@@ -600,6 +600,12 @@ pub fn handle_execv_user_ecall_with_prepared_runtime<
     )
 }
 
+pub struct ExecvPreparedEntryInput<'a, const MAX_AREAS: usize> {
+    pub user_bytes: &'a [u8],
+    pub user_base: usize,
+    pub new_vm: crate::vm::VmSpace<MAX_AREAS>,
+}
+
 pub fn handle_execv_user_ecall_with_prepared_store<
     'a,
     'v,
@@ -622,17 +628,15 @@ pub fn handle_execv_user_ecall_with_prepared_store<
         SCRATCH_BYTES,
         STACK_BYTES,
     >,
-    user_bytes: &'a [u8],
-    user_base: usize,
-    new_vm: crate::vm::VmSpace<MAX_AREAS>,
+    input: ExecvPreparedEntryInput<'a, MAX_AREAS>,
 ) -> TrapOutcome {
     store
         .with_prepared_runtime(|prepared| {
             prepared.dispatch_execv_user_ecall::<MAX_ARGS, ARG_BYTES>(
                 frame,
-                user_bytes,
-                user_base,
-                new_vm,
+                input.user_bytes,
+                input.user_base,
+                input.new_vm,
             )
         })
         .unwrap_or(TrapOutcome::Fatal(usize::MAX))

@@ -1405,9 +1405,11 @@ mod tests {
         >(
             &mut live_frame,
             &mut entry_store,
-            &user_mem,
-            BASE,
-            VmSpace::<2>::new(),
+            crate::trap::ExecvPreparedEntryInput {
+                user_bytes: &user_mem,
+                user_base: BASE,
+                new_vm: VmSpace::<2>::new(),
+            },
         );
 
         assert_eq!(outcome, TrapOutcome::Resume);

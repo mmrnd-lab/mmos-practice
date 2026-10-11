@@ -2201,9 +2201,11 @@ fn run_execv_trap_resources_demo() {
     >(
         &mut live_frame,
         &mut entry_store,
-        &user_mem,
-        BASE,
-        vm::VmSpace::<2>::new(),
+        trap::ExecvPreparedEntryInput {
+            user_bytes: &user_mem,
+            user_base: BASE,
+            new_vm: vm::VmSpace::<2>::new(),
+        },
     );
 
     let Some(exec_frame) = entry_store.task_frame(1) else {
@@ -2240,6 +2242,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve prepared store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch126 execv prepared init\n");
         console::puts("[trap] execve prepared init routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch127 execv prepared input\n");
+        console::puts("[trap] execve prepared input routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 
