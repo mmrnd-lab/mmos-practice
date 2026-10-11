@@ -2567,7 +2567,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch151_user_image_shared_object_artifact",
         label="Ch151 User Image Shared Object Artifact",
-        commit_candidates=["HEAD"],
+        commit_candidates=["8268840"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

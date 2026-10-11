@@ -658,3 +658,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `make shared-object-load-plan` 타깃과 verifier가 `[user-link] shared-object=ET_DYN loader-plan=base+segments relocation=needed` 출력을 확인
     - QEMU runtime marker에서 `[chapter] ch150 shared object load plan`, `[user-link] ET_DYN shared object requires base, segments, and relocation plan` 확인
 
+135. `8268840` `feat(ch151): package user shared object artifact`
+    - `user/crt/shared_object.S`를 추가해 최소 RISC-V `ET_DYN` shared object 후보를 생성
+    - `make user-crt-shared-object` 타깃이 `build/lib/libmmos_user_crt.so`를 만들고 ELF type이 `DYN`인지 확인
+    - boot disk 포장 스크립트가 shared object를 `/lib/libmmos_user_crt.so`로 포함하고 `make user-image-shared-object`가 ext4 이미지 안의 파일을 확인
+    - VFS 테스트가 `/lib/libmmos_user_crt.so`를 읽어 `plan_shared_object_from_vfs()`로 loader plan을 만든다
+    - QEMU runtime marker에서 `[chapter] ch151 user image shared object artifact`, `[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate` 확인
+
