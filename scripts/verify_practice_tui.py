@@ -686,6 +686,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=current task owner_pid resolves the process IO context used by write",
     ),
     ChapterSet(
+        key="ch42_process_owned_io_runtime",
+        label="Ch42 Process Owned IO Runtime",
+        commit_candidates=["be0ab15"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch42 process owned io runtime",
+                    "[chapter] ch41 task owner io lookup",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process creation registers stdio IO context used through task owner lookup",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

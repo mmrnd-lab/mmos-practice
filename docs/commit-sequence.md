@@ -110,6 +110,10 @@
     - `ProcessIoTable`을 추가해 task의 `owner_pid`로 현재 process I/O context를 찾는 경로를 고정
     - fd 기반 checked write syscall이 task owner lookup으로 얻은 current process I/O context를 사용하도록 검증
 
+36. `be0ab15` `feat(ch42): create process with owned io runtime`
+    - `ProcessIoRuntime`을 추가해 process 생성과 stdio I/O context 등록을 하나의 runtime API로 묶음
+    - 생성된 process의 task `owner_pid` lookup으로 fd 기반 checked write syscall이 동작함을 검증
+
 
 ## Reproduce Example
 
