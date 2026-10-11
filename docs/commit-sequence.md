@@ -603,3 +603,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `SYS_READ`/`SYS_WRITE`가 아닌 syscall은 기존 prepared process syscall entry로 위임해 clone/wait4/execve 라우팅을 보존
     - unit test는 process syscall entry가 `read(0, user_ptr, len)`을 current process stdio fd로 dispatch하고 live trap frame에 `a0/sepc`를 writeback하는지 검증
     - QEMU runtime marker에서 `[chapter] ch140 process syscall read entry`, `[trap] process syscall entry routed read a0=1 sepc=0x40008004` 확인
+
+126. `935dd02` `feat(ch141): route close through process syscall entry`
+    - `handle_prepared_process_syscall_entry_with_current_io()`의 current I/O 인자를 mutable reference로 바꾸고 `SYS_CLOSE` 분기를 추가
+    - `SYS_CLOSE`는 current process fd table의 close helper로 처리하고, 닫힌 fd에 대한 이후 write가 `-EBADF`로 실패하는지 확인
+    - `SYS_READ`/`SYS_WRITE`/`SYS_CLOSE`가 아닌 syscall은 기존 prepared process syscall entry로 위임해 clone/wait4/execve 라우팅을 보존
+    - QEMU runtime marker에서 `[chapter] ch141 process syscall close entry`, `[trap] process syscall entry routed close a0=0 sepc=0x40009004 after=-9` 확인
