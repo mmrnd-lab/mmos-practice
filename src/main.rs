@@ -147,6 +147,10 @@ static mut CH137_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
     [0; demo_user_init::DEMO_INIT_ELF_SIZE];
 static mut CH137_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
     [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+static mut CH138_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
+    [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+static mut CH138_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
+    [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -752,6 +756,7 @@ pub extern "C" fn rust_main() -> ! {
     run_execv_trap_dispatch_demo();
     run_execv_trap_resources_demo();
     run_execv_prepared_entry_dispatch_demo();
+    run_prepared_process_syscall_entry_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1791,7 +1796,7 @@ fn run_current_execv_syscall_runtime_demo() {
     let mut stack = [0u8; 256];
     let result = syscall::handle_current_process_execv_checked_user_syscall::<
         1,
-        4,
+        2,
         64,
         4,
         2,
@@ -2441,6 +2446,109 @@ fn run_execv_prepared_entry_dispatch_demo() {
     {
         console::puts("[chapter] ch137 execve prepared entry dispatch\n");
         console::puts("[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000\n");
+    }
+}
+
+fn run_prepared_process_syscall_entry_demo() {
+    const BASE: usize = 0x7000_0000;
+    const PATH: usize = BASE;
+    const ARG0: usize = BASE + 0x40;
+    const ARGV: usize = BASE + 0x100;
+
+    let mut user_mem = [0u8; 512];
+    put_cstr(&mut user_mem, PATH - BASE, b"/sbin/init");
+    put_cstr(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+    put_usize(&mut user_mem, ARGV - BASE, ARG0);
+    put_usize(
+        &mut user_mem,
+        ARGV - BASE + core::mem::size_of::<usize>(),
+        0,
+    );
+
+    let (elf, image) = unsafe { (&mut CH138_INIT_ELF, &mut CH138_EXT4_IMAGE) };
+    let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
+        return;
+    };
+    if demo_user_init::build_demo_ext4_image(image, &elf[..elf_len]).is_err() {
+        return;
+    }
+    let dev = ramdisk::RamDisk::new("ramblk0", image, 512);
+    let Ok(vfs) = vfs::Vfs::mount_ext4(&dev) else {
+        return;
+    };
+
+    let mut process_vm = vm::VmSpace::<2>::new();
+    if process_vm
+        .map_anon(BASE, BASE + user_mem.len(), sv39::PTE_R)
+        .is_err()
+    {
+        return;
+    }
+    let mut exec_runtime =
+        trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
+    let Ok(pid) = exec_runtime.create_process(None, process_vm) else {
+        return;
+    };
+    let mut task_frame = trap::TrapFrame::default();
+    task_frame.sepc = 0x4000_2000;
+    if exec_runtime.add_runnable_task(1, pid, task_frame).is_err() {
+        return;
+    }
+    exec_runtime.start_first_task();
+
+    let mut exec_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+        exec_runtime,
+        &vfs,
+    );
+    let user_source = trap::ExecvPreparedUserSource::new(&user_mem, BASE);
+    let replacement_vm = trap::ExecvPreparedReplacementVm::new(vm::VmSpace::<2>::new());
+
+    let mut entry_runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let mut wait_vm = vm::VmSpace::<2>::new();
+    if wait_vm.map_anon(0x8000, 0x8004, sv39::PTE_W).is_err() {
+        return;
+    }
+    let mut wait_bytes = [0u8; 4];
+    let mut wait_user = user_copy::CheckedUserSliceMut::new(&mut wait_bytes, 0x8000, &wait_vm);
+
+    let mut frame = trap::TrapFrame::default();
+    frame.sepc = 0x4000_6000;
+    frame.set_a7(syscall::SYS_EXECVE);
+    frame.set_a0(PATH);
+    frame.set_a1(ARGV);
+    frame.set_a2(0);
+
+    let dispatch = trap::handle_prepared_process_syscall_entry::<
+        2,
+        4,
+        64,
+        4,
+        2,
+        2,
+        5,
+        512,
+        256,
+    >(
+        &mut frame,
+        &mut entry_runtime,
+        2,
+        vm::VmSpace::<2>::new(),
+        &mut wait_user,
+        &mut exec_store,
+        user_source,
+        replacement_vm,
+    );
+
+    let Some(exec_frame) = exec_store.task_frame(1) else {
+        return;
+    };
+    if dispatch == trap::TrapDispatchResult::Resumed
+        && frame.a0() == 0
+        && frame.sepc == 0x4000_6004
+        && exec_frame.sepc == 0x4000_0000
+    {
+        console::puts("[chapter] ch138 prepared process syscall entry\n");
+        console::puts("[trap] process syscall entry routed execve a0=0 sepc=0x40006004 entry=0x40000000\n");
     }
 }
 

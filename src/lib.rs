@@ -129,7 +129,7 @@ mod tests {
         handle_current_clone_frame_from_runtime, handle_current_wait4_frame_from_runtime, handle_syscall_result,
         handle_timer_tick_with_scheduler, handle_trap,
         handle_trap_with_current_execv_runtime, handle_trap_with_execv_resources,
-        handle_execv_user_ecall_with_prepared_entry,
+        handle_execv_user_ecall_with_prepared_entry, handle_prepared_process_syscall_entry,
         handle_user_page_fault_outcome, prepare_enter_user_scratch,
         prepare_kernel_trap_stack_switch,
         prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
@@ -1490,6 +1490,160 @@ mod tests {
         let exec_frame = entry_store.task_frame(1).unwrap();
         assert_eq!(exec_frame.sepc, 0x4000_0000);
         assert!(exec_frame.sp() < 0x4010_0000);
+    }
+
+    #[test]
+    fn prepared_process_syscall_entry_routes_clone_wait4_and_execve() {
+        let mut clone_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = clone_runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let mut clone_frame = TrapFrame::default();
+        clone_frame.sepc = 0x4000_0000;
+        clone_frame.set_sp(0x4010_0000);
+        clone_frame.set_a7(SYS_CLONE);
+        clone_frame.set_a1(0x4010_2000);
+        clone_runtime
+            .add_runnable_task(1, parent_pid, clone_frame)
+            .unwrap();
+        clone_runtime.start_first_task();
+
+        let mut wait_vm = VmSpace::<2>::new();
+        wait_vm.map_anon(0x6000, 0x6004, PTE_W).unwrap();
+        let mut wait_bytes = [0u8; 4];
+        let mut wait_user = CheckedUserSliceMut::new(&mut wait_bytes, 0x6000, &wait_vm);
+        let exec_image = build_test_ext4_image();
+        let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
+        let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
+        let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+            dummy_exec_runtime,
+            &exec_vfs,
+        );
+        let exec_user_mem = [0u8; 16];
+        let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
+        let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
+
+        assert_eq!(
+            handle_prepared_process_syscall_entry::<2, 4, 64, 4, 2, 2, 5, 512, 256>(
+                &mut clone_frame,
+                &mut clone_runtime,
+                2,
+                VmSpace::<2>::new(),
+                &mut wait_user,
+                &mut exec_store,
+                exec_user_source,
+                exec_replacement_vm,
+            ),
+            TrapDispatchResult::Resumed
+        );
+        assert_eq!(clone_frame.a0(), 2);
+        assert_eq!(clone_frame.sepc, 0x4000_0004);
+        assert_eq!(clone_runtime.task_frame(2).unwrap().a0(), 0);
+
+        let mut wait_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = wait_runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let child_pid = wait_runtime
+            .create_process(Some(parent_pid), VmSpace::<2>::new())
+            .unwrap();
+        for (tid, pid) in [(2, child_pid), (1, parent_pid)] {
+            wait_runtime
+                .add_runnable_task(tid, pid, TrapFrame::default())
+                .unwrap();
+        }
+        wait_runtime.start_first_task();
+        let mut child_exit_frame = TrapFrame::default();
+        let _ = wait_runtime.dispatch_exit(&mut child_exit_frame, 2, 29);
+
+        let mut wait_frame = TrapFrame::default();
+        wait_frame.sepc = 0x4000_1000;
+        wait_frame.set_a7(SYS_WAIT4);
+        wait_frame.set_a0(usize::MAX);
+        wait_frame.set_a1(0x6000);
+        let mut wait_bytes = [0u8; 4];
+        let mut wait_user = CheckedUserSliceMut::new(&mut wait_bytes, 0x6000, &wait_vm);
+        let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+            dummy_exec_runtime,
+            &exec_vfs,
+        );
+        let exec_user_mem = [0u8; 16];
+        let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
+        let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
+
+        assert_eq!(
+            handle_prepared_process_syscall_entry::<2, 4, 64, 4, 2, 2, 5, 512, 256>(
+                &mut wait_frame,
+                &mut wait_runtime,
+                3,
+                VmSpace::<2>::new(),
+                &mut wait_user,
+                &mut exec_store,
+                exec_user_source,
+                exec_replacement_vm,
+            ),
+            TrapDispatchResult::Resumed
+        );
+        assert_eq!(wait_frame.a0(), child_pid);
+        assert_eq!(wait_frame.sepc, 0x4000_1004);
+        assert_eq!(&wait_bytes[..4], &29i32.to_ne_bytes());
+
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+        let mut process_vm = VmSpace::<2>::new();
+        process_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
+        let mut exec_runtime =
+            ProcessTrapRuntime::<4, 2, 2, 5>::new_with_execv_stack_top(0x4010_0000);
+        let pid = exec_runtime.create_process(None, process_vm).unwrap();
+        let mut task_frame = TrapFrame::default();
+        task_frame.sepc = 0x4000_2000;
+        exec_runtime.add_runnable_task(1, pid, task_frame).unwrap();
+        exec_runtime.start_first_task();
+        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+            exec_runtime,
+            &exec_vfs,
+        );
+        let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&user_mem, BASE);
+        let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
+        let mut entry_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut exec_wait_vm = VmSpace::<2>::new();
+        exec_wait_vm.map_anon(0x8000, 0x8004, PTE_W).unwrap();
+        let mut exec_wait_bytes = [0u8; 4];
+        let mut exec_wait_user =
+            CheckedUserSliceMut::new(&mut exec_wait_bytes, 0x8000, &exec_wait_vm);
+        let mut exec_frame = TrapFrame::default();
+        exec_frame.sepc = 0x4000_5000;
+        exec_frame.set_a7(SYS_EXECVE);
+        exec_frame.set_a0(PATH);
+        exec_frame.set_a1(ARGV);
+
+        assert_eq!(
+            handle_prepared_process_syscall_entry::<2, 4, 64, 4, 2, 2, 5, 512, 256>(
+                &mut exec_frame,
+                &mut entry_runtime,
+                2,
+                VmSpace::<2>::new(),
+                &mut exec_wait_user,
+                &mut exec_store,
+                exec_user_source,
+                exec_replacement_vm,
+            ),
+            TrapDispatchResult::Resumed
+        );
+        assert_eq!(exec_frame.a0(), 0);
+        assert_eq!(exec_frame.sepc, 0x4000_5004);
+        assert_eq!(exec_store.task_frame(1).unwrap().sepc, 0x4000_0000);
     }
 
     #[test]

@@ -356,6 +356,15 @@ pub fn handle_syscall_result(frame: &mut TrapFrame, result: syscall::SyscallResu
     }
 }
 
+pub fn trap_outcome_without_scheduler(outcome: TrapOutcome) -> TrapDispatchResult {
+    match outcome {
+        TrapOutcome::Resume => TrapDispatchResult::Resumed,
+        TrapOutcome::Exit(code) => TrapDispatchResult::Exit(code),
+        TrapOutcome::Fatal(cause) => TrapDispatchResult::Fatal(cause),
+        TrapOutcome::Schedule => TrapDispatchResult::MissingScheduleState,
+    }
+}
+
 pub fn handle_current_clone_frame_from_runtime<
     const MAX_PROCS: usize,
     const MAX_CHILDREN: usize,
@@ -405,12 +414,9 @@ pub fn handle_current_wait4_frame_from_runtime<
         MAX_TASKS,
     >(frame, runtime, user)
     {
-        syscall::Wait4DispatchResult::Ready(result) => match handle_syscall_result(frame, result) {
-            TrapOutcome::Resume => TrapDispatchResult::Resumed,
-            TrapOutcome::Exit(code) => TrapDispatchResult::Exit(code),
-            TrapOutcome::Fatal(cause) => TrapDispatchResult::Fatal(cause),
-            TrapOutcome::Schedule => TrapDispatchResult::MissingScheduleState,
-        },
+        syscall::Wait4DispatchResult::Ready(result) => {
+            trap_outcome_without_scheduler(handle_syscall_result(frame, result))
+        }
         syscall::Wait4DispatchResult::Blocked(dispatch) => dispatch,
     }
 }
@@ -784,6 +790,68 @@ pub fn handle_execv_user_ecall_with_prepared_entry<
         SCRATCH_BYTES,
         STACK_BYTES,
     >(frame, store, input)
+}
+
+pub fn handle_prepared_process_syscall_entry<
+    'a,
+    'v,
+    const WAIT_AREAS: usize,
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+>(
+    frame: &mut TrapFrame,
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    clone_child_tid: usize,
+    clone_child_vm: crate::vm::VmSpace<MAX_AREAS>,
+    wait_user: &mut crate::user_copy::CheckedUserSliceMut<'_, WAIT_AREAS>,
+    exec_store: &'a mut crate::trap_runtime::PreparedExecvEntryStore<
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >,
+    exec_user_source: ExecvPreparedUserSource<'a>,
+    exec_replacement_vm: ExecvPreparedReplacementVm<MAX_AREAS>,
+) -> TrapDispatchResult {
+    match frame.a7() {
+        syscall::SYS_CLONE => trap_outcome_without_scheduler(handle_current_clone_frame_from_runtime(
+            frame,
+            runtime,
+            clone_child_tid,
+            clone_child_vm,
+        )),
+        syscall::SYS_WAIT4 => handle_current_wait4_frame_from_runtime(frame, runtime, wait_user),
+        syscall::SYS_EXECVE => trap_outcome_without_scheduler(
+            handle_execv_user_ecall_with_prepared_entry::<
+                MAX_ARGS,
+                ARG_BYTES,
+                MAX_PROCS,
+                MAX_CHILDREN,
+                MAX_AREAS,
+                MAX_TASKS,
+                SCRATCH_BYTES,
+                STACK_BYTES,
+            >(frame, exec_store, exec_user_source, exec_replacement_vm),
+        ),
+        _ => trap_outcome_without_scheduler(handle_syscall_result(
+            frame,
+            syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
+        )),
+    }
 }
 
 pub fn handle_blocking_syscall_result(
