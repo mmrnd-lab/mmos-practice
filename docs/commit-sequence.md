@@ -214,6 +214,11 @@
     - 실제 CSR write 전에 trap stack 전환이 남아 있음을 런타임 probe로 드러냄
 
 
+60. `8832a4a` `feat(ch68): prepare kernel trap stack switch`
+    - trap entry가 사용할 kernel stack frame 위치를 계산하는 preflight helper를 추가
+    - user sp 보존과 kernel trap frame 공간 예약 조건을 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
