@@ -93,10 +93,10 @@ mod tests {
         EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
     };
     use super::trap::{
-        apply_schedule_decision, handle_blocking_syscall_result, handle_syscall_result,
-        handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome,
-        schedule_after_blocked_syscall, TrapFrame,
-        TrapOutcome, SCAUSE_USER_ECALL,
+        apply_schedule_decision, dispatch_trap_outcome, handle_blocking_syscall_result,
+        handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
+        handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapDispatchResult,
+        TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -1072,6 +1072,53 @@ mod tests {
         assert_eq!(dispatch_frame.sepc, 0xb000);
         assert_eq!(dispatch_frame.a0(), 0x44);
         assert_eq!(dispatch_frame.sp(), 0xc000);
+    }
+
+
+    #[test]
+    fn trap_schedule_outcome_dispatches_to_next_task_frame() {
+        let mut next_frame = TrapFrame::default();
+        next_frame.sepc = 0xc000;
+        next_frame.set_a0(0x54);
+        next_frame.set_sp(0xd000);
+
+        let mut scheduler = Scheduler::<2>::new();
+        scheduler.add_runnable(1, TrapFrame::default()).unwrap();
+        scheduler.add_runnable(2, next_frame).unwrap();
+        let _ = scheduler.on_tick();
+        scheduler.set_state(1, TaskState::Blocked);
+
+        let mut dispatch_frame = TrapFrame::default();
+        dispatch_frame.sepc = 0xb000;
+        assert_eq!(
+            dispatch_trap_outcome(&mut dispatch_frame, &mut scheduler, TrapOutcome::Schedule),
+            TrapDispatchResult::Switched(ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 2,
+            })
+        );
+        assert_eq!(scheduler.current_tid(), Some(2));
+        assert_eq!(scheduler.task_frame(1).unwrap().sepc, 0xb000);
+        assert_eq!(dispatch_frame.sepc, 0xc000);
+        assert_eq!(dispatch_frame.a0(), 0x54);
+        assert_eq!(dispatch_frame.sp(), 0xd000);
+    }
+
+    #[test]
+    fn trap_schedule_outcome_dispatches_to_idle_action() {
+        let mut scheduler = Scheduler::<1>::new();
+        scheduler.add_runnable(7, TrapFrame::default()).unwrap();
+        let _ = scheduler.on_tick();
+        scheduler.set_state(7, TaskState::Blocked);
+
+        let mut dispatch_frame = TrapFrame::default();
+        dispatch_frame.sepc = 0xe000;
+        assert_eq!(
+            dispatch_trap_outcome(&mut dispatch_frame, &mut scheduler, TrapOutcome::Schedule),
+            TrapDispatchResult::Idle(IdleAction::WaitForInterrupt { blocked_tid: 7 })
+        );
+        assert_eq!(scheduler.current_tid(), None);
+        assert_eq!(scheduler.task_frame(7).unwrap().sepc, 0xe000);
     }
 
     #[test]

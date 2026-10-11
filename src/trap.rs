@@ -1,7 +1,12 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::{context_switch, scheduler::{ScheduleDecision, Scheduler}, syscall};
+use crate::{
+    context_switch,
+    idle::{idle_action_for_schedule_decision, IdleAction},
+    scheduler::{ScheduleDecision, Scheduler},
+    syscall,
+};
 #[cfg(not(target_arch = "riscv64"))]
 use crate::{
     page_fault::{self, PageFaultResult},
@@ -69,6 +74,16 @@ pub enum TrapOutcome {
     Schedule,
     Exit(i32),
     Fatal(usize),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrapDispatchResult {
+    Resumed,
+    Switched(ScheduleDecision),
+    Idle(IdleAction),
+    Exit(i32),
+    Fatal(usize),
+    MissingScheduleState,
 }
 
 #[cfg(target_arch = "riscv64")]
@@ -251,6 +266,30 @@ pub fn apply_schedule_decision<const N: usize>(
             Some(decision)
         }
         ScheduleDecision::Idle { .. } => Some(decision),
+    }
+}
+
+pub fn dispatch_trap_outcome<const N: usize>(
+    frame: &mut TrapFrame,
+    scheduler: &mut Scheduler<N>,
+    outcome: TrapOutcome,
+) -> TrapDispatchResult {
+    match outcome {
+        TrapOutcome::Resume => TrapDispatchResult::Resumed,
+        TrapOutcome::Exit(code) => TrapDispatchResult::Exit(code),
+        TrapOutcome::Fatal(cause) => TrapDispatchResult::Fatal(cause),
+        TrapOutcome::Schedule => {
+            let Some(decision) = schedule_after_blocked_syscall(frame, scheduler) else {
+                return TrapDispatchResult::MissingScheduleState;
+            };
+            if let Some(action) = idle_action_for_schedule_decision(decision) {
+                return TrapDispatchResult::Idle(action);
+            }
+            match apply_schedule_decision(frame, scheduler, decision) {
+                Some(decision) => TrapDispatchResult::Switched(decision),
+                None => TrapDispatchResult::MissingScheduleState,
+            }
+        }
     }
 }
 

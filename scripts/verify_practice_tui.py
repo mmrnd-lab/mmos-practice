@@ -914,6 +914,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=switched schedule decision restores the selected task trap frame into the dispatch frame",
     ),
     ChapterSet(
+        key="ch55_trap_schedule_dispatch",
+        label="Ch55 Trap Schedule Dispatch",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch55 trap schedule dispatch",
+                    "[chapter] ch54 restore next task frame",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=TrapOutcome::Schedule is dispatched into scheduler handoff and next task frame restore",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

@@ -541,6 +541,29 @@ pub extern "C" fn rust_main() -> ! {
             {
                 console::puts("[chapter] ch54 restore next task frame\n");
             }
+            let mut dispatch_scheduler = scheduler::Scheduler::<3>::new();
+            let mut dispatch_next_frame = trap::TrapFrame::default();
+            dispatch_next_frame.sepc = 0x8040_0000;
+            dispatch_next_frame.set_a0(0x54);
+            let _ = dispatch_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
+            let _ = dispatch_scheduler.add_runnable(next_tid, dispatch_next_frame);
+            let _ = dispatch_scheduler.on_tick();
+            let _ = dispatch_scheduler.set_state(input_tid, scheduler::TaskState::Blocked);
+            let mut scheduled_frame = blocked_frame;
+            if trap::dispatch_trap_outcome(
+                &mut scheduled_frame,
+                &mut dispatch_scheduler,
+                trap::TrapOutcome::Schedule,
+            ) == trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+                prev_tid: input_tid,
+                next_tid,
+            })
+                && dispatch_scheduler.current_tid() == Some(next_tid)
+                && scheduled_frame.sepc == 0x8040_0000
+                && scheduled_frame.a0() == 0x54
+            {
+                console::puts("[chapter] ch55 trap schedule dispatch\n");
+            }
         }
     }
 

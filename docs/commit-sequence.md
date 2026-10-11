@@ -158,6 +158,10 @@
     - switched schedule decision이 고른 next task의 saved trap frame을 현재 dispatch frame으로 복사하는 helper를 추가
     - blocked task frame 저장 이후 next task register snapshot으로 복귀 대상이 바뀌는 경로를 검증
 
+48. `TBD` `feat(ch55): dispatch schedule outcome through trap handoff`
+    - `TrapOutcome::Schedule`을 scheduler handoff, next task frame 복원, idle action으로 이어 주는 dispatch helper를 추가
+    - trap dispatch가 user로 즉시 복귀하지 않고 scheduler decision을 적용하는 흐름을 검증
+
 
 ## Reproduce Example
 
