@@ -5,8 +5,13 @@ use core::cell::UnsafeCell;
 
 use crate::{
     irq_guard::IrqGuard,
+    process_model::{ProcError, ProcessTable, TaskControlBlock, TaskTable},
     scheduler::{SchedError, ScheduleDecision, Scheduler, TaskState},
-    trap::{dispatch_trap_outcome, TrapDispatchResult, TrapFrame, TrapOutcome},
+    trap::{
+        dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome, TrapDispatchResult,
+        TrapFrame, TrapOutcome,
+    },
+    vm::VmSpace,
 };
 
 pub struct TrapRuntime<const MAX_TASKS: usize> {
@@ -67,6 +72,90 @@ pub fn switched_tids(result: TrapDispatchResult) -> Option<(usize, usize)> {
             Some((prev_tid, next_tid))
         }
         _ => None,
+    }
+}
+
+pub struct ProcessTrapRuntime<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+> {
+    processes: ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    tasks: TaskTable<MAX_TASKS>,
+    scheduler: Scheduler<MAX_TASKS>,
+}
+
+impl<
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_AREAS: usize,
+        const MAX_TASKS: usize,
+    > ProcessTrapRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>
+{
+    pub const fn new() -> Self {
+        Self {
+            processes: ProcessTable::new(),
+            tasks: TaskTable::new(),
+            scheduler: Scheduler::new(),
+        }
+    }
+
+    pub fn create_process(
+        &mut self,
+        parent: Option<usize>,
+        vm: VmSpace<MAX_AREAS>,
+    ) -> Result<usize, ProcError> {
+        self.processes.create_process(parent, vm)
+    }
+
+    pub fn add_runnable_task(
+        &mut self,
+        tid: usize,
+        owner_pid: usize,
+        frame: TrapFrame,
+    ) -> Result<(), ProcError> {
+        self.tasks
+            .add_task(TaskControlBlock::new(tid, owner_pid, frame))?;
+        self.scheduler
+            .add_runnable(tid, frame)
+            .map_err(|_| ProcError::TableFull)
+    }
+
+    pub fn start_first_task(&mut self) {
+        let _ = self.scheduler.on_tick();
+    }
+
+    pub fn dispatch_exit(
+        &mut self,
+        frame: &mut TrapFrame,
+        current_tid: usize,
+        code: i32,
+    ) -> TrapDispatchResult {
+        dispatch_exit_outcome_with_process_runtime(
+            frame,
+            &mut self.processes,
+            &mut self.tasks,
+            &mut self.scheduler,
+            current_tid,
+            code,
+        )
+    }
+
+    pub fn process_state(&self, pid: usize) -> Result<crate::process_model::ProcState, ProcError> {
+        Ok(self.processes.get(pid)?.state)
+    }
+
+    pub fn process_exit_code(&self, pid: usize) -> Result<Option<i32>, ProcError> {
+        Ok(self.processes.get(pid)?.exit_code)
+    }
+
+    pub fn task_state(&self, tid: usize) -> Option<TaskState> {
+        self.scheduler.task_state(tid)
+    }
+
+    pub fn current_tid(&self) -> Option<usize> {
+        self.scheduler.current_tid()
     }
 }
 

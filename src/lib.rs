@@ -121,7 +121,7 @@ mod tests {
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
-        with_global_trap_runtime, TrapRuntime,
+        with_global_trap_runtime, ProcessTrapRuntime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -1898,6 +1898,46 @@ mod tests {
         assert_eq!(scheduler.task_state(2), Some(TaskState::Zombie));
         assert_eq!(scheduler.task_state(3), Some(TaskState::Running));
         assert_eq!(processes.get(owner_pid).unwrap().exit_code, Some(11));
+    }
+
+    #[test]
+    fn process_trap_runtime_owns_tables_and_dispatches_exit() {
+        let mut runtime = ProcessTrapRuntime::<3, 2, 2, 4>::new();
+        let owner_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            frame.set_a0(tid);
+            frame.set_sp(0x4010_0000 + tid * 0x1000);
+            runtime.add_runnable_task(tid, pid, frame).unwrap();
+        }
+        runtime.start_first_task();
+
+        let mut live = TrapFrame::default();
+        let result = runtime.dispatch_exit(&mut live, 1, 13);
+
+        assert_eq!(
+            result,
+            TrapDispatchResult::Switched(ScheduleDecision::Switched {
+                prev_tid: 1,
+                next_tid: 3
+            })
+        );
+        assert_eq!(live.sepc, 0x4000_3000);
+        assert_eq!(live.a0(), 3);
+        assert_eq!(live.sp(), 0x4010_3000);
+        assert_eq!(runtime.task_state(1), Some(TaskState::Zombie));
+        assert_eq!(runtime.task_state(2), Some(TaskState::Zombie));
+        assert_eq!(runtime.task_state(3), Some(TaskState::Running));
+        assert_eq!(runtime.current_tid(), Some(3));
+        assert_eq!(runtime.process_state(owner_pid), Ok(ProcState::Zombie));
+        assert_eq!(runtime.process_exit_code(owner_pid), Ok(Some(13)));
     }
 
     #[test]

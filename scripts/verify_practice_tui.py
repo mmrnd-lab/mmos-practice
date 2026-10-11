@@ -1580,6 +1580,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=TrapOutcome::Exit-style dispatch applies process exit and restores the next process frame",
     ),
     ChapterSet(
+        key="ch93_process_trap_runtime_exit",
+        label="Ch93 Process Trap Runtime Exit",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch93 process trap runtime exit",
+                    "[proc] runtime exit owner=1 next=3 restored=0x40003000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process-aware trap runtime owns process/task tables and dispatches exit to the next process frame",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
