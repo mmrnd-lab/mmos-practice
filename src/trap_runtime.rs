@@ -307,6 +307,11 @@ impl<
         Ok(self.tasks.get(tid)?.owner_pid)
     }
 
+    pub fn current_process_vm(&self) -> Result<VmSpace<MAX_AREAS>, ProcError> {
+        let pid = self.current_process_id()?;
+        Ok(self.processes.get(pid)?.vm)
+    }
+
     pub fn wait_reap_current_child(&mut self) -> Result<ProcessWaitReapRuntime, ProcError> {
         let parent_pid = self.current_process_id()?;
         self.wait_reap_child(parent_pid)

@@ -1850,6 +1850,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=decoded execve is routed through a dispatch context into the current execv helper",
     ),
     ChapterSet(
+        key="ch110_execv_runtime_context_lookup",
+        label="Ch110 Execv Runtime Context Lookup",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch110 execv runtime context lookup",
+                    "[syscall] execve runtime-vm current=1 ret=0 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=execve dispatch builds checked user memory from the current process VM",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
