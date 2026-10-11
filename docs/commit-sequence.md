@@ -476,6 +476,12 @@
     - runtime 초기화 시점에 먼저 정할 수 있는 execve 정책과 VFS mount 이후에 준비되는 dispatch state 경계를 분리
     - QEMU runtime marker에서 `[chapter] ch120 execv runtime plan`, `[trap] execve runtime plan routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+108. `4f982c8` `feat(ch121): prepare execve dispatch state from runtime`
+    - `ProcessTrapRuntime::prepare_execv_dispatch()`를 추가해 runtime plan 생성과 VFS 기반 dispatch state 준비를 하나의 method로 묶음
+    - caller는 plan 객체를 중간 변수로 직접 다루지 않고 runtime 객체에 VFS 참조를 넘겨 dispatch state를 준비
+    - trap entry 경로가 나중에 사용할 준비 순서를 `runtime + VFS -> dispatch state -> dispatch()` 형태로 좁힘
+    - QEMU runtime marker에서 `[chapter] ch121 execv prepared dispatch`, `[trap] execve prepared dispatch routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

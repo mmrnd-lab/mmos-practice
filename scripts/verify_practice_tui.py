@@ -2050,7 +2050,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch121_execv_prepared_dispatch",
         label="Ch121 Execv Prepared Dispatch",
-        commit_candidates=["HEAD"],
+        commit_candidates=["4f982c8"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
