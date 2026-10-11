@@ -1279,6 +1279,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=satp PPN is derived from page-aligned root page table storage",
     ),
     ChapterSet(
+        key="ch75_rooted_user_launch_satp",
+        label="Ch75 Rooted User Launch SATP",
+        commit_candidates=["76ed731"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch75 rooted user launch satp",
+                    "[chapter] ch74 root page table storage",
+                    "[chapter] ch73 user launch csr sequence",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=user launch sequence is bound to the satp derived from root storage",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

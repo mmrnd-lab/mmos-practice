@@ -249,6 +249,11 @@
     - user VM plan을 aligned root storage에 설치해 placeholder root PPN 없이 `satp`를 만들 수 있음을 테스트와 런타임 probe로 검증
 
 
+67. `76ed731` `feat(ch75): bind user launch to root satp`
+    - user launch CSR sequence가 root page table storage에서 나온 `satp`와 같은 값을 사용해야 한다는 계약을 추가
+    - root storage 기반 `satp`와 launch sequence `satp`가 어긋나면 user 진입 경계로 넘기지 않도록 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
