@@ -609,3 +609,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `SYS_CLOSE`는 current process fd table의 close helper로 처리하고, 닫힌 fd에 대한 이후 write가 `-EBADF`로 실패하는지 확인
     - `SYS_READ`/`SYS_WRITE`/`SYS_CLOSE`가 아닌 syscall은 기존 prepared process syscall entry로 위임해 clone/wait4/execve 라우팅을 보존
     - QEMU runtime marker에서 `[chapter] ch141 process syscall close entry`, `[trap] process syscall entry routed close a0=0 sepc=0x40009004 after=-9` 확인
+
+127. `eddb191` `feat(ch142): route openat through process syscall entry`
+    - `handle_prepared_process_syscall_entry_with_current_io()`에 `SYS_OPENAT` 분기를 추가해 checked pathname copyin과 device namespace lookup 경로로 처리
+    - entry helper가 `DeviceNamespace`, pathname user slice, pathname scratch buffer를 받아 current process fd table에 새 fd를 할당
+    - open 결과 fd로 다시 `write`를 시도해 열린 fd가 실제 current process fd table에 남는지 검증
+    - QEMU runtime marker에서 `[chapter] ch142 process syscall openat entry`, `[trap] process syscall entry routed openat a0=3 sepc=0x4000a004 wrote=10` 확인

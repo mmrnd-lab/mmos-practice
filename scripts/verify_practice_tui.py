@@ -2392,7 +2392,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch142_process_syscall_openat_entry",
         label="Ch142 Process Syscall OpenAt Entry",
-        commit_candidates=["HEAD"],
+        commit_candidates=["eddb191"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
