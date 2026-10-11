@@ -170,7 +170,7 @@
     - interrupt guard로 보호되는 global trap runtime 접근 경계를 추가
     - 실제 trap dispatch가 참조할 수 있는 전역 runtime state를 통해 schedule dispatch가 동작함을 검증
 
-51. `TBD` `feat(ch58): route trap schedule through global runtime`
+51. `6b93cdb` `feat(ch58): route trap schedule through global runtime`
     - `TrapOutcome::Schedule`을 global trap runtime dispatch로 연결하는 trap 경계 helper를 추가
     - RISC-V trap dispatch가 schedule outcome을 무시하지 않고 global runtime decision을 적용하도록 연결
 
