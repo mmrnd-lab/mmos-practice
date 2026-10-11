@@ -17,6 +17,7 @@ pub mod sv39;
 pub mod trap;
 pub mod user_exec;
 pub mod user_init;
+pub mod user_vm;
 pub mod vfs;
 
 pub fn align_up(value: usize, align: usize) -> usize {
@@ -38,7 +39,7 @@ mod tests {
     use super::kheap::init_kheap;
     use super::page_frame_allocator::PageFrameAllocator;
     use super::sv39::{
-        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_W, PTE_X,
+        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
     use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
@@ -46,6 +47,7 @@ mod tests {
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage, UserRegionMut,
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
+    use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
     use super::vfs::Vfs;
 
     #[test]
@@ -353,6 +355,68 @@ mod tests {
         assert_eq!(seg.vaddr, 0x8040_0000);
         assert_eq!(seg.file_size, 4);
         assert_eq!(seg.mem_size, 8);
+    }
+
+    #[test]
+    fn user_vm_plan_maps_exec_and_stack_regions() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        let install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+        let plan = build_user_vm_plan(&loaded, root_frame_pa).unwrap();
+
+        assert_eq!(plan.satp >> 60, 8);
+        assert_eq!(plan.mapped_regions, 1);
+        assert_eq!(install.satp, plan.satp);
+        assert_eq!(install.root_frame_pa, root_frame_pa);
+
+        // 0x8040_0000 and stack 0x8050_0000 both live under vpn2=2.
+        let entry = root.entries[2];
+        assert!(is_leaf_user_mapping(entry));
+        assert_ne!(entry.flags() & PTE_X, 0);
+        assert_ne!(entry.flags() & PTE_W, 0);
+        assert_ne!(entry.flags() & PTE_R, 0);
+        assert_ne!(entry.flags() & PTE_V, 0);
+    }
+
+    #[test]
+    fn user_vm_plan_can_map_multiple_gib_regions() {
+        let data0 = [0xaa_u8; 4];
+        let data1 = [0xbb_u8; 4];
+        let loaded = super::elf_loader::LoadedUserImage {
+            entry: 0x4000_0000,
+            stack_top: 0x8000_1000,
+            segments: [
+                Some(super::elf_loader::LoadSegment {
+                    vaddr: 0x4000_0000,
+                    file_size: 4,
+                    mem_size: 4,
+                    flags: 5,
+                    data: &data0,
+                }),
+                Some(super::elf_loader::LoadSegment {
+                    vaddr: 0x8000_0000,
+                    file_size: 4,
+                    mem_size: 4,
+                    flags: 6,
+                    data: &data1,
+                }),
+                None,
+                None,
+            ],
+            segment_count: 2,
+        };
+
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        let plan = build_user_vm_plan(&loaded, root_frame_pa).unwrap();
+        install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+        assert_eq!(plan.mapped_regions, 2);
+        assert!(is_leaf_user_mapping(root.entries[1]));
+        assert!(is_leaf_user_mapping(root.entries[2]));
     }
 
     fn build_test_ext4_image() -> Vec<u8> {
