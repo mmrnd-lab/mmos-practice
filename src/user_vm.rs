@@ -42,6 +42,37 @@ pub struct UserVmRootInstall {
     pub mapped_regions: usize,
 }
 
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UserSegmentFramePlan {
+    pub vaddr: usize,
+    pub frame_pa: usize,
+    pub file_size: usize,
+    pub mem_size: usize,
+    pub flags: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct UserFrameBackedImagePlan {
+    pub entry_vaddr: usize,
+    pub entry_frame_pa: usize,
+    pub stack_top: usize,
+    pub stack_frame_start_pa: usize,
+    pub stack_pages: usize,
+    pub segment_count: usize,
+    pub segments: [Option<UserSegmentFramePlan>; 4],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UserFrameBackedImageError {
+    NoSegments,
+    TooManySegments,
+    SegmentTooLarge,
+    StackTooLarge,
+    OutOfFrames,
+    EntryNotMapped,
+}
+
 #[derive(Debug)]
 pub struct ProcessAddressSpace {
     pub root_frame_pa: usize,
@@ -149,6 +180,68 @@ impl<const MAX_SPACES: usize> ProcessAddressSpaceTable<MAX_SPACES> {
         }
         None
     }
+}
+
+pub fn plan_frame_backed_user_image<const FREE_CAP: usize>(
+    loaded: &LoadedUserImage<'_>,
+    pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
+    stack_bytes_len: usize,
+) -> Result<UserFrameBackedImagePlan, UserFrameBackedImageError> {
+    if loaded.segment_count == 0 {
+        return Err(UserFrameBackedImageError::NoSegments);
+    }
+    if loaded.segment_count > 4 {
+        return Err(UserFrameBackedImageError::TooManySegments);
+    }
+    if stack_bytes_len > PAGE_SIZE {
+        return Err(UserFrameBackedImageError::StackTooLarge);
+    }
+
+    let mut segments = [None; 4];
+    let mut entry_frame_pa = 0usize;
+    let mut seg_idx = 0usize;
+    while seg_idx < loaded.segment_count {
+        let seg = loaded.segments[seg_idx].ok_or(UserFrameBackedImageError::NoSegments)?;
+        if seg.mem_size > PAGE_SIZE {
+            return Err(UserFrameBackedImageError::SegmentTooLarge);
+        }
+        let frame_pa = pmm.alloc().ok_or(UserFrameBackedImageError::OutOfFrames)?;
+        if loaded.entry >= seg.vaddr && loaded.entry < seg.vaddr + seg.mem_size {
+            entry_frame_pa = frame_pa + (loaded.entry - seg.vaddr);
+        }
+        segments[seg_idx] = Some(UserSegmentFramePlan {
+            vaddr: seg.vaddr,
+            frame_pa,
+            file_size: seg.file_size,
+            mem_size: seg.mem_size,
+            flags: seg.flags,
+        });
+        seg_idx += 1;
+    }
+
+    if entry_frame_pa == 0 {
+        return Err(UserFrameBackedImageError::EntryNotMapped);
+    }
+
+    let stack_pages = if stack_bytes_len == 0 {
+        1
+    } else {
+        (stack_bytes_len + PAGE_SIZE - 1) / PAGE_SIZE
+    };
+    if stack_pages != 1 {
+        return Err(UserFrameBackedImageError::StackTooLarge);
+    }
+    let stack_frame_start_pa = pmm.alloc().ok_or(UserFrameBackedImageError::OutOfFrames)?;
+
+    Ok(UserFrameBackedImagePlan {
+        entry_vaddr: loaded.entry,
+        entry_frame_pa,
+        stack_top: loaded.stack_top,
+        stack_frame_start_pa,
+        stack_pages,
+        segment_count: loaded.segment_count,
+        segments,
+    })
 }
 
 pub fn build_user_vm_plan(

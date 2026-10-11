@@ -83,6 +83,7 @@ static mut USER_ADDRESS_SPACES: user_vm::ProcessAddressSpaceTable<2> =
     user_vm::ProcessAddressSpaceTable::new();
 static mut PCB_ADDRESS_SPACE_HANDLE_READY: bool = false;
 static mut SATP_HARDWARE_COMMIT_PROBE_READY: bool = false;
+static mut USER_FRAME_BACKED_IMAGE_READY: bool = false;
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -668,6 +669,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_address_space_root_demo();
     run_pcb_address_space_handle_demo();
     run_satp_hardware_commit_probe_demo();
+    run_user_frame_backed_image_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -713,6 +715,12 @@ fn run_satp_hardware_commit_probe_demo() {
     }
 }
 
+fn run_user_frame_backed_image_demo() {
+    if unsafe { core::ptr::read_volatile(core::ptr::addr_of!(USER_FRAME_BACKED_IMAGE_READY)) } {
+        console::puts("[chapter] ch82 user frame backed image\n");
+    }
+}
+
 #[inline(never)]
 fn ch78_kernel_satp_runtime_guard() -> bool {
     let mut pmm =
@@ -752,7 +760,7 @@ fn ch79_process_address_space_root() -> bool {
 fn run_user_launch_demo() {
     let mut vm = vm::VmSpace::<4>::new();
     let _ = vm.map_anon(0x4000_0000, 0x4000_1000, sv39::PTE_R | sv39::PTE_W);
-    let mut pmm = pmm::PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, sv39::PAGE_SIZE);
+    let mut pmm = pmm::PageFrameManager::<16>::new(0x9000_0000, 0x9001_0000, sv39::PAGE_SIZE);
     let pf = page_fault::handle_user_page_fault(
         page_fault::SCAUSE_STORE_PAGE_FAULT,
         0x4000_0010,
@@ -1284,6 +1292,34 @@ fn run_user_launch_demo() {
                                                                                                                                                                     ),
                                                                                                                                                                     true,
                                                                                                                                                                 );
+                                                                                                                                                            }
+                                                                                                                                                            if let Ok(frame_plan) =
+                                                                                                                                                                user_vm::plan_frame_backed_user_image(
+                                                                                                                                                                    &loaded,
+                                                                                                                                                                    &mut pmm,
+                                                                                                                                                                    stack_bytes.len(),
+                                                                                                                                                                )
+                                                                                                                                                            {
+                                                                                                                                                                if frame_plan.entry_vaddr
+                                                                                                                                                                    == loaded.entry
+                                                                                                                                                                    && frame_plan.entry_frame_pa
+                                                                                                                                                                        != loaded.entry
+                                                                                                                                                                    && frame_plan.stack_top
+                                                                                                                                                                        == loaded.stack_top
+                                                                                                                                                                    && frame_plan.stack_frame_start_pa
+                                                                                                                                                                        != loaded.stack_top
+                                                                                                                                                                    && frame_plan.segment_count
+                                                                                                                                                                        == loaded.segment_count
+                                                                                                                                                                {
+                                                                                                                                                                    unsafe {
+                                                                                                                                                                        core::ptr::write_volatile(
+                                                                                                                                                                            core::ptr::addr_of_mut!(
+                                                                                                                                                                                USER_FRAME_BACKED_IMAGE_READY
+                                                                                                                                                                            ),
+                                                                                                                                                                            true,
+                                                                                                                                                                        );
+                                                                                                                                                                    }
+                                                                                                                                                                }
                                                                                                                                                             }
                                                                                                                                                         }
                                                                                                                                                     }

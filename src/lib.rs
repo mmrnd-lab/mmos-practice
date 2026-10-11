@@ -131,8 +131,9 @@ mod tests {
     use super::user_vm::{
         build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
         install_user_vm_plan_in_root, is_kernel_mapping, is_leaf_user_mapping,
-        preflight_satp_commit, KernelRuntimeSatpGuard, KernelRuntimeSatpGuardError,
-        ProcessAddressSpace, ProcessAddressSpaceTable, SatpCommitPreflight, SatpCommitPreflightError,
+        plan_frame_backed_user_image, preflight_satp_commit, KernelRuntimeSatpGuard,
+        KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
+        SatpCommitPreflight, SatpCommitPreflightError, UserFrameBackedImageError,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
@@ -2803,6 +2804,39 @@ mod tests {
         assert_eq!(rooted.sequence.sscratch, scratch.sscratch);
         assert_eq!(rooted.sequence.sepc, frame.sepc);
         assert_eq!(rooted.sequence.user_sp, frame.sp());
+    }
+
+    #[test]
+    fn frame_backed_user_image_plan_uses_pmm_frames_for_entry_and_stack() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, super::sv39::PAGE_SIZE);
+
+        let plan = plan_frame_backed_user_image(&loaded, &mut pmm, 512).unwrap();
+        let segment = plan.segments[0].unwrap();
+
+        assert_eq!(plan.entry_vaddr, loaded.entry);
+        assert_eq!(plan.entry_frame_pa, 0x9000_0000);
+        assert_eq!(segment.vaddr, 0x4000_0000);
+        assert_eq!(segment.frame_pa, 0x9000_0000);
+        assert_ne!(segment.frame_pa, segment.vaddr);
+        assert_eq!(plan.stack_frame_start_pa, 0x9000_1000);
+        assert_eq!(plan.stack_pages, 1);
+        assert_eq!(plan.segment_count, loaded.segment_count);
+    }
+
+    #[test]
+    fn frame_backed_user_image_plan_reports_out_of_frames() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut pmm =
+            PageFrameManager::<1>::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+
+        assert_eq!(
+            plan_frame_backed_user_image(&loaded, &mut pmm, 512),
+            Err(UserFrameBackedImageError::OutOfFrames)
+        );
     }
 
     #[test]
