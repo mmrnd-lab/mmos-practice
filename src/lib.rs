@@ -1371,7 +1371,7 @@ mod tests {
         let execv_plan = runtime.execv_dispatch_plan::<512, 256>();
         assert_eq!(execv_plan.stack_top_va, 0x4010_0000);
         assert_eq!(execv_plan.max_areas(), 2);
-        let mut execv_dispatch = execv_plan.prepare(&vfs);
+        let mut execv_dispatch = runtime.prepare_execv_dispatch::<512, 256>(&vfs);
 
         let pid = runtime.create_process(None, process_vm).unwrap();
         let mut task_frame = TrapFrame::default();

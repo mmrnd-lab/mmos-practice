@@ -306,6 +306,18 @@ impl<
         ExecvTrapDispatchPlan::new(self.execv_stack_top_va)
     }
 
+    pub const fn prepare_execv_dispatch<
+        'v,
+        const SCRATCH_BYTES: usize,
+        const STACK_BYTES: usize,
+    >(
+        &self,
+        vfs: &'v crate::vfs::Vfs<'v>,
+    ) -> ExecvTrapDispatchState<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS> {
+        self.execv_dispatch_plan::<SCRATCH_BYTES, STACK_BYTES>()
+            .prepare(vfs)
+    }
+
     pub fn create_process(
         &mut self,
         parent: Option<usize>,
