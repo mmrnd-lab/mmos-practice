@@ -204,6 +204,11 @@
     - RISC-V `csrw satp`와 `sfence.vma` 순서를 갖는 하드웨어 경계 함수를 추가
 
 
+58. `714c7ba` `feat(ch66): relocate user address space for kernel mapping`
+    - kernel mapping 보존 조건을 설명하고 user init/linker/demo 주소를 `vpn2=1` 영역으로 재배치
+    - user root에 supervisor-only/global kernel mapping을 함께 둘 수 있음을 검증
+
+
 ## Reproduce Example
 
 ```bash

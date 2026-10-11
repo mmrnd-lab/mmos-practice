@@ -1108,6 +1108,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=satp commit plan is ready before the hardware write boundary",
     ),
     ChapterSet(
+        key="ch66_user_address_relocation",
+        label="Ch66 User Address Relocation",
+        commit_candidates=["714c7ba"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch66 user address relocation",
+                    "[chapter] ch65 satp commit boundary",
+                    "[chapter] ch64 address space switch apply",
+                    "[runtime] user virtual entry waits for satp commit",
+                ),
+            ),
+        ],
+        note="runtime signature=user space is moved away from the kernel identity mapping slot",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
