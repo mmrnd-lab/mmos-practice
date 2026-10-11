@@ -52,6 +52,7 @@ mod tests {
     use super::ramdisk::RamDisk;
     use super::block_io::read_bytes;
     use super::char_device::{CharError, CharacterDevice};
+    use super::console;
     use super::context_switch::switch_context;
     use super::device::{Device, DeviceKind};
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
@@ -761,6 +762,54 @@ mod tests {
             decode_syscall(SYS_READ, 3, 0x1000, 4),
             Some(Syscall::Read { fd: 3, ptr: 0x1000, len: 4 })
         );
+    }
+
+
+    #[test]
+    fn buffered_console_device_reads_seed_bytes() {
+        let dev = console::BufferedConsoleDevice::new("test-console", b"abc");
+        let mut out = [0u8; 2];
+
+        assert_eq!(dev.read(&mut out), Ok(2));
+        assert_eq!(&out, b"ab");
+        assert_eq!(dev.read(&mut out), Ok(1));
+        assert_eq!(out[0], b'c');
+        assert_eq!(dev.read(&mut out), Err(CharError::WouldBlock));
+        dev.reset();
+        assert_eq!(dev.read(&mut out), Ok(2));
+    }
+
+    #[test]
+    fn read_syscall_copies_buffered_console_bytes() {
+        let dev: &'static console::BufferedConsoleDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(console::BufferedConsoleDevice::new(
+                "test-console",
+                b"runtime",
+            )));
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let current = runtime.current_for_task(&task).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x6000, 0x6020, PTE_W).unwrap();
+        let mut user_bytes = [0u8; 16];
+        let mut user = CheckedUserSliceMut::new(&mut user_bytes, 0x6000, &vm);
+        let mut scratch = [0u8; 8];
+
+        assert_eq!(
+            handle_current_process_read_checked_user_syscall(
+                current,
+                &mut user,
+                0,
+                0x6000,
+                7,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(7)
+        );
+        assert_eq!(&user_bytes[..7], b"runtime");
     }
 
     #[test]
