@@ -1762,7 +1762,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch105_execv_path_vfs_image",
         label="Ch105 Execv Path VFS Image",
-        commit_candidates=["HEAD"],
+        commit_candidates=["42b8e92"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

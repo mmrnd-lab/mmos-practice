@@ -380,6 +380,12 @@
     - 복사한 argument block을 새 user stack의 `argc`/`argv`/empty `envp` layout으로 materialize하는 helper 추가
     - QEMU runtime marker에서 `[chapter] ch104 execv user arg copyin`, `[syscall] execv path=/sbin/init argc=2 argv0=/sbin/init stack_argc=2` 확인
 
+92. `42b8e92` `feat(ch105): load exec image from copied path`
+    - `ExecvArgBlock`에 복사된 pathname을 `path_str()`로 꺼내 VFS/ELF loader 경로에 넘기는 helper 추가
+    - checked copyin으로 확보한 `/sbin/init` 문자열이 실제 ext4 VFS lookup과 ELF load plan 생성으로 이어지는지 검증
+    - load 결과를 `UserExecImage`와 작은 report로 바꿔 이후 process image replacement 경계에 넘길 준비 완료
+    - QEMU runtime marker에서 `[chapter] ch105 execv path vfs image`, `[syscall] execv path=/sbin/init entry=0x40000000 segments=1 argc=1` 확인
+
 
 ## Reproduce Example
 
