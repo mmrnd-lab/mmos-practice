@@ -368,6 +368,12 @@
     - 아직 주소공간 복제, COW, FD table 복사, `execv`는 구현하지 않고 기존 wait/block/wakeup/reap 경로와 연결되는 최소 surface만 검증
     - QEMU runtime marker에서 `[chapter] ch101 minimal fork adapter`, `[syscall] fork parent=1 child=2 child_a0=0 wait_status=23` 확인
 
+90. `9eff172` `feat(ch103): add minimal execv adapter`
+    - fork로 만든 child task의 실행 context를 `UserExecImage` 기준 entry/sp/sstatus로 교체하는 `exec_task_image()` 경로 추가
+    - process의 VM handle을 새 VM으로 바꾸고 task table과 scheduler frame을 함께 갱신해 다음 user return 대상이 exec image가 되도록 고정
+    - syscall surface에서는 성공한 `execv` adapter가 0을 반환하는 최소 규칙을 먼저 검증
+    - QEMU runtime marker에서 `[chapter] ch103 minimal execv adapter`, `[syscall] execv pid=2 tid=2 entry=0x40002000 sp=0x40102000 ret=0` 확인
+
 
 ## Reproduce Example
 

@@ -1726,7 +1726,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch103_minimal_execv_adapter",
         label="Ch103 Minimal Execv Adapter",
-        commit_candidates=["HEAD"],
+        commit_candidates=["9eff172"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
