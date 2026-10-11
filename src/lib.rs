@@ -23,6 +23,7 @@ pub mod sv39;
 pub mod trap;
 pub mod user_exec;
 pub mod user_init;
+pub mod user_stack;
 pub mod user_vm;
 pub mod vm;
 pub mod vfs;
@@ -65,6 +66,7 @@ mod tests {
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage, UserRegionMut,
     };
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
+    use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
     use super::vm::{FaultAccess, VmError, VmSpace};
     use super::vfs::Vfs;
@@ -518,6 +520,51 @@ mod tests {
     }
 
     #[test]
+    fn user_stack_builder_writes_argc_argv_envp_layout() {
+        let stack_top = 0x8050_0000usize;
+        let mut stack = [0u8; 512];
+        let layout = build_initial_user_stack::<8, 8>(
+            &mut stack,
+            stack_top,
+            &["/sbin/init", "--verbose"],
+            &["PATH=/bin", "TERM=vt100"],
+        )
+        .unwrap();
+
+        let base = stack_top - stack.len();
+        let sp_off = layout.sp - base;
+        let argc = read_usize_at(&stack, sp_off);
+        assert_eq!(argc, 2);
+
+        let argv0 = read_usize_at(&stack, sp_off + core::mem::size_of::<usize>());
+        let argv1 = read_usize_at(&stack, sp_off + 2 * core::mem::size_of::<usize>());
+        let argv_null = read_usize_at(&stack, sp_off + 3 * core::mem::size_of::<usize>());
+        assert_eq!(argv_null, 0);
+        assert_eq!(read_cstr_at(&stack, base, argv0), b"/sbin/init");
+        assert_eq!(read_cstr_at(&stack, base, argv1), b"--verbose");
+
+        let envp0 = read_usize_at(&stack, sp_off + 4 * core::mem::size_of::<usize>());
+        let envp1 = read_usize_at(&stack, sp_off + 5 * core::mem::size_of::<usize>());
+        let envp_null = read_usize_at(&stack, sp_off + 6 * core::mem::size_of::<usize>());
+        assert_eq!(envp_null, 0);
+        assert_eq!(read_cstr_at(&stack, base, envp0), b"PATH=/bin");
+        assert_eq!(read_cstr_at(&stack, base, envp1), b"TERM=vt100");
+    }
+
+    #[test]
+    fn user_stack_builder_rejects_small_buffer() {
+        let mut stack = [0u8; 32];
+        let err = build_initial_user_stack::<2, 2>(
+            &mut stack,
+            0x8050_0000,
+            &["/sbin/init", "--verbose"],
+            &["PATH=/bin", "TERM=vt100"],
+        )
+        .unwrap_err();
+        assert_eq!(err, UserStackError::StackOverflow);
+    }
+
+    #[test]
     fn user_vm_plan_maps_exec_and_stack_regions() {
         let elf = build_test_init_elf();
         let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
@@ -747,5 +794,20 @@ mod tests {
 
     fn write_le64(buf: &mut [u8], offset: usize, value: u64) {
         buf[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
+    }
+
+    fn read_usize_at(buf: &[u8], offset: usize) -> usize {
+        let mut bytes = [0u8; core::mem::size_of::<usize>()];
+        bytes.copy_from_slice(&buf[offset..offset + core::mem::size_of::<usize>()]);
+        usize::from_le_bytes(bytes)
+    }
+
+    fn read_cstr_at<'a>(buf: &'a [u8], base_va: usize, ptr_va: usize) -> &'a [u8] {
+        let mut off = ptr_va - base_va;
+        let start = off;
+        while off < buf.len() && buf[off] != 0 {
+            off += 1;
+        }
+        &buf[start..off]
     }
 }
