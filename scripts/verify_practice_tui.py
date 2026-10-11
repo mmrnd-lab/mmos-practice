@@ -395,6 +395,138 @@ CHAPTERS: List[ChapterSet] = [
         ],
         note="runtime signature=scheduler/process model demo logs are visible in QEMU",
     ),
+    ChapterSet(
+        key="ch24_user_stack_abi",
+        label="Ch24 User ABI Stack Layout (argc/argv/envp)",
+        commit_candidates=["d7f8cb4"],
+        steps=[
+            Step(
+                "user-stack-tests",
+                "make test && cargo test --lib --target x86_64-unknown-linux-gnu user_stack_builder_writes_argc_argv_envp_layout",
+                must_contain=(
+                    "user_stack_builder_writes_argc_argv_envp_layout ... ok",
+                ),
+            ),
+        ],
+        note="runtime signature=initial user stack ABI is validated by focused tests",
+    ),
+    ChapterSet(
+        key="ch25_user_init_launch_handoff",
+        label="Ch25 User Init Launch Handoff",
+        commit_candidates=["3ab359e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch25 user init launch handoff",
+                    "[launch] vm+stack+trapframe ready for first sret",
+                ),
+            ),
+        ],
+        note="runtime signature=exec/vm/stack handoff checkpoints are visible before first sret",
+    ),
+    ChapterSet(
+        key="ch26_runtime_user_init_load",
+        label="Ch26 Runtime User Init Load + Handoff",
+        commit_candidates=["da7e19e"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch18 exec prep",
+                    "[runtime] loaded /sbin/init from ext4 into exec image",
+                    "[chapter] ch25 user init launch handoff",
+                ),
+            ),
+        ],
+        note="runtime signature=kernel path mounts ext4 demo image and prepares first user handoff",
+    ),
+    ChapterSet(
+        key="ch27_first_user_sret",
+        label="Ch27 First User SRET Execution",
+        commit_candidates=["2371b8b"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch27 first user sret",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=kernel enters U-mode and user-init emits syscall write/exit logs",
+    ),
+    ChapterSet(
+        key="ch28_user_app_build",
+        label="Ch28 User App Build Foundation",
+        commit_candidates=["25e3344"],
+        steps=[
+            Step(
+                "user-init-build",
+                "make user-init PROFILE=release && riscv64-linux-gnu-readelf -h build/user-init.elf | grep 'Machine:'",
+                must_contain=(
+                    "Machine:                           RISC-V",
+                ),
+            ),
+        ],
+        note="runtime signature=real user-init ELF is built/injected and can be inspected with readelf (-S/-l) for section+segment sanity",
+    ),
+    ChapterSet(
+        key="live_ch25_launch_handoff",
+        label="Live Ch25 Runtime (HEAD)",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch25 user init launch handoff",
+                    "[launch] vm+stack+trapframe ready for first sret",
+                ),
+            ),
+        ],
+        note="live signature=launch handoff is built from vm+stack+trapframe probe",
+    ),
+    ChapterSet(
+        key="live_ch26_runtime_integration",
+        label="Live Ch26 Runtime (HEAD)",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[runtime] loaded /sbin/init from ext4 into exec image",
+                    "[launch] vm+stack+trapframe ready for first sret",
+                ),
+            ),
+        ],
+        note="live signature=ext4->elf->launch integration path executes in QEMU runtime",
+    ),
+    ChapterSet(
+        key="live_ch27_first_sret",
+        label="Live Ch27 Runtime (HEAD)",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch27 first user sret",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="live signature=first U-mode entry and user syscall round-trip are visible on QEMU console",
+    ),
 ]
 
 
