@@ -155,6 +155,10 @@ static mut CH139_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
     [0; demo_user_init::DEMO_INIT_ELF_SIZE];
 static mut CH139_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
     [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
+static mut CH140_INIT_ELF: [u8; demo_user_init::DEMO_INIT_ELF_SIZE] =
+    [0; demo_user_init::DEMO_INIT_ELF_SIZE];
+static mut CH140_EXT4_IMAGE: [u8; demo_user_init::DEMO_EXT4_IMAGE_SIZE] =
+    [0; demo_user_init::DEMO_EXT4_IMAGE_SIZE];
 
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
@@ -762,6 +766,7 @@ pub extern "C" fn rust_main() -> ! {
     run_execv_prepared_entry_dispatch_demo();
     run_prepared_process_syscall_entry_demo();
     run_process_syscall_write_entry_demo();
+    run_process_syscall_read_entry_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -2584,6 +2589,13 @@ fn run_process_syscall_write_entry_demo() {
     let write_user = user_copy::CheckedUserSlice::new(b"entry-io", 0x9000, &write_vm);
     let current_io = process_io::CurrentProcessIoContext::<8>::with_stdio(1, console::device());
     let mut write_scratch = [0u8; 16];
+    let mut read_vm = vm::VmSpace::<2>::new();
+    if read_vm.map_anon(0xa000, 0xa020, sv39::PTE_W).is_err() {
+        return;
+    }
+    let mut read_bytes = [0u8; 16];
+    let mut read_user = user_copy::CheckedUserSliceMut::new(&mut read_bytes, 0xa000, &read_vm);
+    let mut read_scratch = [0u8; 16];
 
     let mut exec_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
         trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new(),
@@ -2604,6 +2616,7 @@ fn run_process_syscall_write_entry_demo() {
     let dispatch = trap::handle_prepared_process_syscall_entry_with_current_io::<
         2,
         2,
+        2,
         8,
         4,
         64,
@@ -2622,6 +2635,8 @@ fn run_process_syscall_write_entry_demo() {
         &current_io,
         &write_user,
         &mut write_scratch,
+        &mut read_user,
+        &mut read_scratch,
         &mut exec_store,
         user_source,
         replacement_vm,
@@ -2633,6 +2648,98 @@ fn run_process_syscall_write_entry_demo() {
     {
         console::puts("[chapter] ch139 process syscall write entry\n");
         console::puts("[trap] process syscall entry routed write a0=8 sepc=0x40007004\n");
+    }
+}
+
+fn run_process_syscall_read_entry_demo() {
+    let (elf, image) = unsafe { (&mut CH140_INIT_ELF, &mut CH140_EXT4_IMAGE) };
+    let Ok(elf_len) = demo_user_init::build_demo_init_elf(elf) else {
+        return;
+    };
+    if demo_user_init::build_demo_ext4_image(image, &elf[..elf_len]).is_err() {
+        return;
+    }
+    let dev = ramdisk::RamDisk::new("ramblk0", image, 512);
+    let Ok(vfs) = vfs::Vfs::mount_ext4(&dev) else {
+        return;
+    };
+
+    let mut wait_vm = vm::VmSpace::<2>::new();
+    if wait_vm.map_anon(0x8000, 0x8004, sv39::PTE_W).is_err() {
+        return;
+    }
+    let mut wait_bytes = [0u8; 4];
+    let mut wait_user = user_copy::CheckedUserSliceMut::new(&mut wait_bytes, 0x8000, &wait_vm);
+
+    let mut write_vm = vm::VmSpace::<2>::new();
+    if write_vm.map_anon(0x9000, 0x9020, sv39::PTE_R).is_err() {
+        return;
+    }
+    let write_user = user_copy::CheckedUserSlice::new(b"unused-io", 0x9000, &write_vm);
+    let mut write_scratch = [0u8; 16];
+
+    let mut read_vm = vm::VmSpace::<2>::new();
+    if read_vm.map_anon(0xa000, 0xa020, sv39::PTE_W).is_err() {
+        return;
+    }
+    let mut read_bytes = [0u8; 16];
+    let mut read_user = user_copy::CheckedUserSliceMut::new(&mut read_bytes, 0xa000, &read_vm);
+    let mut read_scratch = [0u8; 16];
+    console::readback_device().reset();
+    let current_io =
+        process_io::CurrentProcessIoContext::<8>::with_stdio(1, console::readback_device());
+
+    let mut exec_store = trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+        trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new(),
+        &vfs,
+    );
+    let exec_user_mem = [0u8; 16];
+    let user_source = trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
+    let replacement_vm = trap::ExecvPreparedReplacementVm::new(vm::VmSpace::<2>::new());
+
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let mut frame = trap::TrapFrame::default();
+    frame.sepc = 0x4000_8000;
+    frame.set_a7(syscall::SYS_READ);
+    frame.set_a0(0);
+    frame.set_a1(0xa000);
+    frame.set_a2(1);
+
+    let dispatch = trap::handle_prepared_process_syscall_entry_with_current_io::<
+        2,
+        2,
+        2,
+        8,
+        4,
+        64,
+        4,
+        2,
+        2,
+        5,
+        512,
+        256,
+    >(
+        &mut frame,
+        &mut runtime,
+        2,
+        vm::VmSpace::<2>::new(),
+        &mut wait_user,
+        &current_io,
+        &write_user,
+        &mut write_scratch,
+        &mut read_user,
+        &mut read_scratch,
+        &mut exec_store,
+        user_source,
+        replacement_vm,
+    );
+
+    if dispatch == trap::TrapDispatchResult::Resumed
+        && frame.a0() == 1
+        && frame.sepc == 0x4000_8004
+    {
+        console::puts("[chapter] ch140 process syscall read entry\n");
+        console::puts("[trap] process syscall entry routed read a0=1 sepc=0x40008004\n");
     }
 }
 

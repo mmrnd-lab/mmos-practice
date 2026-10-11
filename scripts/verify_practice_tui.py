@@ -2354,6 +2354,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared process syscall entry routes write through current process fd table and checked user copyin",
     ),
     ChapterSet(
+        key="ch140_process_syscall_read_entry",
+        label="Ch140 Process Syscall Read Entry",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch140 process syscall read entry",
+                    "[trap] process syscall entry routed read a0=1 sepc=0x40008004",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared process syscall entry routes read through current process fd table and checked user copyout",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
