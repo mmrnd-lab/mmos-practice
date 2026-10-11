@@ -2799,7 +2799,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch160_shared_object_load_pipeline",
         label="Ch160 Shared Object Load Pipeline",
-        commit_candidates=["HEAD"],
+        commit_candidates=["c29922d"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

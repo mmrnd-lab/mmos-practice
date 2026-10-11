@@ -716,3 +716,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - 실행 파일 mapping helper와 달리 stack page를 추가하지 않고 shared object segment leaf만 설치
     - unit test가 shared object leaf PTE, table PTE, mapped page count를 검증
     - QEMU runtime marker에서 `[chapter] ch159 shared object page table install`, `[user-link] shared object frame plan installs user leaf mappings without stack pages` 확인
+
+144. `c29922d` `feat(ch160): add shared object load pipeline`
+    - `SharedObjectLoadPipeline`과 `load_shared_object_pipeline_in_tables()`를 추가해 relocation materialize, mapping plan, frame plan, page table install을 한 흐름으로 연결
+    - unit test가 shared object image bytes를 mutable buffer로 받아 relocation count, entry frame PA, mapped page count, leaf PTE를 검증
+    - `make shared-object-load-pipeline` 타깃이 실제 CRT shared object artifact의 pipeline 전제 조건을 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch160 shared object load pipeline`, `[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings` 확인
