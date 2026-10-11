@@ -8,28 +8,28 @@
    - 컨테이너 중심 워크플로 + `run-nographic`/`run-monitor` 준비
 3. `3aac907` `chore(boot): add submodule bootstrap and disk setup scripts`
    - OpenSBI/U-Boot 기본 자산과 초기 부트 준비
-4. `41b8d41` `feat(kernel): add minimal riscv boot entry with selectable sbi/mmio console`
+4. `99a3846` `feat(kernel): add minimal riscv boot entry with selectable sbi/mmio console`
    - 최소 커널 엔트리 + 선택형 콘솔 출력
-5. `27dfe5b` `test(core): add test entry layout and basic alignment tests`
+5. `ac2e0af` `test(core): add test entry layout and basic alignment tests`
    - 테스트 엔트리와 기초 단위 테스트
-6. `1ff4bbe` `feat(memory): add kheap and page frame allocator practice modules`
+6. `51b11f5` `feat(memory): add kheap and page frame allocator practice modules`
    - 메모리 관리 모듈 확장
-7. `960cd95` `feat(boot): add u-boot boot flow for chapter 7`
+7. `b8be3eb` `feat(boot): add u-boot boot flow for chapter 7`
    - `uImage`, ext4 부트 디스크, `run-u-boot` 경로 도입
    - 부트 디스크 파티션, U-Boot 빌드 의존성, 펌웨어 clone 스크립트까지 포함
-8. `47757de` `feat(trap): add trapframe and stvec/interrupt setup scaffold`
+8. `7c22760` `feat(trap): add trapframe and stvec/interrupt setup scaffold`
    - Trap/IRQ 기초 구조 도입
-9. `352ac4e` `feat(ch10): add trap dispatch and syscall scaffold`
+9. `7cc3ddc` `feat(ch10): add trap dispatch and syscall scaffold`
    - trap 디스패치와 syscall(write/exit) 골격
-10. `636b73d` `feat(ch11): add sv39 page-table primitives`
+10. `37beb82` `feat(ch11): add sv39 page-table primitives`
     - Sv39 페이지 테이블 기본 자료구조
-11. `075d672` `feat(ch12): add user-init context and demo exit path`
+11. `7bc24ba` `feat(ch12): add user-init context and demo exit path`
     - user init 컨텍스트 준비와 exit 경로 확인
 
 ## Reproduce Example
 
 ```bash
-git checkout 960cd95
+git checkout b8be3eb
 make image
 ./docker.run
 # container inside
