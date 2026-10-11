@@ -35,8 +35,8 @@ pub fn run_fork_exec_wait_demo() -> Result<ForkExecWaitDemo, ProcError> {
         TrapFrame::default(),
     ))?;
 
-    let exec_entry = 0x8040_1000usize;
-    let exec_stack_top = 0x8050_1000usize;
+    let exec_entry = 0x4000_1000usize;
+    let exec_stack_top = 0x4010_1000usize;
     {
         // Simulate exec() rewriting the runnable context for child.
         let child_task = task_table.get_mut(child_tid)?;

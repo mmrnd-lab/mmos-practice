@@ -3,12 +3,16 @@
 
 use crate::elf_loader::{pflags_to_pte, LoadedUserImage};
 use crate::sv39::{
-    make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_U, PTE_V,
-    PT_ENTRIES,
+    make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_G, PTE_R,
+    PTE_U, PTE_V, PTE_W, PTE_X, PT_ENTRIES,
 };
 
 const GIB_SHIFT: usize = 30;
 const PPN_GIB_SHIFT: usize = 18;
+
+pub const KERNEL_IDENTITY_VPN2: usize = 2;
+pub const KERNEL_IDENTITY_PPN: usize = KERNEL_IDENTITY_VPN2 << PPN_GIB_SHIFT;
+pub const KERNEL_IDENTITY_FLAGS: u64 = PTE_R | PTE_W | PTE_X | PTE_A | PTE_D | PTE_G;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserVmError {
@@ -16,6 +20,11 @@ pub enum UserVmError {
     TooManyRegions,
     MalformedImage,
     UnalignedRootFrame,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KernelMapError {
+    UserMappingOverlap { vpn2: usize },
 }
 
 #[derive(Debug)]
@@ -181,4 +190,29 @@ fn add_region(
 pub fn is_leaf_user_mapping(entry: crate::sv39::PageTableEntry) -> bool {
     let f = entry.flags();
     (f & (PTE_V | PTE_U)) == (PTE_V | PTE_U)
+}
+
+
+pub fn install_kernel_identity_mapping(root: &mut RootPageTable) -> Result<(), KernelMapError> {
+    let existing = root.entries[KERNEL_IDENTITY_VPN2];
+    if existing.is_valid() && (existing.flags() & PTE_U) != 0 {
+        return Err(KernelMapError::UserMappingOverlap {
+            vpn2: KERNEL_IDENTITY_VPN2,
+        });
+    }
+    root.map_gib_identity(
+        KERNEL_IDENTITY_VPN2,
+        KERNEL_IDENTITY_PPN,
+        KERNEL_IDENTITY_FLAGS,
+    );
+    Ok(())
+}
+
+pub fn is_kernel_mapping(entry: PageTableEntry) -> bool {
+    let flags = entry.flags();
+    entry.is_valid()
+        && entry.ppn() == KERNEL_IDENTITY_PPN
+        && (flags & PTE_U) == 0
+        && (flags & PTE_G) != 0
+        && (flags & (PTE_R | PTE_W | PTE_X)) == (PTE_R | PTE_W | PTE_X)
 }

@@ -26,7 +26,7 @@ pub fn build_user_init_context(entry: usize, user_sp: usize) -> UserInitContext 
 
 pub fn run_user_init_demo() -> trap::TrapOutcome {
     let mut frame = trap::TrapFrame::default();
-    frame.sepc = 0x8040_0000;
+    frame.sepc = 0x4000_0000;
     frame.set_a7(syscall::SYS_EXIT);
     frame.set_a0(0);
 

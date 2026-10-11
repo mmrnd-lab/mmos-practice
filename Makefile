@@ -63,7 +63,7 @@ test: require-container
 mmos.bin: require-container
 	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-Tsrc/kernel.ld' cargo build --profile $(PROFILE) $(CARGO_CONSOLE_FLAGS)
 
-$(USER_INIT_ELF): require-container | $(BUILD_DIR)
+$(USER_INIT_ELF): require-container user/common/mmos_user_app.ld user/init/build.rs | $(BUILD_DIR)
 	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-T/workspace/mmos-practice/user/common/mmos_user_app.ld' cargo build --manifest-path user/init/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
 	cp user/init/target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-user-init $(USER_INIT_ELF)
 

@@ -35,6 +35,10 @@ impl PageTableEntry {
     pub fn flags(&self) -> u64 {
         self.0 & 0x3ff
     }
+
+    pub const fn is_valid(&self) -> bool {
+        (self.0 & PTE_V) != 0
+    }
 }
 
 #[derive(Debug)]

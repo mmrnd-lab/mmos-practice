@@ -83,7 +83,7 @@ mod tests {
     use super::serial::{SerialDevice, UART0_BASE};
     use super::serial_rx::{wake_reader_on_rx_event, SerialRxEvent};
     use super::sv39::{
-        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
+        make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_G, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::task_vm::{
         address_space_switch_for_decision, apply_address_space_switch, prepare_satp_commit,
@@ -118,7 +118,10 @@ mod tests {
     use super::user_launch::prepare_user_init_launch;
     use super::user_process::create_user_process_from_launch;
     use super::user_stack::{build_initial_user_stack, UserStackError};
-    use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
+    use super::user_vm::{
+        build_user_vm_plan, install_kernel_identity_mapping, install_user_vm_plan_in_root,
+        is_kernel_mapping, is_leaf_user_mapping,
+    };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
     use super::wait_queue::WaitQueue;
@@ -1431,11 +1434,11 @@ mod tests {
     #[test]
     fn elf_loader_collects_pt_load_segment() {
         let elf = build_test_init_elf();
-        let image = load_user_elf(&elf, 0x8050_0000).unwrap();
-        assert_eq!(image.entry, 0x8040_0000);
+        let image = load_user_elf(&elf, 0x4010_0000).unwrap();
+        assert_eq!(image.entry, 0x4000_0000);
         assert_eq!(image.segment_count, 1);
         let seg = image.segments[0].unwrap();
-        assert_eq!(seg.vaddr, 0x8040_0000);
+        assert_eq!(seg.vaddr, 0x4000_0000);
         assert!(seg.file_size >= 64);
         assert_eq!(seg.mem_size, seg.file_size);
         assert_eq!(&seg.data[..4], &[0x97, 0x05, 0x00, 0x00]);
@@ -1457,9 +1460,9 @@ mod tests {
         let dev = RamDisk::new("ramblk0", &image, 512);
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let mut scratch = [0u8; 512];
-        let loaded = load_init_from_vfs(&vfs, "/sbin/init", &mut scratch, 0x8050_0000).unwrap();
-        assert_eq!(loaded.entry, 0x8040_0000);
-        assert_eq!(loaded.stack_top, 0x8050_0000);
+        let loaded = load_init_from_vfs(&vfs, "/sbin/init", &mut scratch, 0x4010_0000).unwrap();
+        assert_eq!(loaded.entry, 0x4000_0000);
+        assert_eq!(loaded.stack_top, 0x4010_0000);
         assert_eq!(loaded.segment_count, 1);
     }
 
@@ -1521,23 +1524,23 @@ mod tests {
     #[test]
     fn trap_page_fault_outcome_resumes_on_valid_mapping() {
         let mut vm = VmSpace::<4>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_W)
+        vm.map_anon(0x4000_0000, 0x4000_1000, PTE_R | PTE_W)
             .unwrap();
         let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
 
         let outcome =
-            handle_user_page_fault_outcome(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
+            handle_user_page_fault_outcome(SCAUSE_STORE_PAGE_FAULT, 0x4000_0010, &vm, &mut pmm);
         assert_eq!(outcome, TrapOutcome::Resume);
     }
 
     #[test]
     fn trap_page_fault_outcome_exits_on_invalid_access() {
         let mut vm = VmSpace::<2>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R).unwrap();
+        vm.map_anon(0x4000_0000, 0x4000_1000, PTE_R).unwrap();
         let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
 
         let outcome =
-            handle_user_page_fault_outcome(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
+            handle_user_page_fault_outcome(SCAUSE_STORE_PAGE_FAULT, 0x4000_0010, &vm, &mut pmm);
         assert_eq!(outcome, TrapOutcome::Exit(-1));
     }
 
@@ -1630,13 +1633,13 @@ mod tests {
     fn task_table_tracks_owner_and_runtime_ticks() {
         let mut tasks = TaskTable::<4>::new();
         let mut tf = TrapFrame::default();
-        tf.sepc = 0x8040_0000;
+        tf.sepc = 0x4000_0000;
         let tcb = TaskControlBlock::new(1, 10, tf);
         tasks.add_task(tcb).unwrap();
 
         let slot = tasks.get_mut(1).unwrap();
         assert_eq!(slot.owner_pid, 10);
-        assert_eq!(slot.trapframe.sepc, 0x8040_0000);
+        assert_eq!(slot.trapframe.sepc, 0x4000_0000);
         slot.runtime_ticks += 1;
         assert_eq!(slot.runtime_ticks, 1);
     }
@@ -1647,8 +1650,8 @@ mod tests {
         assert_eq!(report.parent_pid, 1);
         assert_eq!(report.child_pid, 2);
         assert_eq!(report.child_tid, 1);
-        assert_eq!(report.exec_entry, 0x8040_1000);
-        assert_eq!(report.exec_stack_top, 0x8050_1000);
+        assert_eq!(report.exec_entry, 0x4000_1000);
+        assert_eq!(report.exec_stack_top, 0x4010_1000);
         assert_eq!(report.reap_code, 0);
     }
 
@@ -1672,10 +1675,40 @@ mod tests {
         assert_eq!(root.entries[2].ppn(), 0x20000);
     }
 
+
+    #[test]
+    fn kernel_identity_mapping_is_global_and_supervisor_only() {
+        let mut root = RootPageTable::new();
+        install_kernel_identity_mapping(&mut root).unwrap();
+        let entry = root.entries[super::user_vm::KERNEL_IDENTITY_VPN2];
+
+        assert!(is_kernel_mapping(entry));
+        assert_eq!(entry.flags() & PTE_U, 0);
+        assert_ne!(entry.flags() & PTE_G, 0);
+        assert_ne!(entry.flags() & PTE_R, 0);
+        assert_ne!(entry.flags() & PTE_W, 0);
+        assert_ne!(entry.flags() & PTE_X, 0);
+    }
+
+    #[test]
+    fn relocated_user_vm_plan_can_preserve_kernel_mapping() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+
+        let user_entry = root.entries[1];
+        assert!(is_leaf_user_mapping(user_entry));
+        assert!(install_kernel_identity_mapping(&mut root).is_ok());
+        assert!(is_kernel_mapping(root.entries[super::user_vm::KERNEL_IDENTITY_VPN2]));
+    }
+
     #[test]
     fn user_init_context_clears_spp_for_umode() {
-        let ctx = build_user_init_context(0x8040_0000, 0x8050_0000);
-        assert_eq!(ctx.sepc, 0x8040_0000);
+        let ctx = build_user_init_context(0x4000_0000, 0x4010_0000);
+        assert_eq!(ctx.sepc, 0x4000_0000);
         assert_eq!(ctx.sstatus & SSTATUS_SPP, 0);
     }
 
@@ -1687,7 +1720,7 @@ mod tests {
     #[test]
     fn user_exec_materialize_copies_file_and_zeros_bss() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let seg = loaded.segments[0].unwrap();
         let mut region = vec![0xaa_u8; seg.mem_size];
         let mut regions = [UserRegionMut {
@@ -1706,7 +1739,7 @@ mod tests {
     #[test]
     fn user_exec_materialize_fails_when_region_is_missing() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut region = [0u8; 8];
         let mut regions = [UserRegionMut {
             vaddr: 0x9000_0000,
@@ -1723,15 +1756,15 @@ mod tests {
     #[test]
     fn user_exec_context_sets_entry_stack_and_umode_bits() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let image = UserExecImage::from_loaded(&loaded);
         let mut tf = TrapFrame::default();
         tf.sstatus = usize::MAX;
 
         install_exec_context(&mut tf, &image);
 
-        assert_eq!(tf.sepc, 0x8040_0000);
-        assert_eq!(tf.sp(), 0x8050_0000);
+        assert_eq!(tf.sepc, 0x4000_0000);
+        assert_eq!(tf.sp(), 0x4010_0000);
         assert_eq!(tf.sstatus & SSTATUS_SPP, 0);
         assert_ne!(tf.sstatus & super::user_init::SSTATUS_SPIE, 0);
     }
@@ -1743,20 +1776,20 @@ mod tests {
         let vfs = Vfs::mount_ext4(&dev).unwrap();
         let mut scratch = [0u8; 512];
 
-        let loaded = load_init_exec_image(&vfs, "/sbin/init", &mut scratch, 0x8050_0000).unwrap();
+        let loaded = load_init_exec_image(&vfs, "/sbin/init", &mut scratch, 0x4010_0000).unwrap();
         let exec = UserExecImage::from_loaded(&loaded);
 
-        assert_eq!(exec.entry, 0x8040_0000);
+        assert_eq!(exec.entry, 0x4000_0000);
         assert_eq!(exec.segment_count, 1);
         let seg = exec.segments[0].unwrap();
-        assert_eq!(seg.vaddr, 0x8040_0000);
+        assert_eq!(seg.vaddr, 0x4000_0000);
         assert!(seg.file_size >= 64);
         assert_eq!(seg.mem_size, seg.file_size);
     }
 
     #[test]
     fn user_stack_builder_writes_argc_argv_envp_layout() {
-        let stack_top = 0x8050_0000usize;
+        let stack_top = 0x4010_0000usize;
         let mut stack = [0u8; 512];
         let layout = build_initial_user_stack::<8, 8>(
             &mut stack,
@@ -1791,7 +1824,7 @@ mod tests {
         let mut stack = [0u8; 32];
         let err = build_initial_user_stack::<2, 2>(
             &mut stack,
-            0x8050_0000,
+            0x4010_0000,
             &["/sbin/init", "--verbose"],
             &["PATH=/bin", "TERM=vt100"],
         )
@@ -1802,7 +1835,7 @@ mod tests {
     #[test]
     fn user_vm_plan_maps_exec_and_stack_regions() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
@@ -1814,8 +1847,8 @@ mod tests {
         assert_eq!(install.satp, plan.satp);
         assert_eq!(install.root_frame_pa, root_frame_pa);
 
-        // 0x8040_0000 and stack 0x8050_0000 both live under vpn2=2.
-        let entry = root.entries[2];
+        // 0x4000_0000 and stack 0x4010_0000 both live under vpn2=1.
+        let entry = root.entries[1];
         assert!(is_leaf_user_mapping(entry));
         assert_ne!(entry.flags() & PTE_X, 0);
         assert_ne!(entry.flags() & PTE_W, 0);
@@ -1864,7 +1897,7 @@ mod tests {
     #[test]
     fn user_launch_plan_combines_vm_exec_and_stack_abi() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut stack = [0u8; 512];
         let launch = prepare_user_init_launch::<8, 8>(
             &loaded,
@@ -1890,11 +1923,11 @@ mod tests {
         reset_global_trap_runtime();
 
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut stack = [0u8; 512];
         let launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12345,
+ 0x12345_000,
             &mut stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -1921,11 +1954,11 @@ mod tests {
     #[test]
     fn user_process_creation_registers_launch_context() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut stack = [0u8; 512];
         let launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12345,
+ 0x12345_000,
             &mut stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -1963,12 +1996,12 @@ mod tests {
     #[test]
     fn two_created_user_processes_can_switch_after_block() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut first_stack = [0u8; 512];
         let mut second_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12345,
+ 0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -1976,7 +2009,7 @@ mod tests {
         .unwrap();
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12346,
+ 0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -2037,12 +2070,12 @@ mod tests {
     #[test]
     fn switched_task_exposes_next_address_space_token() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut first_stack = [0u8; 512];
         let mut second_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12345,
+ 0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -2050,7 +2083,7 @@ mod tests {
         .unwrap();
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12346,
+ 0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -2097,11 +2130,11 @@ mod tests {
     #[test]
     fn address_space_switch_updates_active_satp_slot() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut first_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12345,
+ 0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -2110,7 +2143,7 @@ mod tests {
         let mut second_stack = [0u8; 512];
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12346,
+ 0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -2159,11 +2192,11 @@ mod tests {
     #[test]
     fn satp_commit_plan_requires_tlb_flush_when_satp_changes() {
         let elf = build_test_init_elf();
-        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
         let mut first_stack = [0u8; 512];
         let first_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12345,
+ 0x12345_000,
             &mut first_stack,
             &["/sbin/init"],
             &["PATH=/bin"],
@@ -2172,7 +2205,7 @@ mod tests {
         let mut second_stack = [0u8; 512];
         let second_launch = prepare_user_init_launch::<8, 8>(
             &loaded,
-            0x12346,
+ 0x12346_000,
             &mut second_stack,
             &["/sbin/worker"],
             &["PATH=/bin"],
@@ -2237,13 +2270,13 @@ mod tests {
     #[test]
     fn vm_space_resolves_fault_by_access_mode() {
         let mut vm = VmSpace::<4>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X)
+        vm.map_anon(0x4000_0000, 0x4000_1000, PTE_R | PTE_X)
             .unwrap();
-        assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Read).is_some());
+        assert!(vm.resolve_fault(0x4000_0004, FaultAccess::Read).is_some());
         assert!(vm
-            .resolve_fault(0x8040_0004, FaultAccess::Execute)
+            .resolve_fault(0x4000_0004, FaultAccess::Execute)
             .is_some());
-        assert!(vm.resolve_fault(0x8040_0004, FaultAccess::Write).is_none());
+        assert!(vm.resolve_fault(0x4000_0004, FaultAccess::Write).is_none());
     }
 
     #[test]
@@ -2258,14 +2291,14 @@ mod tests {
     #[test]
     fn page_fault_handler_allocates_mapping_for_valid_area() {
         let mut vm = VmSpace::<4>::new();
-        vm.map_anon(0x8050_0000, 0x8050_2000, PTE_R | PTE_W)
+        vm.map_anon(0x4010_0000, 0x4010_2000, PTE_R | PTE_W)
             .unwrap();
         let mut pmm = PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, 0x1000);
 
-        let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x8050_1234, &vm, &mut pmm);
+        let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x4010_1234, &vm, &mut pmm);
         match pf {
             PageFaultResult::Mapped(m) => {
-                assert_eq!(m.va_page, 0x8050_1000);
+                assert_eq!(m.va_page, 0x4010_1000);
                 assert_eq!(m.frame_pa, 0x9000_0000);
                 assert_ne!(m.pte_flags & PTE_W, 0);
             }
@@ -2276,11 +2309,11 @@ mod tests {
     #[test]
     fn page_fault_handler_rejects_illegal_access() {
         let mut vm = VmSpace::<2>::new();
-        vm.map_anon(0x8040_0000, 0x8040_1000, PTE_R | PTE_X)
+        vm.map_anon(0x4000_0000, 0x4000_1000, PTE_R | PTE_X)
             .unwrap();
         let mut pmm = PageFrameManager::<2>::new(0x9000_0000, 0x9000_2000, 0x1000);
 
-        let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x8040_0010, &vm, &mut pmm);
+        let pf = handle_user_page_fault(SCAUSE_STORE_PAGE_FAULT, 0x4000_0010, &vm, &mut pmm);
         assert_eq!(pf, PageFaultResult::InvalidAccess);
     }
 

@@ -11,7 +11,7 @@ pub enum DemoBuildError {
 }
 
 pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
-    const BASE_VADDR: usize = 0x8040_0000;
+    const BASE_VADDR: usize = 0x4000_0000;
     const SEG_OFF: usize = 0x100;
     const MSG_OFF: usize = 0x140;
     const MSG: &[u8] = b"[user-init] hello from user app\n";

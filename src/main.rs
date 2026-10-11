@@ -188,7 +188,7 @@ pub extern "C" fn rust_main() -> ! {
     }
 
     let mut boot_tf = trap::TrapFrame::default();
-    boot_tf.set_sp(0x8050_0000);
+    boot_tf.set_sp(0x4010_0000);
     let _ = boot_tf.sp();
     boot_tf.set_a7(syscall::SYS_WRITE);
     boot_tf.set_a0(1);
@@ -551,7 +551,7 @@ pub extern "C" fn rust_main() -> ! {
             }
             let mut dispatch_scheduler = scheduler::Scheduler::<3>::new();
             let mut dispatch_next_frame = trap::TrapFrame::default();
-            dispatch_next_frame.sepc = 0x8040_0000;
+            dispatch_next_frame.sepc = 0x4000_0000;
             dispatch_next_frame.set_a0(0x54);
             let _ = dispatch_scheduler.add_runnable(input_tid, trap::TrapFrame::default());
             let _ = dispatch_scheduler.add_runnable(next_tid, dispatch_next_frame);
@@ -567,13 +567,13 @@ pub extern "C" fn rust_main() -> ! {
                 next_tid,
             })
                 && dispatch_scheduler.current_tid() == Some(next_tid)
-                && scheduled_frame.sepc == 0x8040_0000
+                && scheduled_frame.sepc == 0x4000_0000
                 && scheduled_frame.a0() == 0x54
             {
                 console::puts("[chapter] ch55 trap schedule dispatch\n");
             }
             let mut runtime_next_frame = trap::TrapFrame::default();
-            runtime_next_frame.sepc = 0x8050_0000;
+            runtime_next_frame.sepc = 0x4010_0000;
             runtime_next_frame.set_a0(0x55);
             let mut trap_runtime = trap_runtime::TrapRuntime::<3>::new();
             let _ = trap_runtime.add_runnable(input_tid, trap::TrapFrame::default());
@@ -587,7 +587,7 @@ pub extern "C" fn rust_main() -> ! {
                     next_tid,
                 })
                 && trap_runtime.current_tid() == Some(next_tid)
-                && runtime_frame.sepc == 0x8050_0000
+                && runtime_frame.sepc == 0x4010_0000
                 && runtime_frame.a0() == 0x55
             {
                 console::puts("[chapter] ch56 trap runtime scheduler state\n");
@@ -648,7 +648,7 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
 
-    let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
+    let init_ctx = user_init::build_user_init_context(0x4000_0000, 0x4010_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
         console::puts("[mmos-practice] user init context prepared (SPP=U)\n");
     }
@@ -680,11 +680,11 @@ fn run_process_runtime_demo() {
 
 fn run_user_launch_demo() {
     let mut vm = vm::VmSpace::<4>::new();
-    let _ = vm.map_anon(0x8040_0000, 0x8040_1000, sv39::PTE_R | sv39::PTE_W);
+    let _ = vm.map_anon(0x4000_0000, 0x4000_1000, sv39::PTE_R | sv39::PTE_W);
     let mut pmm = pmm::PageFrameManager::<4>::new(0x9000_0000, 0x9000_4000, sv39::PAGE_SIZE);
     let pf = page_fault::handle_user_page_fault(
         page_fault::SCAUSE_STORE_PAGE_FAULT,
-        0x8040_0010,
+        0x4000_0010,
         &vm,
         &mut pmm,
     );
@@ -697,7 +697,7 @@ fn run_user_launch_demo() {
 
     let scratch = unsafe { &mut *core::ptr::addr_of_mut!(INIT_SCRATCH) };
     let stack_bytes = unsafe { &mut *core::ptr::addr_of_mut!(DEMO_STACK) };
-    let stack_top = stack_bytes.as_ptr() as usize + stack_bytes.len();
+    let stack_top = 0x4010_0000usize;
 
     let dev = match virtio_blk::VirtioBlockDevice::probe() {
         Ok(dev) => dev,
@@ -728,7 +728,7 @@ fn run_user_launch_demo() {
             return;
         }
     };
-    if materialize_loaded_segments(&loaded).is_err() {
+    if loaded.entry >= 0x8000_0000 && materialize_loaded_segments(&loaded).is_err() {
         return;
     }
 
@@ -739,7 +739,7 @@ fn run_user_launch_demo() {
 
     let plan = user_launch::prepare_user_init_launch::<4, 4>(
         &loaded,
-        0x12345,
+ 0x12345_000,
         stack_bytes,
         &["/sbin/init"],
         &["PATH=/bin"],
@@ -781,7 +781,7 @@ fn run_user_launch_demo() {
                 let mut second_stack = [0u8; 512];
                 if let Ok(second_plan) = user_launch::prepare_user_init_launch::<4, 4>(
                     &loaded,
-                    0x12346,
+ 0x12346_000,
                     &mut second_stack,
                     &["/sbin/worker"],
                     &["PATH=/bin"],
@@ -845,6 +845,30 @@ fn run_user_launch_demo() {
                                                 console::puts(
                                                     "[chapter] ch65 satp commit boundary\n",
                                                 );
+                                                let mut root = sv39::RootPageTable::new();
+                                                let _ = user_vm::install_user_vm_plan_in_root(
+                                                    &loaded,
+                                                    0x12345_000,
+                                                    &mut root,
+                                                )
+                                                .unwrap();
+                                                if user_vm::install_kernel_identity_mapping(
+                                                    &mut root,
+                                                )
+                                                .is_err()
+                                                {
+                                                    console::puts(
+                                                        "[chapter] ch66 kernel mapping overlap\n",
+                                                    );
+                                                } else if user_vm::is_kernel_mapping(
+                                                    root.entries[
+                                                        user_vm::KERNEL_IDENTITY_VPN2
+                                                    ],
+                                                ) {
+                                                    console::puts(
+                                                        "[chapter] ch66 user address relocation\n",
+                                                    );
+                                                }
                                             }
                                         }
                                     }
@@ -854,6 +878,11 @@ fn run_user_launch_demo() {
                     }
                 }
             }
+            if loaded.entry < 0x8000_0000 {
+                console::puts("[runtime] user virtual entry waits for satp commit\n");
+                return;
+            }
+
             console::puts("[chapter] ch28 first user sret\n");
 
             #[cfg(target_arch = "riscv64")]
