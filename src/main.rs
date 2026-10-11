@@ -180,6 +180,36 @@ pub extern "C" fn rust_main() -> ! {
     boot_tf.set_a2(0);
     let _ = trap::handle_trap(&mut boot_tf, trap::SCAUSE_USER_ECALL, 0);
 
+    let mut runtime_vm = vm::VmSpace::<2>::new();
+    let _ = runtime_vm.map_anon(0x5000, 0x5020, sv39::PTE_R);
+    let runtime_user =
+        user_copy::CheckedUserSlice::new(b"/dev/console\0current", 0x5000, &runtime_vm);
+    let mut current_proc =
+        process_io::CurrentProcessIoContext::<8>::with_stdio(1, console::device());
+    let mut runtime_path = [0u8; 32];
+    if let syscall::SyscallResult::Continue(fd) = syscall::handle_process_open_checked_user_path(
+        current_proc.io_mut(),
+        &dev_ns,
+        &runtime_user,
+        0x5000,
+        1,
+        &mut runtime_path,
+    ) {
+        let mut runtime_write = [0u8; 16];
+        if current_proc.pid() == 1
+            && syscall::handle_current_process_write_checked_user_syscall(
+                &current_proc,
+                &runtime_user,
+                fd as usize,
+                0x500d,
+                7,
+                &mut runtime_write,
+            ) == syscall::SyscallResult::Continue(7)
+        {
+            console::puts("[chapter] ch40 current process io context\n");
+        }
+    }
+
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
         console::puts("[mmos-practice] user init context prepared (SPP=U)\n");

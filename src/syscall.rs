@@ -223,3 +223,14 @@ pub fn handle_process_write_checked_user_syscall<const N: usize, const A: usize>
         Err(error) => errno_result(file_error_errno(error)),
     }
 }
+
+pub fn handle_current_process_write_checked_user_syscall<const N: usize, const A: usize>(
+    current: &crate::process_io::CurrentProcessIoContext<N>,
+    user: &crate::user_copy::CheckedUserSlice<'_, A>,
+    fd: usize,
+    ptr: usize,
+    len: usize,
+    scratch: &mut [u8],
+) -> SyscallResult {
+    handle_process_write_checked_user_syscall(current.io(), user, fd, ptr, len, scratch)
+}

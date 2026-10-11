@@ -67,7 +67,7 @@ mod tests {
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
-    use super::process_io::ProcessIoContext;
+    use super::process_io::{CurrentProcessIoContext, ProcessIoContext};
     use super::process_runtime::run_fork_exec_wait_demo;
     use super::scheduler::{Scheduler, TaskState};
     use super::serial::{SerialDevice, UART0_BASE};
@@ -75,7 +75,8 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_open_path, handle_process_open_checked_user_path,
+        decode_syscall, handle_current_process_write_checked_user_syscall, handle_open_path,
+        handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
@@ -456,6 +457,45 @@ mod tests {
             SyscallResult::Continue(-EFAULT)
         );
         assert_eq!(dev.written(), std::vec::Vec::<u8>::new());
+    }
+
+
+    #[test]
+    fn current_process_io_context_keeps_pid_and_fd_state() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut current = CurrentProcessIoContext::<8>::with_stdio(42, dev);
+
+        assert_eq!(current.pid(), 42);
+        let fd = current.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        assert_eq!(fd, 3);
+        assert_eq!(current.write_fd(fd, b"current-io"), Ok(10));
+        assert_eq!(dev.written(), b"current-io".to_vec());
+    }
+
+    #[test]
+    fn current_process_write_syscall_uses_current_io_context() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut current = CurrentProcessIoContext::<8>::with_stdio(1, dev);
+        let fd = current.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0xc000, 0xc020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"from-current", 0xc000, &vm);
+        let mut scratch = [0u8; 16];
+
+        assert_eq!(
+            handle_current_process_write_checked_user_syscall(
+                &current,
+                &user,
+                fd,
+                0xc000,
+                12,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(12)
+        );
+        assert_eq!(dev.written(), b"from-current".to_vec());
     }
 
     #[test]
