@@ -1670,6 +1670,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=parent waits before child exit, blocks, and wakes when child becomes zombie",
     ),
     ChapterSet(
+        key="ch98_wait_no_child_boundary",
+        label="Ch98 Wait No Child Boundary",
+        commit_candidates=["0758647"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch98 wait no child boundary",
+                    "[syscall] wait no-child parent=1 errno=10 blocked=0",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=wait returns ECHILD instead of blocking when current parent has no child links",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

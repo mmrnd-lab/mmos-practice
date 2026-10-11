@@ -357,6 +357,11 @@
     - runtime helper가 만든 parent-child link 위에서 blocking wait/wakeup 규칙을 검증
     - child exit path가 parent waiter를 깨워 runnable로 만들고 QEMU marker에서 `[chapter] ch97 blocking wait wakeup`, `[syscall] wait blocked parent=1 child=2 wake=1 status=13` 확인
 
+88. `0758647` `feat(ch98): distinguish wait with no children`
+    - parent child slot이 비어 있을 때 `ProcError::NoChild`를 반환하고 `process_wait_errno()`에서 `ECHILD`로 매핑
+    - child가 없는 parent는 wait queue에 들어가지 않고 running 상태를 유지하도록 경계를 분리
+    - QEMU runtime marker에서 `[chapter] ch98 wait no child boundary`, `[syscall] wait no-child parent=1 errno=10 blocked=0` 확인
+
 
 ## Reproduce Example
 
