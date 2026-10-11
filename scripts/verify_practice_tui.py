@@ -2264,6 +2264,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared entry recipe is built at the store boundary",
     ),
     ChapterSet(
+        key="ch135_clone_trap_dispatch",
+        label="Ch135 Clone Trap Dispatch",
+        commit_candidates=["2944efc"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch135 clone trap dispatch",
+                    "[trap] clone dispatched parent_a0=2 parent_sepc=0x40000004 child_a0=0 child_sp=0x40102000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=clone ecall is decoded from trap frame and writes back parent/child registers",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

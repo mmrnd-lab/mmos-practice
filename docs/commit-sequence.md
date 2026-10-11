@@ -567,3 +567,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - demo와 unit test는 `ExecvPreparedEntryRecipe::new()`를 직접 호출하지 않고 store helper를 통해 recipe를 구성
     - `entry_input()`은 계속 recipe 하나만 받아 최종 `ExecvPreparedEntryInput`으로 변환
     - QEMU runtime marker에서 `[chapter] ch132 execv recipe store boundary`, `[trap] execve recipe store boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
+120. `2944efc` `feat(ch135): dispatch clone through trap frame`
+    - `dispatch_current_clone_frame_from_runtime()`을 추가해 trap frame의 `a7/a0/a1/a2`에서 `clone` syscall을 decode
+    - `handle_current_clone_frame_from_runtime()`이 clone 결과를 기존 syscall writeback 규칙으로 parent trap frame에 반영
+    - parent는 child pid를 `a0`로 받고 `sepc`가 ecall 다음 주소로 진행하며, child frame은 `a0=0`과 새 stack pointer를 가진다
+    - QEMU runtime marker에서 `[chapter] ch135 clone trap dispatch`, `[trap] clone dispatched parent_a0=2 parent_sepc=0x40000004 child_a0=0 child_sp=0x40102000` 확인
