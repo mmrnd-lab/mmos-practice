@@ -494,6 +494,12 @@
     - trap entry 경로가 나중에 호출할 표면을 `dispatch_execv_trap()`보다 한 단계 좁힌 ecall 전용 method로 정리
     - QEMU runtime marker에서 `[chapter] ch123 execv prepared ecall`, `[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+111. `a4dddb5` `feat(ch124): route execve through prepared entry helper`
+    - `trap::handle_execv_user_ecall_with_prepared_runtime()`을 추가해 trap module 쪽 entry helper가 prepared runtime holder를 받도록 구성
+    - demo와 unit test는 holder method를 직접 호출하지 않고 trap entry helper를 통해 execve user ecall을 처리
+    - prepared holder를 전역 저장소로 올리기 전에 trap entry 표면에 어떤 인자가 남는지 확인
+    - QEMU runtime marker에서 `[chapter] ch124 execv prepared entry`, `[trap] execve prepared entry routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
