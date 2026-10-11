@@ -756,10 +756,10 @@ fn run_user_launch_demo() {
                 console::puts("[chapter] ch59 launch task global runtime\n");
             }
 
-            let mut proc_table = process_model::ProcessTable::<2, 2, 4>::new();
-            let mut task_table = process_model::TaskTable::<2>::new();
-            let mut spawn_scheduler = scheduler::Scheduler::<2>::new();
-            if let Ok(created) = user_process::create_user_process_from_launch(
+            let mut proc_table = process_model::ProcessTable::<3, 3, 4>::new();
+            let mut task_table = process_model::TaskTable::<3>::new();
+            let mut spawn_scheduler = scheduler::Scheduler::<3>::new();
+            if let Ok(first) = user_process::create_user_process_from_launch(
                 &mut proc_table,
                 &mut task_table,
                 &mut spawn_scheduler,
@@ -767,13 +767,52 @@ fn run_user_launch_demo() {
                 vm::VmSpace::<4>::new(),
                 p,
             ) {
-                if created.pid == 1
-                    && created.tid == 1
-                    && created.entry == loaded.entry
-                    && spawn_scheduler.task_state(created.tid)
+                if first.pid == 1
+                    && first.tid == 1
+                    && first.entry == loaded.entry
+                    && spawn_scheduler.task_state(first.tid)
                         == Some(scheduler::TaskState::Runnable)
                 {
                     console::puts("[chapter] ch61 user process creation path\n");
+                }
+
+                let mut second_stack = [0u8; 512];
+                if let Ok(second_plan) = user_launch::prepare_user_init_launch::<4, 4>(
+                    &loaded,
+                    0x12346,
+                    &mut second_stack,
+                    &["/sbin/worker"],
+                    &["PATH=/bin"],
+                ) {
+                    if let Ok(second) = user_process::create_user_process_from_launch(
+                        &mut proc_table,
+                        &mut task_table,
+                        &mut spawn_scheduler,
+                        Some(first.pid),
+                        vm::VmSpace::<4>::new(),
+                        second_plan,
+                    ) {
+                        let _ = spawn_scheduler.on_tick();
+                        let _ = spawn_scheduler.set_state(first.tid, scheduler::TaskState::Blocked);
+                        let mut live = p.trapframe;
+                        live.sepc = 0xfeed_0000;
+                        if let Some(decision) =
+                            trap::schedule_after_blocked_syscall(&live, &mut spawn_scheduler)
+                        {
+                            let result = trap::apply_schedule_decision(
+                                &mut live,
+                                &spawn_scheduler,
+                                decision,
+                            );
+                            if result == Some(decision)
+                                && spawn_scheduler.current_tid() == Some(second.tid)
+                                && live.sepc == second_plan.trapframe.sepc
+                                && live.sp() == second_plan.sp
+                            {
+                                console::puts("[chapter] ch62 second user task switch\n");
+                            }
+                        }
+                    }
                 }
             }
             console::puts("[chapter] ch28 first user sret\n");

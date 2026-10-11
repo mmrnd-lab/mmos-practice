@@ -1957,6 +1957,80 @@ mod tests {
     }
 
     #[test]
+    fn two_created_user_processes_can_switch_after_block() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut first_stack = [0u8; 512];
+        let mut second_stack = [0u8; 512];
+        let first_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345,
+            &mut first_stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let second_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12346,
+            &mut second_stack,
+            &["/sbin/worker"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let first = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            first_launch,
+        )
+        .unwrap();
+        let second = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            Some(first.pid),
+            VmSpace::<4>::new(),
+            second_launch,
+        )
+        .unwrap();
+
+        scheduler.on_tick();
+        assert_eq!(scheduler.current_tid(), Some(first.tid));
+        scheduler.set_state(first.tid, TaskState::Blocked);
+
+        let mut live = first_launch.trapframe;
+        live.sepc = 0xfeed_0000;
+        let decision = schedule_after_blocked_syscall(&live, &mut scheduler).unwrap();
+        assert_eq!(
+            decision,
+            ScheduleDecision::Switched {
+                prev_tid: first.tid,
+                next_tid: second.tid,
+            }
+        );
+        assert_eq!(
+            apply_schedule_decision(&mut live, &scheduler, decision),
+            Some(decision)
+        );
+
+        assert_eq!(scheduler.current_tid(), Some(second.tid));
+        assert_eq!(scheduler.task_state(first.tid), Some(TaskState::Blocked));
+        assert_eq!(scheduler.task_state(second.tid), Some(TaskState::Running));
+        assert_eq!(scheduler.task_frame(first.tid).unwrap().sepc, 0xfeed_0000);
+        assert_eq!(live.sepc, second_launch.trapframe.sepc);
+        assert_eq!(live.sp(), second_launch.sp);
+        assert_eq!(task_table.get_mut(second.tid).unwrap().owner_pid, second.pid);
+        assert_eq!(proc_table.get_mut(first.pid).unwrap().children[0], Some(second.pid));
+    }
+
+    #[test]
     fn pmm_can_reuse_freed_frame() {
         let mut pmm = PageFrameManager::<8>::new(0x8020_0000, 0x8020_4000, 0x1000);
         let a = pmm.alloc().unwrap();
