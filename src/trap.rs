@@ -880,7 +880,7 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
     clone_child_tid: usize,
     clone_child_vm: crate::vm::VmSpace<MAX_AREAS>,
     wait_user: &mut crate::user_copy::CheckedUserSliceMut<'_, WAIT_AREAS>,
-    write_current: &crate::process_io::CurrentProcessIoContext<MAX_FDS>,
+    write_current: &mut crate::process_io::CurrentProcessIoContext<MAX_FDS>,
     write_user: &crate::user_copy::CheckedUserSlice<'_, WRITE_AREAS>,
     write_scratch: &mut [u8],
     read_user: &mut crate::user_copy::CheckedUserSliceMut<'_, READ_AREAS>,
@@ -919,6 +919,10 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
                 frame.a2(),
                 read_scratch,
             ),
+        )),
+        syscall::SYS_CLOSE => trap_outcome_without_scheduler(handle_syscall_result(
+            frame,
+            syscall::handle_current_process_close(write_current, frame.a0()),
         )),
         _ => handle_prepared_process_syscall_entry::<
             WAIT_AREAS,
