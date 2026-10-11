@@ -543,3 +543,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - demo와 unit test는 `ExecvPreparedEntryInput` literal 대신 store가 만든 input을 helper에 전달
     - verifier는 `ch128_execv_entry_input_boundary` 세트를 추가하고 QEMU marker를 확인
     - QEMU runtime marker에서 `[chapter] ch128 execv entry input boundary`, `[trap] execve entry input boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
+116. `1bae97d` `feat(ch129): name prepared execve user source`
+    - `ExecvPreparedUserSource`를 추가해 user memory view와 user base를 하나의 copyin source 값으로 묶음
+    - `PreparedExecvEntryStore::entry_input()`이 source 객체와 replacement VM을 받아 `ExecvPreparedEntryInput`을 만들도록 변경
+    - demo와 unit test는 `entry_input()`에 raw byte slice/base를 직접 넘기지 않고 named source를 전달
+    - QEMU runtime marker에서 `[chapter] ch129 execv user source boundary`, `[trap] execve user source boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
