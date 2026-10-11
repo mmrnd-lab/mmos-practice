@@ -749,3 +749,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 exec context replacement 이후 `ProcessExecRuntime.shared_object`에 CRT shared object load 정보가 남는지 검증
     - `make process-exec-shared-object-runtime` 타깃이 exec runtime 결과가 shared object metadata를 보존하는 상태를 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch164 process exec shared object runtime`, `[user-link] process exec result preserves loaded shared object metadata` 확인
+
+149. `97bba97` `feat(ch165): apply exec shared object runtime`
+    - `apply_execv_with_shared_object_dependency_from_user_args()`를 추가해 execv argument copy, stack materialize, exec image load, shared object dependency load를 한 apply 경로로 연결
+    - 163장의 dependency load report를 `ProcessSharedObjectRuntime`으로 변환한 뒤 164장의 `exec_task_image_with_shared_object()`에 전달
+    - unit test가 exec apply 결과의 `ProcessExecRuntime.shared_object`에 CRT shared object path/base/entry/mapped page count가 보존되는지 검증
+    - `make exec-apply-shared-object-runtime` 타깃이 exec apply 경로가 shared object metadata를 process runtime으로 전달하는 상태를 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch165 exec apply shared object runtime`, `[user-link] exec apply path passes loaded shared object metadata into process runtime` 확인
