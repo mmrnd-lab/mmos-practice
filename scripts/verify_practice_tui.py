@@ -2699,7 +2699,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch156_shared_object_relocation_materialize",
         label="Ch156 Shared Object Relocation Materialize",
-        commit_candidates=["HEAD"],
+        commit_candidates=["4ea1b45"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

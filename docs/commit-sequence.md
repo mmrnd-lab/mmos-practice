@@ -693,3 +693,8 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 little-endian write, 범위 초과 거절, 여러 apply 값 기록을 검증
     - QEMU runtime marker에서 `[chapter] ch155 relocation writeback boundary`, `[user-link] relocation apply values write checked little-endian u64 slots` 확인
 
+140. `4ea1b45` `feat(ch156): materialize shared object relocations`
+    - `materialize_shared_object_relocations()`가 RELA record 수집, `R_RISCV_RELATIVE` apply 값 계산, checked writeback을 하나의 loader 경로로 연결
+    - unit test가 relative relocation이 mutable shared object image에 반영되는 경우와 빈 relocation table이 정상 처리되는 경우를 검증
+    - `make shared-object-materialize` 타깃이 현재 tiny shared object artifact의 relocation materialize 결과를 고정
+    - QEMU runtime marker에서 `[chapter] ch156 shared object relocation materialize`, `[user-link] shared object materialization connects RELA scan, relative apply, and writeback` 확인
