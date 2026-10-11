@@ -67,8 +67,9 @@ mod tests {
     use super::device::{Device, DeviceKind};
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
     use super::elf_loader::{
-        load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte,
-        plan_shared_object_from_vfs, plan_shared_object_load, ElfError, ElfFileType,
+        inspect_shared_object_dynamic, load_init_from_vfs, load_user_elf, parse_elf_header,
+        pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load, ElfError,
+        ElfFileType,
     };
     use super::ext4::{Ext4Fs, FsError};
     use super::exec_args::{
@@ -2894,6 +2895,25 @@ mod tests {
     }
 
     #[test]
+    fn shared_object_dynamic_metadata_reports_rela_table() {
+        let elf = build_test_dynamic_metadata_elf();
+        let info = inspect_shared_object_dynamic(&elf).unwrap();
+
+        assert_eq!(info.dynamic_offset, 0x1c0);
+        assert_eq!(info.dynamic_size, 64);
+        assert_eq!(info.rela_addr, Some(0x3000));
+        assert_eq!(info.rela_size, 24);
+        assert_eq!(info.rela_entry_size, 24);
+        assert!(info.has_relocation_table());
+    }
+
+    #[test]
+    fn shared_object_dynamic_metadata_requires_dynamic_segment() {
+        let elf = build_test_dyn_elf();
+        assert_eq!(inspect_shared_object_dynamic(&elf), Err(ElfError::NoDynamicSegment));
+    }
+
+    #[test]
     fn elf_loader_maps_pflags_to_pte_bits() {
         assert_eq!(pflags_to_pte(5), PTE_U | PTE_R | PTE_X);
         assert_eq!(pflags_to_pte(6), PTE_U | PTE_R | PTE_W);
@@ -5280,6 +5300,37 @@ mod tests {
         let len = super::demo_user_init::build_demo_shared_object(&mut shared_object).unwrap();
         shared_object.truncate(len);
         shared_object
+    }
+
+    fn build_test_dynamic_metadata_elf() -> Vec<u8> {
+        let mut elf = build_test_dyn_elf();
+        elf.resize(0x200, 0);
+        elf[56] = 2;
+        let ph = 64 + 56;
+        write_le32_at(&mut elf, ph, 2);
+        write_le64_at(&mut elf, ph + 8, 0x1c0);
+        write_le64_at(&mut elf, ph + 16, 0x4000_01c0);
+        write_le64_at(&mut elf, ph + 32, 64);
+        write_le64_at(&mut elf, ph + 40, 64);
+        write_le64_at(&mut elf, ph + 48, 8);
+
+        write_le64_at(&mut elf, 0x1c0, 7);
+        write_le64_at(&mut elf, 0x1c8, 0x3000);
+        write_le64_at(&mut elf, 0x1d0, 8);
+        write_le64_at(&mut elf, 0x1d8, 24);
+        write_le64_at(&mut elf, 0x1e0, 9);
+        write_le64_at(&mut elf, 0x1e8, 24);
+        write_le64_at(&mut elf, 0x1f0, 0);
+        write_le64_at(&mut elf, 0x1f8, 0);
+        elf
+    }
+
+    fn write_le32_at(buf: &mut [u8], offset: usize, value: u32) {
+        buf[offset..offset + 4].copy_from_slice(&value.to_le_bytes());
+    }
+
+    fn write_le64_at(buf: &mut [u8], offset: usize, value: u64) {
+        buf[offset..offset + 8].copy_from_slice(&value.to_le_bytes());
     }
 
     fn write_cstr_at(buf: &mut [u8], offset: usize, bytes: &[u8]) {

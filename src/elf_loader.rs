@@ -14,10 +14,16 @@ const ELF_TYPE_EXEC: u16 = 2;
 const ELF_TYPE_DYN: u16 = 3;
 const ELF_MACHINE_RISCV: u16 = 243;
 const PT_LOAD: u32 = 1;
+const PT_DYNAMIC: u32 = 2;
 const PF_X: u32 = 1;
 const PF_W: u32 = 2;
 const PF_R: u32 = 4;
 const MAX_LOAD_SEGMENTS: usize = 4;
+const DYNAMIC_ENTRY_SIZE: usize = 16;
+const DT_NULL: i64 = 0;
+const DT_RELA: i64 = 7;
+const DT_RELASZ: i64 = 8;
+const DT_RELAENT: i64 = 9;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ElfError {
@@ -33,6 +39,8 @@ pub enum ElfError {
     SegmentOutOfRange,
     TooManySegments,
     NoLoadSegments,
+    NoDynamicSegment,
+    BadDynamicEntry,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -120,6 +128,21 @@ pub struct SharedObjectLoadPlan {
     pub entry_offset: usize,
     pub segment_count: usize,
     pub needs_relocation: bool,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectDynamicInfo {
+    pub dynamic_offset: usize,
+    pub dynamic_size: usize,
+    pub rela_addr: Option<usize>,
+    pub rela_size: usize,
+    pub rela_entry_size: usize,
+}
+
+impl SharedObjectDynamicInfo {
+    pub fn has_relocation_table(&self) -> bool {
+        self.rela_addr.is_some() && self.rela_size > 0 && self.rela_entry_size > 0
+    }
 }
 
 pub fn parse_elf_header(bytes: &[u8]) -> Result<ElfHeader, ElfError> {
@@ -235,6 +258,49 @@ pub fn load_user_elf(bytes: &[u8], stack_top: usize) -> Result<LoadedUserImage<'
     }
 
     Ok(image)
+}
+
+pub fn inspect_shared_object_dynamic(bytes: &[u8]) -> Result<SharedObjectDynamicInfo, ElfError> {
+    let hdr = parse_elf_header(bytes)?;
+    if hdr.file_type != ElfFileType::SharedObject {
+        return Err(ElfError::UnsupportedType);
+    }
+
+    for index in 0..hdr.phnum as usize {
+        let ph = parse_program_header(bytes, &hdr, index)?;
+        if ph.p_type != PT_DYNAMIC {
+            continue;
+        }
+        let start = ph.offset as usize;
+        let size = ph.filesz as usize;
+        let end = start + size;
+        let entries = bytes.get(start..end).ok_or(ElfError::SegmentOutOfRange)?;
+        let mut info = SharedObjectDynamicInfo {
+            dynamic_offset: start,
+            dynamic_size: size,
+            rela_addr: None,
+            rela_size: 0,
+            rela_entry_size: 0,
+        };
+
+        let mut offset = 0usize;
+        while offset + DYNAMIC_ENTRY_SIZE <= entries.len() {
+            let tag = le64(entries, offset) as i64;
+            let value = le64(entries, offset + 8) as usize;
+            match tag {
+                DT_NULL => return Ok(info),
+                DT_RELA => info.rela_addr = Some(value),
+                DT_RELASZ => info.rela_size = value,
+                DT_RELAENT => info.rela_entry_size = value,
+                _ => {}
+            }
+            offset += DYNAMIC_ENTRY_SIZE;
+        }
+
+        return Err(ElfError::BadDynamicEntry);
+    }
+
+    Err(ElfError::NoDynamicSegment)
 }
 
 pub fn plan_shared_object_load(

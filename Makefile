@@ -43,7 +43,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -94,6 +94,12 @@ user-link-model: require-container $(USER_CRT_RLIB) $(USER_INIT_ELF)
 shared-object-load-plan: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -h $(USER_INIT_ELF) | grep -q 'Type:[[:space:]]*EXEC'
 	@echo "[user-link] shared-object=ET_DYN loader-plan=base+segments relocation=needed"
+
+shared-object-metadata: require-container $(USER_CRT_SO)
+	@riscv64-linux-gnu-readelf -l $(USER_CRT_SO) | grep -q DYNAMIC
+	@riscv64-linux-gnu-readelf -d $(USER_CRT_SO) | grep -q "(RELA)"
+	@riscv64-linux-gnu-readelf -d $(USER_CRT_SO) | grep -q "(RELAENT).*24"
+	@echo "[user-link] shared-object-metadata=dynamic rela=yes relaent=24"
 
 user-image-shared-object: require-container $(BOOT_DISK) $(USER_CRT_SO)
 	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null

@@ -3061,6 +3061,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] ET_DYN shared object requires base, segments, and relocation plan\n");
     console::puts("[chapter] ch151 user image shared object artifact\n");
     console::puts("[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate\n");
+    console::puts("[chapter] ch152 shared object dynamic metadata\n");
+    console::puts("[user-link] dynamic segment exposes RELA metadata before relocation apply\n");
 }
 
 fn run_kernel_satp_guard_demo() {

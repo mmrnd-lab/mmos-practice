@@ -2597,6 +2597,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=packages a tiny ET_DYN CRT shared object candidate into the user image under /lib",
     ),
     ChapterSet(
+        key="ch152_shared_object_dynamic_metadata",
+        label="Ch152 Shared Object Dynamic Metadata",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-metadata",
+                "make shared-object-metadata PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-metadata=dynamic rela=yes relaent=24",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch152 shared object dynamic metadata",
+                    "[user-link] dynamic segment exposes RELA metadata before relocation apply",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=parses shared object dynamic metadata and confirms RELA table shape before relocation apply",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
