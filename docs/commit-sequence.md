@@ -428,6 +428,12 @@
     - exec target task frame은 새 ELF entry와 initial stack pointer로 교체되고, syscall caller frame은 return value/next pc만 갱신
     - QEMU runtime marker에서 `[chapter] ch112 execv frame writeback`, `[syscall] execve writeback a0=0 sepc=0x40002004 entry=0x40000000` 확인
 
+100. `e83e7c7` `feat(ch113): route execve through trap dispatch`
+    - `handle_trap_with_current_execv_runtime()`을 추가해 ecall trap dispatch 안에서 `SYS_EXECVE`를 current execv runtime 경로로 분기
+    - execve가 아닌 ecall은 기존 `handle_syscall()` + `handle_syscall_result()` 경로를 유지하고, timer/fatal trap 처리는 기존 규칙을 유지
+    - execve ecall은 current process VM 기준 copyin, image replacement, live frame writeback을 한 trap dispatch helper 안에서 수행
+    - QEMU runtime marker에서 `[chapter] ch113 execv trap dispatch`, `[trap] execve ecall routed a0=0 sepc=0x40003004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

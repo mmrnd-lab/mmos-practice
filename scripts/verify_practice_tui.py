@@ -1904,6 +1904,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=execve syscall result is written back to the live trap frame",
     ),
     ChapterSet(
+        key="ch113_execv_trap_dispatch",
+        label="Ch113 Execv Trap Dispatch",
+        commit_candidates=["e83e7c7"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch113 execv trap dispatch",
+                    "[trap] execve ecall routed a0=0 sepc=0x40003004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=trap dispatch routes execve ecall through current runtime context",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
