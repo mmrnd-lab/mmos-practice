@@ -1,0 +1,18 @@
+# Copyright 2026 Sungjae Park
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "mmos-user-crt"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
+
+[dependencies]

@@ -1,5 +1,7 @@
+#![no_std]
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
+
 
 const SYS_OPENAT: usize = 56;
 const SYS_WRITE: usize = 64;

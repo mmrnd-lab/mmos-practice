@@ -13,3 +13,4 @@ panic = "abort"
 panic = "abort"
 
 [dependencies]
+mmos-user-crt = { path = "../crt" }

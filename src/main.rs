@@ -3051,6 +3051,8 @@ fn run_empty_fd_table_init_stdio_demo() {
 fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch146 user init runtime split\n");
     console::puts("[user-rt] init owns stdio open/write/exit wrappers before CRT extraction\n");
+    console::puts("[chapter] ch147 user crt library boundary\n");
+    console::puts("[user-crt] init links shared runtime API from user/crt crate\n");
 }
 
 fn run_kernel_satp_guard_demo() {
