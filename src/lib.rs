@@ -126,7 +126,8 @@ mod tests {
         dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome_with_global_runtime,
         handle_blocking_syscall_result, handle_current_execv_frame_from_runtime,
         handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
-        handle_user_page_fault_outcome, prepare_enter_user_scratch,
+        handle_trap_with_current_execv_runtime, handle_user_page_fault_outcome,
+        prepare_enter_user_scratch,
         prepare_kernel_trap_stack_switch,
         prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
         simulate_trap_entry_stack_swap,
@@ -1278,6 +1279,67 @@ mod tests {
         assert_eq!(outcome, TrapOutcome::Resume);
         assert_eq!(live_frame.a0(), 0);
         assert_eq!(live_frame.sepc, 0x4000_2004);
+        let exec_frame = runtime.task_frame(1).unwrap();
+        assert_eq!(exec_frame.sepc, 0x4000_0000);
+        assert!(exec_frame.sp() < 0x4010_0000);
+    }
+
+    #[test]
+    fn execv_trap_dispatch_routes_ecall_to_runtime_helper() {
+        const BASE: usize = 0x7000_0000;
+        const PATH: usize = BASE;
+        const ARG0: usize = BASE + 0x40;
+        const ARGV: usize = BASE + 0x100;
+        let mut user_mem = [0u8; 512];
+        write_cstr_at(&mut user_mem, PATH - BASE, b"/sbin/init");
+        write_cstr_at(&mut user_mem, ARG0 - BASE, b"/sbin/init");
+        write_usize_at(&mut user_mem, ARGV - BASE, ARG0);
+        write_usize_at(&mut user_mem, ARGV - BASE + core::mem::size_of::<usize>(), 0);
+
+        let image = build_test_ext4_image();
+        let dev = RamDisk::new("ramblk0", &image, 512);
+        let vfs = Vfs::mount_ext4(&dev).unwrap();
+        let mut scratch = [0u8; 512];
+        let mut stack = [0u8; 256];
+
+        let mut process_vm = VmSpace::<2>::new();
+        process_vm
+            .map_anon(BASE, BASE + user_mem.len(), PTE_R)
+            .unwrap();
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let pid = runtime.create_process(None, process_vm).unwrap();
+        let mut task_frame = TrapFrame::default();
+        task_frame.sepc = 0x4000_1000;
+        task_frame.set_sp(0x4010_1000);
+        runtime.add_runnable_task(1, pid, task_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut live_frame = TrapFrame::default();
+        live_frame.sepc = 0x4000_3000;
+        live_frame.set_a7(SYS_EXECVE);
+        live_frame.set_a0(PATH);
+        live_frame.set_a1(ARGV);
+        live_frame.set_a2(0);
+
+        let outcome = handle_trap_with_current_execv_runtime::<4, 64, 4, 2, 2, 5>(
+            &mut live_frame,
+            SCAUSE_USER_ECALL,
+            0,
+            CurrentExecvRuntimeContext {
+                runtime: &mut runtime,
+                user_bytes: &user_mem,
+                user_base: BASE,
+                vfs: &vfs,
+                scratch: &mut scratch,
+                stack_bytes: &mut stack,
+                stack_top_va: 0x4010_0000,
+                new_vm: VmSpace::<2>::new(),
+            },
+        );
+
+        assert_eq!(outcome, TrapOutcome::Resume);
+        assert_eq!(live_frame.a0(), 0);
+        assert_eq!(live_frame.sepc, 0x4000_3004);
         let exec_frame = runtime.task_frame(1).unwrap();
         assert_eq!(exec_frame.sepc, 0x4000_0000);
         assert!(exec_frame.sp() < 0x4010_0000);

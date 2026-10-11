@@ -385,6 +385,48 @@ pub fn handle_current_execv_frame_from_runtime<
     handle_syscall_result(frame, result)
 }
 
+pub fn handle_trap_with_current_execv_runtime<
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    frame: &mut TrapFrame,
+    scause: usize,
+    _stval: usize,
+    ctx: syscall::CurrentExecvRuntimeContext<
+        '_,
+        '_,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+) -> TrapOutcome {
+    match scause {
+        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL
+            if frame.a7() == syscall::SYS_EXECVE =>
+        {
+            handle_current_execv_frame_from_runtime::<
+                MAX_ARGS,
+                ARG_BYTES,
+                MAX_PROCS,
+                MAX_CHILDREN,
+                MAX_AREAS,
+                MAX_TASKS,
+            >(frame, ctx)
+        }
+        SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL => handle_syscall_result(
+            frame,
+            syscall::handle_syscall(frame.a7(), frame.a0(), frame.a1(), frame.a2()),
+        ),
+        SCAUSE_SUPERVISOR_TIMER_INTERRUPT => TrapOutcome::Resume,
+        cause => TrapOutcome::Fatal(cause),
+    }
+}
+
 pub fn handle_blocking_syscall_result(
     frame: &mut TrapFrame,
     result: syscall::BlockingReadResult,
