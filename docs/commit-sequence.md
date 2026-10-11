@@ -416,6 +416,12 @@
     - caller가 별도 user memory view를 직접 만들지 않고, current process VM에 등록된 user range를 copyin 권한 기준으로 사용
     - QEMU runtime marker에서 `[chapter] ch110 execv runtime context lookup`, `[syscall] execve runtime-vm current=1 ret=0 entry=0x40000000` 확인
 
+98. `ba56d5a` `feat(ch111): dispatch execve from trap frame registers`
+    - `TrapFrame`의 `a7/a0/a1/a2` 값을 읽어 `decode_syscall()`로 `Syscall::Execv`를 구성하는 frame dispatch helper 추가
+    - decoded syscall을 110장의 runtime context lookup helper로 넘겨 current process VM 기준 copyin과 exec context replacement를 재사용
+    - 아직 live trap dispatcher 전체에 자동 연결하지 않고, execve frame snapshot에서 시작하는 전용 경계를 검증
+    - QEMU runtime marker에서 `[chapter] ch111 execv frame dispatch`, `[syscall] execve frame a7=221 ret=0 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
