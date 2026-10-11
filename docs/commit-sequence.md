@@ -488,6 +488,12 @@
     - VFS lifetime을 전역으로 억지로 올리지 않으면서 trap entry 경로가 나중에 접근할 runtime holder 경계를 마련
     - QEMU runtime marker에서 `[chapter] ch122 execv prepared runtime`, `[trap] execve prepared runtime routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+110. `2d59a34` `feat(ch123): route prepared execve user ecall`
+    - `PreparedExecvTrapRuntime::dispatch_execv_user_ecall()`을 추가해 user ecall trap에서 고정되는 `scause/stval` 처리를 holder 안으로 이동
+    - caller는 `SCAUSE_USER_ECALL`과 `stval=0`을 직접 넘기지 않고 user memory, base, 새 VM만 전달
+    - trap entry 경로가 나중에 호출할 표면을 `dispatch_execv_trap()`보다 한 단계 좁힌 ecall 전용 method로 정리
+    - QEMU runtime marker에서 `[chapter] ch123 execv prepared ecall`, `[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 

@@ -2084,6 +2084,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared execve runtime stores process runtime and dispatch state together",
     ),
     ChapterSet(
+        key="ch123_execv_prepared_ecall",
+        label="Ch123 Execv Prepared Ecall",
+        commit_candidates=["2d59a34"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch123 execv prepared ecall",
+                    "[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared execve runtime exposes a user-ecall dispatch surface",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
