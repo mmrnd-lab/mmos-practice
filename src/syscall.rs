@@ -6,6 +6,7 @@ pub const SYS_CLOSE: usize = 57;
 pub const SYS_READ: usize = 63;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
+pub const SYS_CLONE: usize = 220;
 pub const SYS_WAIT4: usize = 260;
 
 pub const EBADF: isize = 9;
@@ -64,6 +65,7 @@ pub enum Syscall {
     Read { fd: usize, ptr: usize, len: usize },
     Write { fd: usize, ptr: usize, len: usize },
     Exit { code: i32 },
+    Clone { flags: usize, stack_ptr: usize },
     Wait4 { pid: isize, status_ptr: usize, options: usize },
 }
 
@@ -100,6 +102,10 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
             len: a2,
         }),
         SYS_EXIT => Some(Syscall::Exit { code: a0 as i32 }),
+        SYS_CLONE => Some(Syscall::Clone {
+            flags: a0,
+            stack_ptr: a1,
+        }),
         SYS_WAIT4 => Some(Syscall::Wait4 {
             pid: a0 as isize,
             status_ptr: a1,
@@ -116,6 +122,7 @@ pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResu
         Some(Syscall::Read { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
+        Some(Syscall::Clone { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Wait4 { .. }) => SyscallResult::Unsupported,
         None => SyscallResult::Unsupported,
     }
@@ -396,4 +403,36 @@ pub fn handle_process_fork_syscall(
     report: crate::trap_runtime::ProcessForkRuntime,
 ) -> SyscallResult {
     SyscallResult::Continue(report.child_pid as isize)
+}
+
+pub fn handle_current_process_clone_syscall<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    syscall: Syscall,
+    parent_frame: &crate::trap::TrapFrame,
+    child_tid: usize,
+    child_vm: crate::vm::VmSpace<MAX_AREAS>,
+) -> SyscallResult {
+    let Syscall::Clone { stack_ptr, .. } = syscall else {
+        return SyscallResult::Unsupported;
+    };
+
+    let mut child_frame = *parent_frame;
+    if stack_ptr != 0 {
+        child_frame.set_sp(stack_ptr);
+    }
+
+    match runtime.fork_current_process(child_tid, child_frame, child_vm) {
+        Ok(report) => handle_process_fork_syscall(report),
+        Err(error) => errno_result(process_wait_errno(error)),
+    }
 }

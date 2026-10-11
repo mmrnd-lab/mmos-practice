@@ -101,13 +101,14 @@ mod tests {
     use super::syscall::{
         decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
         handle_current_process_close, handle_current_process_read_checked_user_syscall,
-        handle_current_process_write_checked_user_syscall, BlockingReadResult,
+        handle_current_process_write_checked_user_syscall,
+        handle_current_process_clone_syscall, BlockingReadResult,
         handle_process_fork_syscall, handle_process_wait4_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, process_wait_errno,
-        Syscall, SyscallResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT,
+        Syscall, SyscallResult, EACCES, EAGAIN, EBADF, ECHILD, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_CLONE,
         SYS_OPENAT, SYS_READ, SYS_WAIT4, SYS_WRITE,
     };
     use super::trap::{
@@ -2299,6 +2300,41 @@ mod tests {
         assert_eq!(wait.parent_pid, parent_pid);
         assert_eq!(wait.child_pid, fork.child_pid);
         assert_eq!(wait.exit_code, 23);
+    }
+
+    #[test]
+    fn clone_syscall_surface_decodes_and_forks_current_process() {
+        assert_eq!(
+            decode_syscall(SYS_CLONE, 0, 0x4010_2000, 0),
+            Some(Syscall::Clone {
+                flags: 0,
+                stack_ptr: 0x4010_2000,
+            })
+        );
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+
+        let mut parent_frame = TrapFrame::default();
+        parent_frame.sepc = 0x4000_0000;
+        parent_frame.set_sp(0x4010_0000);
+        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime.start_first_task();
+
+        let result = handle_current_process_clone_syscall(
+            &mut runtime,
+            decode_syscall(SYS_CLONE, 0, 0x4010_2000, 0).unwrap(),
+            &parent_frame,
+            2,
+            VmSpace::<2>::new(),
+        );
+
+        assert_eq!(result, SyscallResult::Continue(2));
+        assert_eq!(runtime.current_process_has_children(), Ok(true));
+        assert_eq!(runtime.task_state(2), Some(TaskState::Runnable));
+        let child_frame = runtime.task_frame(2).unwrap();
+        assert_eq!(child_frame.a0(), 0);
+        assert_eq!(child_frame.sp(), 0x4010_2000);
     }
 
     #[test]

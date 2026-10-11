@@ -686,6 +686,7 @@ pub extern "C" fn rust_main() -> ! {
     run_blocking_wait_wakeup_demo();
     run_wait_no_child_boundary_demo();
     run_minimal_fork_adapter_demo();
+    run_clone_syscall_surface_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -1177,6 +1178,44 @@ fn run_minimal_fork_adapter_demo() {
     {
         console::puts("[chapter] ch101 minimal fork adapter\n");
         console::puts("[syscall] fork parent=1 child=2 child_a0=0 wait_status=23\n");
+    }
+}
+
+fn run_clone_syscall_surface_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<4, 2, 2, 5>::new();
+    let Ok(parent_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut parent_frame = trap::TrapFrame::default();
+    parent_frame.sepc = 0x4000_0000;
+    parent_frame.set_sp(0x4010_0000);
+    if runtime.add_runnable_task(1, parent_pid, parent_frame).is_err() {
+        return;
+    }
+    runtime.start_first_task();
+
+    let Some(decoded) = syscall::decode_syscall(syscall::SYS_CLONE, 0, 0x4010_2000, 0) else {
+        return;
+    };
+    let result = syscall::handle_current_process_clone_syscall(
+        &mut runtime,
+        decoded,
+        &parent_frame,
+        2,
+        vm::VmSpace::<2>::new(),
+    );
+    let Some(child_frame) = runtime.task_frame(2) else {
+        return;
+    };
+    if result == syscall::SyscallResult::Continue(2)
+        && runtime.current_process_has_children() == Ok(true)
+        && runtime.task_state(2) == Some(scheduler::TaskState::Runnable)
+        && child_frame.a0() == 0
+        && child_frame.sp() == 0x4010_2000
+    {
+        console::puts("[chapter] ch102 clone syscall surface\n");
+        console::puts("[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000\n");
     }
 }
 

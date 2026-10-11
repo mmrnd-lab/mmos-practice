@@ -1706,6 +1706,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=current process creates a runnable child through the minimal fork adapter and the existing wait path reaps it",
     ),
     ChapterSet(
+        key="ch102_clone_syscall_surface",
+        label="Ch102 Clone Syscall Surface",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch102 clone syscall surface",
+                    "[syscall] clone parent=1 child=2 child_a0=0 child_sp=0x40102000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=decoded clone syscall creates a runnable child process and applies the requested child stack pointer",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
