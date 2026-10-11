@@ -69,7 +69,7 @@ mod tests {
     use super::elf_loader::{
         calculate_relative_relocation, calculate_relative_relocation_plan,
         collect_shared_object_relocations, inspect_shared_object_dynamic, load_init_from_vfs,
-        load_user_elf, parse_elf_header, SharedObjectRelocationApply,
+        load_user_elf, materialize_shared_object_relocations, parse_elf_header, SharedObjectRelocationApply,
         SharedObjectRelocationCandidate,
         pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load,
         write_relocation_apply, write_relocation_apply_plan, ElfError,
@@ -3016,6 +3016,28 @@ mod tests {
 
         assert_eq!(&image[0..8], &0x11u64.to_le_bytes());
         assert_eq!(&image[8..16], &0x22u64.to_le_bytes());
+    }
+
+    #[test]
+    fn shared_object_materialization_applies_relative_relocations() {
+        let mut elf = build_test_relocation_metadata_elf();
+        write_le64_at(&mut elf, 0x200, 0x100);
+        write_le64_at(&mut elf, 0x208, 3);
+
+        let applied = materialize_shared_object_relocations(&mut elf, 0x5000_0000).unwrap();
+
+        assert_eq!(applied, 1);
+        assert_eq!(&elf[0x100..0x108], &0x5000_0040u64.to_le_bytes());
+    }
+
+    #[test]
+    fn shared_object_materialization_accepts_empty_relocation_table() {
+        let mut elf = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut elf, 0x1d8, 0);
+
+        let applied = materialize_shared_object_relocations(&mut elf, 0x5000_0000).unwrap();
+
+        assert_eq!(applied, 0);
     }
 
     #[test]

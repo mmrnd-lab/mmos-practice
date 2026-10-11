@@ -2697,6 +2697,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=writes calculated relocation apply values into checked little-endian u64 image slots",
     ),
     ChapterSet(
+        key="ch156_shared_object_relocation_materialize",
+        label="Ch156 Shared Object Relocation Materialize",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-materialize",
+                "make shared-object-materialize PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-materialize=rela+relative+writeback applied=0",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch156 shared object relocation materialize",
+                    "[user-link] shared object materialization connects RELA scan, relative apply, and writeback",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=connects RELA scan, relative relocation calculation, and checked writeback into one materialization step",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

@@ -3069,6 +3069,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] R_RISCV_RELATIVE computes relocation value as base plus addend\n");
     console::puts("[chapter] ch155 relocation writeback boundary\n");
     console::puts("[user-link] relocation apply values write checked little-endian u64 slots\n");
+    console::puts("[chapter] ch156 shared object relocation materialize\n");
+    console::puts("[user-link] shared object materialization connects RELA scan, relative apply, and writeback\n");
 }
 
 fn run_kernel_satp_guard_demo() {

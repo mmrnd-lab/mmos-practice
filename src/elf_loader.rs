@@ -353,6 +353,16 @@ pub fn write_relocation_apply_plan(
     Ok(())
 }
 
+pub fn materialize_shared_object_relocations(
+    image: &mut [u8],
+    load_base: usize,
+) -> Result<usize, ElfError> {
+    let plan = collect_shared_object_relocations(image)?;
+    let applies = calculate_relative_relocation_plan(&plan, load_base)?;
+    write_relocation_apply_plan(image, &applies)?;
+    Ok(plan.candidate_count)
+}
+
 pub fn calculate_relative_relocation(
     candidate: SharedObjectRelocationCandidate,
     load_base: usize,
