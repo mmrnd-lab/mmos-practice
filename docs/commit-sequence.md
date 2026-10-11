@@ -138,6 +138,10 @@
     - serial RX event helper를 추가해 입력 byte가 준비되었을 때 read wait queue의 task를 깨울 수 있도록 구성
     - RX event가 blocked reader를 `Runnable` 상태로 되돌리는 경로를 런타임 probe와 테스트로 검증
 
+43. `9d580d8` `feat(ch50): hand off blocked syscall to scheduler`
+    - `TrapOutcome::Schedule`을 추가해 blocking read가 user mode로 바로 복귀하지 않아야 함을 표현
+    - blocked syscall 결과는 trap frame을 완료 처리하지 않고 scheduler handoff로 이어지도록 검증
+
 
 ## Reproduce Example
 

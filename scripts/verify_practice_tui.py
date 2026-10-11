@@ -819,6 +819,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=serial RX event wakes a task parked on the read wait queue",
     ),
     ChapterSet(
+        key="ch50_blocked_syscall_scheduler_handoff",
+        label="Ch50 Blocked Syscall Scheduler Handoff",
+        commit_candidates=["9d580d8"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch50 blocked syscall scheduler handoff",
+                    "[chapter] ch49 serial rx wake reader",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=blocked read syscall asks trap handling to schedule another task",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
