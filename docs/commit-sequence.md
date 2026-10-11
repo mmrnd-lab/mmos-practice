@@ -728,3 +728,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test가 ext4 image의 `/lib/libmmos_user_crt.so` bytes를 scratch buffer로 읽은 뒤 pipeline 결과와 leaf PTE를 검증
     - `make shared-object-path-load` 타깃이 boot disk 안 shared object path가 pipeline 입력으로 준비되는 상태를 verifier에 고정
     - QEMU runtime marker에서 `[chapter] ch161 shared object path load`, `[user-link] shared object path load reads VFS bytes before running the load pipeline` 확인
+
+146. `ba705b2` `feat(ch162): load shared object dependency`
+    - `SharedObjectDependency`와 `USER_CRT_SHARED_OBJECT_DEPENDENCY`를 추가해 exec/runtime이 요구하는 shared object path와 preferred base를 명시
+    - `load_shared_object_dependency_in_tables()`가 dependency 값을 기존 VFS path loader와 shared object load pipeline으로 전달
+    - unit test가 declared dependency path/base로 `/lib/libmmos_user_crt.so`를 읽고 leaf mapping을 설치하는 흐름을 검증
+    - `make shared-object-dependency-load` 타깃이 boot disk 안 shared object dependency path와 base 값을 verifier에 고정
+    - QEMU runtime marker에서 `[chapter] ch162 shared object dependency load`, `[user-link] exec dependency names /lib/libmmos_user_crt.so before path load` 확인

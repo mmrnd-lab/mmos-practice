@@ -2847,6 +2847,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=loads shared object bytes from VFS path before running the shared object load pipeline",
     ),
     ChapterSet(
+        key="ch162_shared_object_dependency_load",
+        label="Ch162 Shared Object Dependency Load",
+        commit_candidates=["ba705b2"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-dependency-load",
+                "make shared-object-dependency-load PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-dependency=/lib/libmmos_user_crt.so base=0x50000000",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch162 shared object dependency load",
+                    "[user-link] exec dependency names /lib/libmmos_user_crt.so before path load",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=exec dependency names the shared object path and base before the path loader runs",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
