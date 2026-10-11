@@ -2230,7 +2230,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch131_execv_entry_recipe",
         label="Ch131 Execv Entry Recipe",
-        commit_candidates=["HEAD"],
+        commit_candidates=["1c25505"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

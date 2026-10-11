@@ -555,3 +555,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `PreparedExecvEntryStore::entry_input()`이 user source와 replacement VM 객체를 받아 `ExecvPreparedEntryInput`을 만들도록 변경
     - demo와 unit test는 raw `VmSpace::new()` 대신 named replacement VM을 전달
     - QEMU runtime marker에서 `[chapter] ch130 execv replacement vm boundary`, `[trap] execve replacement vm boundary routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
+118. `1c25505` `feat(ch131): build prepared execve input from recipe`
+    - `ExecvPreparedEntryRecipe`를 추가해 user source와 replacement VM을 하나의 prepared input recipe로 묶음
+    - recipe가 `into_input()`으로 `ExecvPreparedEntryInput`을 만들도록 하고, store의 `entry_input()`은 recipe 하나만 받도록 변경
+    - demo와 unit test는 source/replacement VM을 recipe로 구성한 뒤 helper input으로 변환
+    - QEMU runtime marker에서 `[chapter] ch131 execv entry recipe`, `[trap] execve entry recipe routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
