@@ -175,9 +175,10 @@ exec-dispatch-shared-object-runtime: require-container $(BOOT_DISK) $(USER_LIBC_
 	@echo "[user-link] exec-dispatch-runtime selects shared-object=/lib/libmmos_user_libc.so"
 
 user-crt-entry: require-container $(USER_INIT_ELF)
-	@riscv64-linux-gnu-readelf -s $(USER_INIT_ELF) | grep -q '[[:space:]]_start$$'
-	@riscv64-linux-gnu-readelf -s $(USER_INIT_ELF) | grep -q '[[:space:]]main$$'
-	@echo "[user-crt] entry=_start app=main initial-stack=argc+argv+envp"
+	@riscv64-linux-gnu-readelf --wide -s $(USER_INIT_ELF) | grep -q '[[:space:]]_start$$'
+	@riscv64-linux-gnu-readelf --wide -s $(USER_INIT_ELF) | grep -q '[[:space:]]main$$'
+	@riscv64-linux-gnu-readelf --wide -s $(USER_INIT_ELF) | grep -q '[[:space:]]__mmos_libc_start_main$$'
+	@echo "[user-crt] entry=_start libc-start=__mmos_libc_start_main initial-stack=argc+argv+envp"
 
 user-main-startup-args: require-container $(USER_INIT_ELF)
 	@riscv64-linux-gnu-readelf -s $(USER_INIT_ELF) | grep -q '[[:space:]]write_startup_cstr'

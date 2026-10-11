@@ -11,6 +11,23 @@ const O_RDONLY: usize = 0;
 const O_WRONLY: usize = 1;
 const STARTUP_CSTR_MAX: usize = 256;
 
+pub type MainFn = unsafe extern "C" fn(
+    argc: usize,
+    argv: *const *const u8,
+    envp: *const *const u8,
+) -> i32;
+
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn __mmos_libc_start_main(
+    main: MainFn,
+    argc: usize,
+    argv: *const *const u8,
+    envp: *const *const u8,
+) -> ! {
+    let code = unsafe { main(argc, argv, envp) };
+    exit(code)
+}
+
 #[inline(always)]
 fn syscall1(nr: usize, a0: usize) -> usize {
     let ret;

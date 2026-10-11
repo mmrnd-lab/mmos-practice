@@ -2981,7 +2981,7 @@ CHAPTERS: List[ChapterSet] = [
                 "user-crt-entry",
                 "make user-crt-entry PROFILE=release",
                 must_contain=(
-                    "[user-crt] entry=_start app=main initial-stack=argc+argv+envp",
+                    "[user-crt] entry=_start libc-start=__mmos_libc_start_main initial-stack=argc+argv+envp",
                 ),
             ),
             Step(
@@ -2989,13 +2989,14 @@ CHAPTERS: List[ChapterSet] = [
                 "make run-nographic PROFILE=release RUN_SECONDS=6",
                 must_contain=(
                     "[chapter] ch168 user crt entry main",
-                    "[user-crt] _start decodes initial stack before app main",
+                    "[user-crt] _start passes argc argv envp to libc startup entry",
+                    "[user-libc] startup entry calls app main and exits with its return code",
                     "[user-init] main reached through crt entry",
                     "[user-init] exit=0",
                 ),
             ),
         ],
-        note="runtime signature=CRT _start decodes initial stack before app main",
+        note="runtime signature=CRT _start decodes initial stack and hands startup control to libc",
     ),
     ChapterSet(
         key="ch169_user_main_startup_args",

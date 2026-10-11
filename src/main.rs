@@ -3116,7 +3116,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[chapter] ch166 exec dispatch shared object runtime\n");
     console::puts("[user-link] exec dispatch path can select the shared object aware apply runtime\n");
     console::puts("[chapter] ch168 user crt entry main\n");
-    console::puts("[user-crt] _start decodes initial stack before app main\n");
+    console::puts("[user-crt] _start passes argc argv envp to libc startup entry\n");
+    console::puts("[user-libc] startup entry calls app main and exits with its return code\n");
     console::puts("[chapter] ch169 user main startup args\n");
     console::puts("[user-libc] app main can print argv and envp through libc helpers\n");
     console::puts("[chapter] ch171 user libc env lookup\n");

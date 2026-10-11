@@ -50,8 +50,8 @@ make boot-disk PROFILE=release
 
 후반부 user runtime 흐름은 CRT와 minimal libc를 분리해서 설명한다.
 
-- `user/crt`: final user ELF의 `_start`를 제공하고 initial stack에서 `argc/argv/envp`를 읽어 app `main()`을 호출한다. `main()`의 return code는 libc `exit()`로 넘긴다.
-- `user/libc`: syscall wrapper, stdio bootstrap, startup C-string 출력, environment lookup helper를 제공한다.
+- `user/crt`: final user ELF의 `_start`를 제공하고 initial stack에서 `argc/argv/envp`를 읽어 libc startup entry인 `__mmos_libc_start_main()`으로 넘긴다.
+- `user/libc`: startup entry에서 app `main()`을 호출하고 return code를 `exit()`로 처리한다. syscall wrapper, stdio bootstrap, startup C-string 출력, environment lookup helper도 libc가 제공한다.
 - 현재 링크 모델은 `init=ET_EXEC`, `crt=rlib`, `libc=rlib`, `shared-object=no`이다.
 - shared object loader 실습에서 runtime dependency로 다루는 대상은 CRT가 아니라 `/lib/libmmos_user_libc.so`이다.
 
