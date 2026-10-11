@@ -33,6 +33,9 @@ HOSTS = ["localhost", "", ""]
 ANSI_CSI_RE = re.compile(r"\x1B\[[0-?]*[ -/]*[@-~]")
 ANSI_OSC_RE = re.compile(r"\x1B\][^\x07\x1B]*(?:\x07|\x1B\\)")
 ANSI_ESC_RE = re.compile(r"\x1B[@-Z\\-_]")
+HUNK_RE = re.compile(r"^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@")
+STRING_RE = re.compile(r'"([^"\\]|\\.)*"|\'([^\'\\]|\\.)*\'')
+NUMBER_RE = re.compile(r"\b(?:0x[0-9a-fA-F]+|\d+)\b")
 
 
 @dataclass(frozen=True)
@@ -48,6 +51,26 @@ class UiTheme:
     skip_text: int = 0
     info_text: int = 0
     search_hit: int = 0
+    file_added: int = 0
+    file_modified: int = 0
+    file_deleted: int = 0
+    line_no: int = 0
+    line_added: int = 0
+    line_modified: int = 0
+    line_added_bg: int = 0
+    line_modified_bg: int = 0
+    syn_keyword: int = 0
+    syn_string: int = 0
+    syn_comment: int = 0
+    syn_number: int = 0
+    syn_keyword_add_bg: int = 0
+    syn_string_add_bg: int = 0
+    syn_comment_add_bg: int = 0
+    syn_number_add_bg: int = 0
+    syn_keyword_mod_bg: int = 0
+    syn_string_mod_bg: int = 0
+    syn_comment_mod_bg: int = 0
+    syn_number_mod_bg: int = 0
 
 
 @dataclass
@@ -80,6 +103,29 @@ class StepResult:
 
 
 @dataclass
+class SourceFileEntry:
+    path: str
+    status: str
+    old_path: str = ""
+
+
+@dataclass
+class SourceViewerState:
+    active: bool = False
+    chapter_label: str = ""
+    commit: str = ""
+    prev_commit: str = ""
+    files: List[SourceFileEntry] = field(default_factory=list)
+    file_idx: int = 0
+    scroll: int = 0
+    content: List[str] = field(default_factory=list)
+    line_kind: dict[int, str] = field(default_factory=dict)
+    language: str = "plain"
+    note: str = ""
+    cache: dict[str, Tuple[List[str], dict[int, str], str, str]] = field(default_factory=dict)
+
+
+@dataclass
 class AppState:
     host_idx: int = 0
     selected_idx: int = 0
@@ -98,6 +144,7 @@ class AppState:
     status_line: str = "Ready"
     resolved_commits: dict[str, str] = field(default_factory=dict)
     theme: UiTheme = field(default_factory=UiTheme)
+    source_view: SourceViewerState = field(default_factory=SourceViewerState)
 
 
 CHAPTERS: List[ChapterSet] = [
@@ -276,6 +323,162 @@ def rebuild_search_hits(state: AppState) -> None:
     lines = list(state.log_lines)
     state.search_hits = [i for i, ln in enumerate(lines) if needle in ln.lower()]
     state.search_pos = 0 if state.search_hits else -1
+
+
+def run_capture(host: str, shell_cmd: str) -> Tuple[int, str]:
+    argv = host_exec_argv(host, shell_cmd)
+    proc = subprocess.run(argv, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    lines: List[str] = []
+    for raw in (proc.stdout or "").splitlines():
+        s = raw.replace("\r", "")
+        s = ANSI_OSC_RE.sub("", s)
+        s = ANSI_CSI_RE.sub("", s)
+        s = ANSI_ESC_RE.sub("", s)
+        cleaned = []
+        for ch in s:
+            o = ord(ch)
+            if ch == "\t":
+                cleaned.append("\t")
+                continue
+            if o < 32 or 127 <= o <= 159:
+                continue
+            cleaned.append(ch)
+        lines.append("".join(cleaned).strip("\n"))
+    return proc.returncode, "\n".join(lines)
+
+
+def normalize_status(raw: str) -> str:
+    if not raw:
+        return "?"
+    s = raw[0].upper()
+    if s in ("A", "M", "D", "R", "C", "T"):
+        return s
+    return s
+
+
+def detect_language(path: str) -> str:
+    name = Path(path).name.lower()
+    if name in ("makefile",):
+        return "make"
+    if name.endswith(".rs"):
+        return "rust"
+    if name.endswith(".py"):
+        return "python"
+    if name.endswith(".sh"):
+        return "shell"
+    if name.endswith(".toml"):
+        return "toml"
+    if name.endswith(".c") or name.endswith(".h"):
+        return "c"
+    if name.endswith(".ld"):
+        return "ld"
+    return "plain"
+
+
+def lang_keywords(lang: str) -> set[str]:
+    if lang == "rust":
+        return {
+            "as", "break", "const", "continue", "crate", "else", "enum", "extern", "false", "fn",
+            "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref",
+            "return", "self", "Self", "static", "struct", "trait", "true", "type", "unsafe", "use",
+            "where", "while", "async", "await", "dyn",
+        }
+    if lang == "python":
+        return {
+            "def", "class", "if", "elif", "else", "for", "while", "try", "except", "finally", "return",
+            "import", "from", "as", "with", "pass", "break", "continue", "True", "False", "None",
+        }
+    if lang == "shell":
+        return {"if", "then", "fi", "for", "in", "do", "done", "case", "esac", "function", "return"}
+    if lang == "toml":
+        return {"true", "false"}
+    if lang == "c":
+        return {
+            "int", "long", "short", "char", "void", "struct", "enum", "typedef", "return", "if", "else",
+            "for", "while", "switch", "case", "break", "continue", "const", "static", "extern",
+        }
+    return set()
+
+
+def line_comment_token(lang: str) -> Optional[str]:
+    if lang in ("rust", "c", "ld"):
+        return "//"
+    if lang in ("python", "shell", "make", "toml"):
+        return "#"
+    return None
+
+
+def parse_name_status(output: str) -> List[SourceFileEntry]:
+    out: List[SourceFileEntry] = []
+    for ln in output.splitlines():
+        if not ln.strip():
+            continue
+        parts = ln.split("\t")
+        if not parts:
+            continue
+        status = normalize_status(parts[0])
+        if status in ("R", "C") and len(parts) >= 3:
+            out.append(SourceFileEntry(path=parts[2], status=status, old_path=parts[1]))
+            continue
+        if len(parts) >= 2:
+            out.append(SourceFileEntry(path=parts[1], status=status))
+    return out
+
+
+def parse_added_hunk_lines(diff_text: str) -> List[int]:
+    lines: List[int] = []
+    for ln in diff_text.splitlines():
+        m = HUNK_RE.match(ln)
+        if not m:
+            continue
+        start = int(m.group(1))
+        count = int(m.group(2)) if m.group(2) else 1
+        if count <= 0:
+            continue
+        lines.extend(range(start, start + count))
+    return lines
+
+
+def changed_line_kind(
+    host: str,
+    repo: str,
+    commit: str,
+    prev: str,
+    file_entry: SourceFileEntry,
+) -> dict[int, str]:
+    if file_entry.status == "D":
+        return {}
+
+    if file_entry.status == "A":
+        rc, out = run_capture(
+            host,
+            f"cd {shlex.quote(repo)} && git show --format= --numstat {shlex.quote(commit)} -- {shlex.quote(file_entry.path)}",
+        )
+        if rc != 0:
+            return {}
+        line_count = 0
+        for ln in out.splitlines():
+            cols = ln.split("\t")
+            if len(cols) >= 2 and cols[0].isdigit():
+                line_count = int(cols[0])
+                break
+        if line_count <= 0:
+            return {}
+        return {i: "add" for i in range(1, line_count + 1)}
+
+    if prev:
+        cmd = (
+            f"cd {shlex.quote(repo)} && "
+            f"git diff --unified=0 --find-renames {shlex.quote(prev)} {shlex.quote(commit)} -- {shlex.quote(file_entry.path)}"
+        )
+    else:
+        cmd = f"cd {shlex.quote(repo)} && git show --unified=0 --format= {shlex.quote(commit)} -- {shlex.quote(file_entry.path)}"
+    rc, out = run_capture(host, cmd)
+    if rc != 0:
+        return {}
+
+    tag = "add" if file_entry.status == "A" else "mod"
+    return {i: tag for i in parse_added_hunk_lines(out)}
 
 
 def jump_search(state: AppState, direction: int, visible: int) -> None:
@@ -545,6 +748,122 @@ def run_inspect_command(
         state.status_line = f"Inspect {mode} failed (rc={rc}): {chapter.label}"
 
 
+def list_changed_files(
+    host: str,
+    repo: str,
+    commit: str,
+    prev: str,
+) -> List[SourceFileEntry]:
+    if prev:
+        cmd = f"cd {shlex.quote(repo)} && git diff --name-status --find-renames {shlex.quote(prev)}..{shlex.quote(commit)}"
+    else:
+        cmd = f"cd {shlex.quote(repo)} && git show --name-status --format= {shlex.quote(commit)}"
+    rc, out = run_capture(host, cmd)
+    if rc != 0:
+        return []
+    return parse_name_status(out)
+
+
+def load_source_file(
+    host: str,
+    repo: str,
+    commit: str,
+    prev: str,
+    file_entry: SourceFileEntry,
+) -> Tuple[List[str], dict[int, str], str, str]:
+    if file_entry.status == "D":
+        msg = [f"[deleted in {commit}] {file_entry.path}"]
+        if file_entry.old_path:
+            msg.append(f"(from: {file_entry.old_path})")
+        return msg, {}, "plain", "deleted file"
+
+    cmd = f"cd {shlex.quote(repo)} && git show {shlex.quote(commit)}:{shlex.quote(file_entry.path)}"
+    rc, out = run_capture(host, cmd)
+    if rc != 0:
+        return [f"[failed to open file at {commit}] {file_entry.path}", out], {}, "plain", "open failed"
+
+    lines = out.splitlines()
+    line_kind = changed_line_kind(host, repo, commit, prev, file_entry)
+    lang = detect_language(file_entry.path)
+    note = ""
+    return lines, line_kind, lang, note
+
+
+def open_source_view_for_selected(state: AppState, stdscr: curses.window) -> None:
+    host = HOSTS[state.host_idx]
+    repo = repo_path_for_host(host)
+    idx = state.selected_idx
+    chapter = CHAPTERS[idx]
+    commit = resolve_commit(host, repo, chapter, state, stdscr)
+    if not commit:
+        state.status_line = f"Cannot resolve commit for {chapter.label}"
+        return
+
+    prev = prev_chapter_commit(host, repo, idx, state, stdscr) or ""
+    files = list_changed_files(host, repo, commit, prev)
+    if not files:
+        state.status_line = f"No changed files found for {chapter.label}"
+        return
+
+    sv = SourceViewerState(
+        active=True,
+        chapter_label=chapter.label,
+        commit=commit,
+        prev_commit=prev,
+        files=files,
+        file_idx=0,
+        scroll=0,
+        note="",
+    )
+    state.source_view = sv
+    load_current_source_file(state)
+    state.status_line = f"Source view: {chapter.label} ({len(files)} files)"
+
+
+def load_current_source_file(state: AppState) -> None:
+    sv = state.source_view
+    if not sv.files:
+        sv.content = ["[no files]"]
+        sv.line_kind = {}
+        sv.language = "plain"
+        sv.note = ""
+        return
+
+    entry = sv.files[sv.file_idx]
+    cache_key = f"{sv.commit}:{entry.path}:{sv.prev_commit}"
+    cached = sv.cache.get(cache_key)
+    if cached:
+        sv.content, sv.line_kind, sv.language, sv.note = cached
+        return
+
+    host = HOSTS[state.host_idx]
+    repo = repo_path_for_host(host)
+    content, line_kind, lang, note = load_source_file(host, repo, sv.commit, sv.prev_commit, entry)
+    sv.content = content if content else [""]
+    sv.line_kind = line_kind
+    sv.language = lang
+    sv.note = note
+    sv.cache[cache_key] = (sv.content, sv.line_kind, sv.language, sv.note)
+
+
+def source_scroll(state: AppState, delta: int, visible: int) -> None:
+    sv = state.source_view
+    total = len(sv.content)
+    if total <= 0:
+        sv.scroll = 0
+        return
+    max_start = max(0, total - visible)
+    sv.scroll = max(0, min(max_start, sv.scroll + delta))
+
+
+def source_go_file(state: AppState, delta: int) -> None:
+    sv = state.source_view
+    if not sv.files:
+        return
+    sv.file_idx = (sv.file_idx + delta) % len(sv.files)
+    sv.scroll = 0
+    load_current_source_file(state)
+
 def wrap_checkout_command(repo: str, commit: str, inner_cmd: str) -> str:
     container_cmd = (
         "podman run --rm "
@@ -701,6 +1020,40 @@ def init_theme() -> UiTheme:
     curses.init_pair(7, curses.COLOR_YELLOW, -1)                   # warn
     curses.init_pair(8, curses.COLOR_MAGENTA, -1)                  # skip
     curses.init_pair(9, curses.COLOR_BLUE, curses.COLOR_WHITE)     # search hit
+    curses.init_pair(10, curses.COLOR_GREEN, -1)                   # file added / line added
+    curses.init_pair(11, curses.COLOR_YELLOW, -1)                  # file modified / line modified
+    curses.init_pair(12, curses.COLOR_RED, -1)                     # file deleted
+    curses.init_pair(13, curses.COLOR_BLUE, -1)                    # line no
+    curses.init_pair(14, curses.COLOR_CYAN, -1)                    # keyword
+    curses.init_pair(15, curses.COLOR_MAGENTA, -1)                 # string
+    curses.init_pair(16, curses.COLOR_GREEN, -1)                   # comment
+    curses.init_pair(17, curses.COLOR_YELLOW, -1)                  # number
+    if curses.COLORS >= 256:
+        # High-contrast palettes for readability.
+        add_bg = 24   # deep blue
+        mod_bg = 178  # warm yellow
+        curses.init_pair(18, 231, add_bg)                          # added line base (white on blue)
+        curses.init_pair(19, 16, mod_bg)                           # modified line base (black on yellow)
+        curses.init_pair(20, 226, add_bg)                          # keyword on added line
+        curses.init_pair(21, 255, add_bg)                          # string on added line
+        curses.init_pair(22, 159, add_bg)                          # comment on added line
+        curses.init_pair(23, 213, add_bg)                          # number on added line
+        curses.init_pair(24, 19, mod_bg)                           # keyword on modified line
+        curses.init_pair(25, 88, mod_bg)                           # string on modified line
+        curses.init_pair(26, 22, mod_bg)                           # comment on modified line
+        curses.init_pair(27, 52, mod_bg)                           # number on modified line
+    else:
+        # Fallback for 8/16-color terminals: prioritize contrast.
+        curses.init_pair(18, curses.COLOR_WHITE, curses.COLOR_BLUE)    # added line background
+        curses.init_pair(19, curses.COLOR_BLACK, curses.COLOR_YELLOW)  # modified line background
+        curses.init_pair(20, curses.COLOR_YELLOW, curses.COLOR_BLUE)    # keyword on added line
+        curses.init_pair(21, curses.COLOR_WHITE, curses.COLOR_BLUE)     # string on added line
+        curses.init_pair(22, curses.COLOR_CYAN, curses.COLOR_BLUE)      # comment on added line
+        curses.init_pair(23, curses.COLOR_MAGENTA, curses.COLOR_BLUE)   # number on added line
+        curses.init_pair(24, curses.COLOR_BLUE, curses.COLOR_YELLOW)    # keyword on modified line
+        curses.init_pair(25, curses.COLOR_RED, curses.COLOR_YELLOW)     # string on modified line
+        curses.init_pair(26, curses.COLOR_GREEN, curses.COLOR_YELLOW)   # comment on modified line
+        curses.init_pair(27, curses.COLOR_MAGENTA, curses.COLOR_YELLOW) # number on modified line
 
     return UiTheme(
         header=curses.color_pair(1) | curses.A_BOLD,
@@ -714,6 +1067,26 @@ def init_theme() -> UiTheme:
         skip_text=curses.color_pair(8) | curses.A_BOLD,
         info_text=curses.color_pair(5),
         search_hit=curses.color_pair(9) | curses.A_BOLD,
+        file_added=curses.color_pair(10) | curses.A_BOLD,
+        file_modified=curses.color_pair(11) | curses.A_BOLD,
+        file_deleted=curses.color_pair(12) | curses.A_BOLD,
+        line_no=curses.color_pair(13),
+        line_added=curses.color_pair(10) | curses.A_BOLD,
+        line_modified=curses.color_pair(11) | curses.A_BOLD,
+        line_added_bg=curses.color_pair(18),
+        line_modified_bg=curses.color_pair(19),
+        syn_keyword=curses.color_pair(14) | curses.A_BOLD,
+        syn_string=curses.color_pair(15),
+        syn_comment=curses.color_pair(16),
+        syn_number=curses.color_pair(17),
+        syn_keyword_add_bg=curses.color_pair(20) | curses.A_BOLD,
+        syn_string_add_bg=curses.color_pair(21),
+        syn_comment_add_bg=curses.color_pair(22),
+        syn_number_add_bg=curses.color_pair(23),
+        syn_keyword_mod_bg=curses.color_pair(24) | curses.A_BOLD,
+        syn_string_mod_bg=curses.color_pair(25),
+        syn_comment_mod_bg=curses.color_pair(26),
+        syn_number_mod_bg=curses.color_pair(27),
     )
 
 
@@ -737,6 +1110,200 @@ def summarize_results(results: Sequence[StepResult]) -> Tuple[int, int, int, int
     return p, f, w, s
 
 
+def comment_index(line: str, lang: str) -> int:
+    token = line_comment_token(lang)
+    if not token:
+        return -1
+    return line.find(token)
+
+
+def render_code_line(
+    win: curses.window,
+    y: int,
+    x: int,
+    width: int,
+    line: str,
+    lang: str,
+    theme: UiTheme,
+    base_attr: int = curses.A_NORMAL,
+    line_kind: str = "",
+) -> None:
+    if width <= 0:
+        return
+
+    # Paint full line width first so changed lines keep a uniform background.
+    try:
+        win.addnstr(y, x, " " * width, width, base_attr)
+    except curses.error:
+        return
+
+    txt = line[:width]
+    try:
+        win.addnstr(y, x, txt, width, base_attr)
+    except curses.error:
+        return
+
+    if lang == "plain":
+        return
+
+    cidx = comment_index(txt, lang)
+    comment_cut = len(txt) if cidx < 0 else cidx
+
+    kw_attr = theme.syn_keyword
+    str_attr = theme.syn_string
+    cmt_attr = theme.syn_comment
+    num_attr = theme.syn_number
+    if line_kind == "add":
+        kw_attr = theme.syn_keyword_add_bg
+        str_attr = theme.syn_string_add_bg
+        cmt_attr = theme.syn_comment_add_bg
+        num_attr = theme.syn_number_add_bg
+    elif line_kind == "mod":
+        kw_attr = theme.syn_keyword_mod_bg
+        str_attr = theme.syn_string_mod_bg
+        cmt_attr = theme.syn_comment_mod_bg
+        num_attr = theme.syn_number_mod_bg
+
+    kw = lang_keywords(lang)
+    if kw:
+        for m in re.finditer(r"\b[A-Za-z_][A-Za-z0-9_]*\b", txt[:comment_cut]):
+            token = m.group(0)
+            if token in kw:
+                try:
+                    win.addnstr(
+                        y,
+                        x + m.start(),
+                        token,
+                        min(len(token), width - m.start()),
+                        kw_attr,
+                    )
+                except curses.error:
+                    pass
+
+    for m in NUMBER_RE.finditer(txt[:comment_cut]):
+        num = m.group(0)
+        try:
+            win.addnstr(y, x + m.start(), num, min(len(num), width - m.start()), num_attr)
+        except curses.error:
+            pass
+
+    for m in STRING_RE.finditer(txt[:comment_cut]):
+        sval = m.group(0)
+        try:
+            win.addnstr(y, x + m.start(), sval, min(len(sval), width - m.start()), str_attr)
+        except curses.error:
+            pass
+
+    if cidx >= 0 and cidx < width:
+        cmt = txt[cidx:]
+        try:
+            win.addnstr(y, x + cidx, cmt, min(len(cmt), width - cidx), cmt_attr)
+        except curses.error:
+            pass
+
+
+def file_status_attr(theme: UiTheme, st: str) -> int:
+    if st == "A":
+        return theme.file_added
+    if st in ("M", "R", "C", "T"):
+        return theme.file_modified
+    if st == "D":
+        return theme.file_deleted
+    return curses.A_NORMAL
+
+
+def draw_source_ui(stdscr: curses.window, state: AppState) -> None:
+    stdscr.erase()
+    h, w = stdscr.getmaxyx()
+    if h < 24 or w < 100:
+        msg = "Terminal too small. Need at least 100x24. Resize and retry."
+        stdscr.addnstr(0, 0, msg, max(1, w - 1))
+        stdscr.refresh()
+        return
+
+    sv = state.source_view
+    header_h = 3
+    body_h = h - header_h
+    left_w = max(17, int(w * 0.17))
+    right_w = w - left_w
+
+    header = stdscr.derwin(header_h, w, 0, 0)
+    files = stdscr.derwin(body_h, left_w, header_h, 0)
+    src = stdscr.derwin(body_h, right_w, header_h, left_w)
+
+    draw_box(header, "MMOS Practice Source Viewer")
+    try:
+        header.bkgd(" ", state.theme.header)
+    except curses.error:
+        pass
+    hk = "[Left/Right] file  [Up/Down] line  [PgUp/PgDn] page  [Home/End] top/bottom  [B/Esc] back"
+    header.addnstr(1, 2, hk, w - 4)
+
+    draw_box(files, "Changed Files")
+    files.addnstr(0, 2, " Changed Files ", max(1, left_w - 4), state.theme.panel_title)
+    file_h = body_h - 2
+    fstart = 0
+    if sv.file_idx >= file_h:
+        fstart = sv.file_idx - file_h + 1
+    for row, idx in enumerate(range(fstart, min(len(sv.files), fstart + file_h))):
+        ent = sv.files[idx]
+        prefix = ">" if idx == sv.file_idx else " "
+        label = f"{prefix} [{ent.status}] {ent.path}"
+        attr = file_status_attr(state.theme, ent.status)
+        if idx == sv.file_idx:
+            attr |= curses.A_REVERSE
+        files.addnstr(1 + row, 1, fit_line(label, left_w - 2), left_w - 2, attr)
+
+    ent = sv.files[sv.file_idx] if sv.files else SourceFileEntry(path="(none)", status="?")
+    subtitle = f"{sv.chapter_label} | {sv.prev_commit or 'BASE'}..{sv.commit}"
+    draw_box(src, "Source")
+    src.addnstr(0, 2, fit_line(f" {ent.path} ", right_w - 4), max(1, right_w - 4), state.theme.panel_title)
+    src.addnstr(1, 2, fit_line(subtitle, right_w - 4), right_w - 4, state.theme.info_text)
+    if sv.note:
+        src.addnstr(2, 2, fit_line(sv.note, right_w - 4), right_w - 4, state.theme.warn_text)
+
+    content_y = 3
+    visible = max(1, body_h - content_y - 1)
+    total = len(sv.content)
+    max_start = max(0, total - visible)
+    sv.scroll = max(0, min(max_start, sv.scroll))
+    line_no_w = max(4, len(str(max(1, total))))
+    marker_w = 2
+    code_w = max(1, right_w - (2 + line_no_w + marker_w + 1))
+
+    blank = " " * max(1, right_w - 2)
+    for i in range(visible):
+        src.addnstr(content_y + i, 1, blank, max(1, right_w - 2))
+
+    for i in range(visible):
+        idx = sv.scroll + i
+        if idx >= total:
+            break
+        ln = sv.content[idx]
+        lno = idx + 1
+        kind = sv.line_kind.get(lno, "")
+        marker = "+"
+        mark_attr = state.theme.line_added
+        code_attr = state.theme.line_added_bg
+        if kind != "add":
+            marker = "~"
+            mark_attr = state.theme.line_modified
+            code_attr = state.theme.line_modified_bg
+        if not kind:
+            marker = " "
+            mark_attr = curses.A_NORMAL
+            code_attr = curses.A_NORMAL
+
+        y = content_y + i
+        src.addnstr(y, 1, str(lno).rjust(line_no_w), line_no_w, state.theme.line_no)
+        src.addnstr(y, 1 + line_no_w, " ", 1)
+        src.addnstr(y, 2 + line_no_w, marker, 1, mark_attr)
+        src.addnstr(y, 3 + line_no_w, " ", 1)
+        render_code_line(src, y, 4 + line_no_w, code_w, ln, sv.language, state.theme, code_attr, kind)
+
+    stdscr.refresh()
+
+
 def draw_ui(stdscr: curses.window, state: AppState) -> None:
     stdscr.erase()
     h, w = stdscr.getmaxyx()
@@ -747,6 +1314,10 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         stdscr.refresh()
         return
 
+    if state.source_view.active:
+        draw_source_ui(stdscr, state)
+        return
+
     host = HOSTS[state.host_idx]
     repo = repo_path_for_host(host)
 
@@ -754,7 +1325,7 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
     body_h = h - header_h
     top_h = max(10, int(body_h * 0.52))
     bottom_h = body_h - top_h
-    left_w = max(42, int(w * 0.48))
+    left_w = max(21, int(w * 0.24))
     right_w = w - left_w
 
     header = stdscr.derwin(header_h, w, 0, 0)
@@ -767,7 +1338,7 @@ def draw_ui(stdscr: curses.window, state: AppState) -> None:
         header.bkgd(" ", state.theme.header)
     except curses.error:
         pass
-    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [L] history  [D] changes  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
+    hotkeys = "[UP/DOWN] move  [SPACE] toggle  [A] all  [C] clear  [H] host  [R] run  [L] history  [D] changes  [F] source  [S] stop  [PgUp/PgDn] logs  [/] find  [n/N] next/prev  [End] tail  [Q] quit"
     header.addnstr(1, 2, hotkeys, w - 4)
 
     draw_box(left, "Chapter Sets")
@@ -882,13 +1453,36 @@ def main(stdscr: curses.window) -> int:
             time.sleep(0.03)
             continue
 
-        if ch in (ord("q"), ord("Q")) and not state.running:
-            break
-
         if state.running:
             draw_ui(stdscr, state)
             time.sleep(0.03)
             continue
+
+        if state.source_view.active:
+            if ch in (27, ord("b"), ord("B"), ord("q"), ord("Q")):
+                state.source_view = SourceViewerState()
+                state.status_line = "Source view closed"
+            elif ch in (curses.KEY_LEFT, ord("h"), ord("H")):
+                source_go_file(state, -1)
+            elif ch in (curses.KEY_RIGHT, ord("l"), ord("L")):
+                source_go_file(state, +1)
+            elif ch in (curses.KEY_UP, ord("k"), ord("K")):
+                source_scroll(state, -1, max(1, stdscr.getmaxyx()[0] - 6))
+            elif ch in (curses.KEY_DOWN, ord("j"), ord("J")):
+                source_scroll(state, +1, max(1, stdscr.getmaxyx()[0] - 6))
+            elif ch == curses.KEY_PPAGE:
+                source_scroll(state, -12, max(1, stdscr.getmaxyx()[0] - 6))
+            elif ch == curses.KEY_NPAGE:
+                source_scroll(state, +12, max(1, stdscr.getmaxyx()[0] - 6))
+            elif ch in (curses.KEY_HOME, ord("g")):
+                state.source_view.scroll = 0
+            elif ch in (curses.KEY_END, ord("G")):
+                state.source_view.scroll = max(0, len(state.source_view.content) - 1)
+            draw_ui(stdscr, state)
+            continue
+
+        if ch in (ord("q"), ord("Q")) and not state.running:
+            break
 
         if ch in (curses.KEY_UP, ord("k"), ord("K")):
             state.selected_idx = (state.selected_idx - 1) % len(CHAPTERS)
@@ -937,6 +1531,8 @@ def main(stdscr: curses.window) -> int:
                 stdscr,
             )
             rebuild_search_hits(state)
+        elif ch in (ord("f"), ord("F")):
+            open_source_view_for_selected(state, stdscr)
         elif ch in (ord("s"), ord("S")):
             state.stop_requested = True
             state.status_line = "Nothing running"

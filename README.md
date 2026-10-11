@@ -34,6 +34,8 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - 챕터별 검증 세트 독립 선택/실행
 - 실행 명령, 중간 로그, 최종 결과를 분할 화면에서 실시간 갱신
 - 선택한 챕터 기준 `git history`/`changes(diff)`를 TUI에서 바로 조회
+- 선택한 챕터의 변경 파일을 전체 소스로 열람하고, 추가/수정 라인을 배경색으로 구분
+- 소스 뷰어에서 기본 syntax highlighting(언어별 키워드/문자열/주석/숫자) 제공
 - 각 검증 명령은 `podman run ... mmos-practice:latest` 컨테이너 내부에서 실행
 - 이미지가 없으면 자동 빌드, 펌웨어 서브모듈이 없으면 `./scripts/init-submodules.sh` 자동 실행
 
@@ -47,12 +49,21 @@ cd /home/nicesj/mmrnd/mmos/mmos-practice
 - `R`: 선택한 검증 실행
 - `L`: 선택한 챕터의 git history 조회
 - `D`: 선택한 챕터의 changes(diff/patch) 조회
+- `F`: 선택한 챕터의 변경 파일 소스 뷰어 열기
 - `S`: 실행 중지 요청
 - `PgUp`/`PgDn`: Live Logs 위/아래 스크롤
 - `Home`/`End`: Live Logs 맨 위/최신(tail) 이동
 - `/`: Live Logs 검색어 입력
 - `n` / `N`: 다음/이전 검색 결과로 이동
 - `Q`: 종료(실행 중이 아닐 때)
+
+소스 뷰어 조작 키:
+
+- `Left`/`Right`: 이전/다음 파일
+- `Up`/`Down`: 한 줄 스크롤
+- `PgUp`/`PgDn`: 페이지 스크롤
+- `Home`/`End`: 파일 맨 위/아래
+- `B`/`Esc`/`Q`: 뷰어 닫기
 
 환경변수(선택):
 
