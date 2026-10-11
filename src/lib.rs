@@ -1661,6 +1661,8 @@ mod tests {
         let mut read_bytes = [0u8; 16];
         let mut read_user = CheckedUserSliceMut::new(&mut read_bytes, 0xa000, &read_vm);
         let mut read_scratch = [0u8; 16];
+        let open_ns = DeviceNamespace::new(dev);
+        let mut open_scratch = [0u8; 32];
 
         let mut wait_vm = VmSpace::<2>::new();
         wait_vm.map_anon(0x8000, 0x8004, PTE_W).unwrap();
@@ -1689,7 +1691,7 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -1701,6 +1703,9 @@ mod tests {
                 &mut write_scratch,
                 &mut read_user,
                 &mut read_scratch,
+                &open_ns,
+                &write_user,
+                &mut open_scratch,
                 &mut exec_store,
                 exec_user_source,
                 exec_replacement_vm,
@@ -1726,6 +1731,8 @@ mod tests {
         let mut read_bytes = [0u8; 16];
         let mut read_user = CheckedUserSliceMut::new(&mut read_bytes, 0xa000, &read_vm);
         let mut read_scratch = [0u8; 16];
+        let open_ns = DeviceNamespace::new(dev);
+        let mut open_scratch = [0u8; 32];
 
         let mut wait_vm = VmSpace::<2>::new();
         wait_vm.map_anon(0x8000, 0x8004, PTE_W).unwrap();
@@ -1754,7 +1761,7 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -1766,6 +1773,9 @@ mod tests {
                 &mut write_scratch,
                 &mut read_user,
                 &mut read_scratch,
+                &open_ns,
+                &write_user,
+                &mut open_scratch,
                 &mut exec_store,
                 exec_user_source,
                 exec_replacement_vm,
@@ -1791,6 +1801,8 @@ mod tests {
         let mut read_bytes = [0u8; 16];
         let mut read_user = CheckedUserSliceMut::new(&mut read_bytes, 0xa000, &read_vm);
         let mut read_scratch = [0u8; 16];
+        let open_ns = DeviceNamespace::new(dev);
+        let mut open_scratch = [0u8; 32];
 
         let mut wait_vm = VmSpace::<2>::new();
         wait_vm.map_anon(0x8000, 0x8004, PTE_W).unwrap();
@@ -1817,7 +1829,7 @@ mod tests {
 
         assert_eq!(
             handle_prepared_process_syscall_entry_with_current_io::<
-                2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
             >(
                 &mut frame,
                 &mut runtime,
@@ -1829,6 +1841,9 @@ mod tests {
                 &mut write_scratch,
                 &mut read_user,
                 &mut read_scratch,
+                &open_ns,
+                &write_user,
+                &mut open_scratch,
                 &mut exec_store,
                 exec_user_source,
                 exec_replacement_vm,
@@ -1849,6 +1864,91 @@ mod tests {
             ),
             SyscallResult::Continue(-EBADF)
         );
+    }
+
+    #[test]
+    fn prepared_process_syscall_entry_routes_openat_to_current_io() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let mut current = CurrentProcessIoContext::<8>::with_stdio(1, dev);
+        let mut write_vm = VmSpace::<2>::new();
+        write_vm.map_anon(0x9000, 0x9020, PTE_R).unwrap();
+        let write_user = CheckedUserSlice::new(b"opened-by-entry", 0x9000, &write_vm);
+        let mut write_scratch = [0u8; 16];
+        let mut read_vm = VmSpace::<2>::new();
+        read_vm.map_anon(0xa000, 0xa020, PTE_W).unwrap();
+        let mut read_bytes = [0u8; 16];
+        let mut read_user = CheckedUserSliceMut::new(&mut read_bytes, 0xa000, &read_vm);
+        let mut read_scratch = [0u8; 16];
+        let mut open_vm = VmSpace::<2>::new();
+        open_vm.map_anon(0xb000, 0xb020, PTE_R).unwrap();
+        let open_user = CheckedUserSlice::new(b"/dev/console\0", 0xb000, &open_vm);
+        let open_ns = DeviceNamespace::new(dev);
+        let mut open_scratch = [0u8; 32];
+
+        let mut wait_vm = VmSpace::<2>::new();
+        wait_vm.map_anon(0x8000, 0x8004, PTE_W).unwrap();
+        let mut wait_bytes = [0u8; 4];
+        let mut wait_user = CheckedUserSliceMut::new(&mut wait_bytes, 0x8000, &wait_vm);
+
+        let exec_image = build_test_ext4_image();
+        let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
+        let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
+        let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+            dummy_exec_runtime,
+            &exec_vfs,
+        );
+        let exec_user_mem = [0u8; 16];
+        let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
+        let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4000_a000;
+        frame.set_a7(SYS_OPENAT);
+        frame.set_a0(usize::MAX);
+        frame.set_a1(0xb000);
+        frame.set_a2(1);
+
+        assert_eq!(
+            handle_prepared_process_syscall_entry_with_current_io::<
+                2, 2, 2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+            >(
+                &mut frame,
+                &mut runtime,
+                2,
+                VmSpace::<2>::new(),
+                &mut wait_user,
+                &mut current,
+                &write_user,
+                &mut write_scratch,
+                &mut read_user,
+                &mut read_scratch,
+                &open_ns,
+                &open_user,
+                &mut open_scratch,
+                &mut exec_store,
+                exec_user_source,
+                exec_replacement_vm,
+            ),
+            TrapDispatchResult::Resumed
+        );
+        assert_eq!(frame.a0(), 3);
+        assert_eq!(frame.sepc, 0x4000_a004);
+
+        assert_eq!(
+            handle_current_process_write_checked_user_syscall(
+                &current,
+                &write_user,
+                3,
+                0x9000,
+                15,
+                &mut write_scratch,
+            ),
+            SyscallResult::Continue(15)
+        );
+        assert_eq!(dev.written(), b"opened-by-entry".to_vec());
     }
 
     #[test]

@@ -860,6 +860,7 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
     const WAIT_AREAS: usize,
     const WRITE_AREAS: usize,
     const READ_AREAS: usize,
+    const OPEN_AREAS: usize,
     const MAX_FDS: usize,
     const MAX_ARGS: usize,
     const ARG_BYTES: usize,
@@ -885,6 +886,9 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
     write_scratch: &mut [u8],
     read_user: &mut crate::user_copy::CheckedUserSliceMut<'_, READ_AREAS>,
     read_scratch: &mut [u8],
+    open_ns: &crate::devfs::DeviceNamespace<'_>,
+    open_user: &crate::user_copy::CheckedUserSlice<'_, OPEN_AREAS>,
+    open_scratch: &mut [u8],
     exec_store: &'a mut crate::trap_runtime::PreparedExecvEntryStore<
         'v,
         MAX_PROCS,
@@ -923,6 +927,17 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
         syscall::SYS_CLOSE => trap_outcome_without_scheduler(handle_syscall_result(
             frame,
             syscall::handle_current_process_close(write_current, frame.a0()),
+        )),
+        syscall::SYS_OPENAT => trap_outcome_without_scheduler(handle_syscall_result(
+            frame,
+            syscall::handle_process_open_checked_user_path(
+                write_current.io_mut(),
+                open_ns,
+                open_user,
+                frame.a1(),
+                frame.a2(),
+                open_scratch,
+            ),
         )),
         _ => handle_prepared_process_syscall_entry::<
             WAIT_AREAS,
