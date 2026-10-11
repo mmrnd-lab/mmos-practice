@@ -244,6 +244,11 @@
     - trap stack 준비와 satp hardware commit gate가 같은 launch path에서 일관된 값을 사용하는지 테스트와 런타임 probe로 검증
 
 
+66. `27cc51e` `feat(ch74): bind satp to root page table storage`
+    - `RootPageTable` storage를 4KiB aligned로 고정하고 실제 storage 주소에서 `satp` PPN을 계산
+    - user VM plan을 aligned root storage에 설치해 placeholder root PPN 없이 `satp`를 만들 수 있음을 테스트와 런타임 probe로 검증
+
+
 ## Reproduce Example
 
 ```bash
