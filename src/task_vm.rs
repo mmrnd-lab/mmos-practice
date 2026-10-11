@@ -135,6 +135,14 @@ pub struct RootedUserLaunchCsrSequence {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct RootedSatpCommitSequence {
+    pub switch: AddressSpaceSwitch,
+    pub applied: AppliedAddressSpaceSwitch,
+    pub commit: SatpCommitPlan,
+    pub rooted: RootedUserLaunchCsrSequence,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserLaunchCsrError {
     Scratch(KernelTrapStackError),
     UserSpMismatch { frame_sp: usize, scratch_user_sp: usize },
@@ -145,6 +153,12 @@ pub enum UserLaunchCsrError {
 pub enum RootedUserLaunchCsrError {
     Sequence(UserLaunchCsrError),
     SatpMismatch { root_satp: usize, sequence_satp: usize },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RootedSatpCommitError {
+    SwitchSatpMismatch { switch_satp: usize, root_satp: usize },
+    Rooted(RootedUserLaunchCsrError),
 }
 
 pub fn prepare_user_launch_csr_sequence(
@@ -189,6 +203,34 @@ pub fn prepare_rooted_user_launch_csr_sequence(
     Ok(RootedUserLaunchCsrSequence {
         root_satp,
         sequence,
+    })
+}
+
+pub fn prepare_rooted_satp_commit_sequence(
+    active_satp: &mut usize,
+    switch: AddressSpaceSwitch,
+    frame: &TrapFrame,
+    scratch: TrapEntryScratch,
+    root_satp: usize,
+) -> Result<RootedSatpCommitSequence, RootedSatpCommitError> {
+    if switch.next_satp != root_satp {
+        return Err(RootedSatpCommitError::SwitchSatpMismatch {
+            switch_satp: switch.next_satp,
+            root_satp,
+        });
+    }
+
+    let prev_satp = *active_satp;
+    let applied = apply_address_space_switch(active_satp, switch);
+    let commit = prepare_satp_commit(prev_satp, applied);
+    let rooted = prepare_rooted_user_launch_csr_sequence(frame, scratch, commit, root_satp)
+        .map_err(RootedSatpCommitError::Rooted)?;
+
+    Ok(RootedSatpCommitSequence {
+        switch,
+        applied,
+        commit,
+        rooted,
     })
 }
 

@@ -87,7 +87,7 @@ mod tests {
     };
     use super::task_vm::{
         address_space_switch_for_decision, apply_address_space_switch,
-        prepare_rooted_user_launch_csr_sequence, prepare_satp_commit,
+        prepare_rooted_satp_commit_sequence, prepare_rooted_user_launch_csr_sequence, prepare_satp_commit,
         prepare_satp_hardware_commit, prepare_user_launch_csr_sequence,
         SatpHardwareCommitError,
     };
@@ -2329,6 +2329,87 @@ mod tests {
         assert_eq!(switch.next_tid, second.tid);
         assert_eq!(switch.next_satp, root_install.satp);
         assert_ne!(switch.next_satp, second_launch.satp);
+    }
+
+    #[test]
+    fn rooted_process_token_flows_into_commit_and_launch_sequence() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut first_stack = [0u8; 512];
+        let mut second_stack = [0u8; 512];
+        let first_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345_000,
+            &mut first_stack,
+            &["/sbin/init"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let second_launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12346_000,
+            &mut second_stack,
+            &["/sbin/worker"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let root_frame_pa = allocator.alloc().unwrap();
+        let mut root = RootPageTable::new();
+        let root_install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
+
+        let mut proc_table = ProcessTable::<4, 4, 4>::new();
+        let mut task_table = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let first = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            None,
+            VmSpace::<4>::new(),
+            first_launch,
+        )
+        .unwrap();
+        let second = create_user_process_from_launch(
+            &mut proc_table,
+            &mut task_table,
+            &mut scheduler,
+            Some(first.pid),
+            VmSpace::<4>::new(),
+            second_launch,
+        )
+        .unwrap();
+
+        proc_table.update_satp(second.pid, root_install.satp).unwrap();
+        scheduler.on_tick();
+        scheduler.set_state(first.tid, TaskState::Blocked);
+        let decision =
+            schedule_after_blocked_syscall(&first_launch.trapframe, &mut scheduler).unwrap();
+        let switch = address_space_switch_for_decision(&proc_table, &task_table, decision)
+            .unwrap()
+            .unwrap();
+        let mut frame = second_launch.trapframe;
+        frame.set_sp(loaded.stack_top);
+        let scratch = prepare_enter_user_scratch(&frame).unwrap();
+        let mut active_satp = first_launch.satp;
+
+        let sequence = prepare_rooted_satp_commit_sequence(
+            &mut active_satp,
+            switch,
+            &frame,
+            scratch,
+            root_install.satp,
+        )
+        .unwrap();
+
+        assert_eq!(active_satp, root_install.satp);
+        assert_eq!(sequence.switch.next_satp, root_install.satp);
+        assert_eq!(sequence.applied.active_satp, root_install.satp);
+        assert_eq!(sequence.commit.next_satp, root_install.satp);
+        assert!(sequence.commit.needs_sfence_vma);
+        assert_eq!(sequence.rooted.root_satp, root_install.satp);
+        assert_eq!(sequence.rooted.sequence.satp, root_install.satp);
+        assert_eq!(sequence.rooted.sequence.sepc, frame.sepc);
     }
 
 

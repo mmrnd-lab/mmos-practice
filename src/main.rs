@@ -1070,6 +1070,37 @@ fn run_user_launch_demo() {
                                                                                                                         console::puts(
                                                                                                                             "[chapter] ch76 process root satp token\n",
                                                                                                                         );
+                                                                                                                        let mut rooted_active_satp =
+                                                                                                                            p.satp;
+                                                                                                                        if let Ok(rooted_commit_seq) =
+                                                                                                                            task_vm::prepare_rooted_satp_commit_sequence(
+                                                                                                                                &mut rooted_active_satp,
+                                                                                                                                rooted_space,
+                                                                                                                                &probe_frame,
+                                                                                                                                enter_scratch,
+                                                                                                                                root_install.satp,
+                                                                                                                            )
+                                                                                                                        {
+                                                                                                                            if rooted_active_satp
+                                                                                                                                == root_install
+                                                                                                                                    .satp
+                                                                                                                                && rooted_commit_seq
+                                                                                                                                    .commit
+                                                                                                                                    .next_satp
+                                                                                                                                    == root_install
+                                                                                                                                        .satp
+                                                                                                                                && rooted_commit_seq
+                                                                                                                                    .rooted
+                                                                                                                                    .sequence
+                                                                                                                                    .satp
+                                                                                                                                    == root_install
+                                                                                                                                        .satp
+                                                                                                                            {
+                                                                                                                                console::puts(
+                                                                                                                                    "[chapter] ch77 rooted satp commit sequence\n",
+                                                                                                                                );
+                                                                                                                            }
+                                                                                                                        }
                                                                                                                     }
                                                                                                                 }
                                                                                                             }
