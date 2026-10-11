@@ -42,6 +42,36 @@ pub struct UserVmRootInstall {
     pub mapped_regions: usize,
 }
 
+#[derive(Debug)]
+pub struct ProcessAddressSpace {
+    pub root_frame_pa: usize,
+    pub satp: usize,
+    pub mapped_regions: usize,
+}
+
+impl ProcessAddressSpace {
+    pub const fn empty() -> Self {
+        Self {
+            root_frame_pa: 0,
+            satp: 0,
+            mapped_regions: 0,
+        }
+    }
+
+    pub fn install_user_image(
+        &mut self,
+        loaded: &LoadedUserImage<'_>,
+        root_frame_pa: usize,
+        root: &mut RootPageTable,
+    ) -> Result<UserVmRootInstall, UserVmError> {
+        let install = install_user_vm_plan_in_root(loaded, root_frame_pa, root)?;
+        self.root_frame_pa = install.root_frame_pa;
+        self.satp = install.satp;
+        self.mapped_regions = install.mapped_regions;
+        Ok(install)
+    }
+}
+
 pub fn build_user_vm_plan(
     loaded: &LoadedUserImage<'_>,
     root_frame_pa: usize,

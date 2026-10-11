@@ -130,7 +130,7 @@ mod tests {
         build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
         install_user_vm_plan_in_root, is_kernel_mapping, is_leaf_user_mapping,
         preflight_satp_commit, KernelRuntimeSatpGuard, KernelRuntimeSatpGuardError,
-        SatpCommitPreflight, SatpCommitPreflightError,
+        ProcessAddressSpace, SatpCommitPreflight, SatpCommitPreflightError,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
@@ -1808,6 +1808,45 @@ mod tests {
         assert_eq!(install.root_ppn, root_frame_pa / super::sv39::PAGE_SIZE);
         assert_eq!(install.satp, make_satp(root_frame_pa / super::sv39::PAGE_SIZE, 0));
         assert!(is_leaf_user_mapping(root.entries[1]));
+    }
+
+    #[test]
+    fn process_address_space_records_root_frame_and_satp() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x4010_0000).unwrap();
+        let mut first_space = ProcessAddressSpace::empty();
+        let mut second_space = ProcessAddressSpace::empty();
+        let mut roots = [RootPageTable::new(), RootPageTable::new()];
+        let mut allocator =
+            PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
+        let first_frame = allocator.alloc().unwrap();
+        let second_frame = allocator.alloc().unwrap();
+
+        let first_install = first_space
+            .install_user_image(&loaded, first_frame, &mut roots[0])
+            .unwrap();
+        let second_install = second_space
+            .install_user_image(&loaded, second_frame, &mut roots[1])
+            .unwrap();
+
+        assert_eq!(first_space.root_frame_pa, first_frame);
+        assert_eq!(second_space.root_frame_pa, second_frame);
+        assert_eq!(first_space.satp, first_install.satp);
+        assert_eq!(second_space.satp, second_install.satp);
+        assert_eq!(first_space.mapped_regions, first_install.mapped_regions);
+        assert_eq!(second_space.mapped_regions, second_install.mapped_regions);
+        assert_eq!(
+            first_space.satp,
+            make_satp(first_space.root_frame_pa / super::sv39::PAGE_SIZE, 0)
+        );
+        assert_eq!(
+            second_space.satp,
+            make_satp(second_space.root_frame_pa / super::sv39::PAGE_SIZE, 0)
+        );
+        assert_ne!(first_space.root_frame_pa, second_space.root_frame_pa);
+        assert_ne!(first_space.satp, second_space.satp);
+        assert!(is_leaf_user_mapping(roots[0].entries[1]));
+        assert!(is_leaf_user_mapping(roots[1].entries[1]));
     }
 
     #[test]

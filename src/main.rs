@@ -77,6 +77,9 @@ mod wait_queue;
 
 use core::panic::PanicInfo;
 
+static mut USER_ADDRESS_SPACE: user_vm::ProcessAddressSpace =
+    user_vm::ProcessAddressSpace::empty();
+
 trait SyscallResultExt {
     fn is_ok_continue_zero(self) -> bool;
 }
@@ -658,6 +661,7 @@ pub extern "C" fn rust_main() -> ! {
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
+    run_process_address_space_root_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -682,6 +686,12 @@ fn run_process_runtime_demo() {
 fn run_kernel_satp_guard_demo() {
     if ch78_kernel_satp_runtime_guard() {
         console::puts("[chapter] ch78 kernel satp runtime guard\n");
+    }
+}
+
+fn run_process_address_space_root_demo() {
+    if ch79_process_address_space_root() {
+        console::puts("[chapter] ch79 process address space root\n");
     }
 }
 
@@ -710,6 +720,15 @@ fn ch78_kernel_satp_runtime_guard() -> bool {
         }
         Err(_) => false,
     }
+}
+
+#[inline(never)]
+fn ch79_process_address_space_root() -> bool {
+    let address_space = unsafe { &*core::ptr::addr_of!(USER_ADDRESS_SPACE) };
+    address_space.mapped_regions > 0
+        && address_space.satp
+            == sv39::make_satp(address_space.root_frame_pa / sv39::PAGE_SIZE, 0)
+        && address_space.root_frame_pa % sv39::PAGE_SIZE == 0
 }
 
 fn run_user_launch_demo() {
@@ -879,29 +898,27 @@ fn run_user_launch_demo() {
                                                 console::puts(
                                                     "[chapter] ch65 satp commit boundary\n",
                                                 );
-<<<<<<< HEAD
-                                                let mut root = sv39::RootPageTable::new();
-                                                let _ = user_vm::install_user_vm_plan_in_root(
-                                                    &loaded,
-                                                    0x12345_000,
-                                                    &mut root,
-                                                )
-                                                .unwrap();
-=======
+                                                let address_space = unsafe {
+                                                    &mut *core::ptr::addr_of_mut!(
+                                                        USER_ADDRESS_SPACE
+                                                    )
+                                                };
+                                                *address_space =
+                                                    user_vm::ProcessAddressSpace::empty();
                                                 let root_frame_pa = pmm.alloc().unwrap();
                                                 let root = unsafe {
                                                     user_vm::root_page_table_from_identity_frame_mut(
                                                         root_frame_pa,
                                                     )
                                                 };
-                                                let root_install =
-                                                    user_vm::install_user_vm_plan_in_root(
+                                                let root_install = address_space
+                                                    .install_user_image(
                                                         &loaded,
                                                         root_frame_pa,
                                                         root,
                                                     )
                                                     .unwrap();
->>>>>>> 953320b (feat(ch74): bind satp to root page table storage)
+                                                let _ = root_install;
                                                 if user_vm::install_kernel_identity_mapping(
                                                     root,
                                                 )
