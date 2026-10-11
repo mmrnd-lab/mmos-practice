@@ -3055,6 +3055,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-crt] init links shared runtime API from user/crt crate\n");
     console::puts("[chapter] ch148 user crt static link artifact\n");
     console::puts("[user-crt] build produces libmmos_user_crt.rlib before shared object support\n");
+    console::puts("[chapter] ch149 user link model classification\n");
+    console::puts("[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent\n");
 }
 
 fn run_kernel_satp_guard_demo() {
