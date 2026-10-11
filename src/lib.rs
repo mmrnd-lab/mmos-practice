@@ -84,7 +84,7 @@ mod tests {
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
-        EACCES, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
+        EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
@@ -810,6 +810,50 @@ mod tests {
             SyscallResult::Continue(7)
         );
         assert_eq!(&user_bytes[..7], b"runtime");
+    }
+
+
+    #[test]
+    fn wouldblock_maps_to_eagain_for_nonblocking_read() {
+        let dev: &'static console::BufferedConsoleDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(console::BufferedConsoleDevice::new(
+                "test-console",
+                b"xy",
+            )));
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let current = runtime.current_for_task(&task).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x7000, 0x7020, PTE_W).unwrap();
+        let mut user_bytes = [0u8; 16];
+        let mut user = CheckedUserSliceMut::new(&mut user_bytes, 0x7000, &vm);
+        let mut scratch = [0u8; 8];
+
+        assert_eq!(
+            handle_current_process_read_checked_user_syscall(
+                current,
+                &mut user,
+                0,
+                0x7000,
+                2,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(2)
+        );
+        assert_eq!(
+            handle_current_process_read_checked_user_syscall(
+                current,
+                &mut user,
+                0,
+                0x7002,
+                1,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(-EAGAIN)
+        );
     }
 
     #[test]

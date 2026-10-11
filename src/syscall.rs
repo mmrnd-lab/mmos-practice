@@ -8,6 +8,7 @@ pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 
 pub const EBADF: isize = 9;
+pub const EAGAIN: isize = 11;
 pub const EACCES: isize = 13;
 pub const EFAULT: isize = 14;
 pub const EINVAL: isize = 22;
@@ -21,6 +22,7 @@ pub fn file_error_errno(error: crate::fd_table::FileError) -> isize {
     match error {
         crate::fd_table::FileError::BadFd => EBADF,
         crate::fd_table::FileError::NotReadable | crate::fd_table::FileError::NotWritable => EACCES,
+        crate::fd_table::FileError::Char(crate::char_device::CharError::WouldBlock) => EAGAIN,
         crate::fd_table::FileError::NotCharacterDevice
         | crate::fd_table::FileError::Lookup(_)
         | crate::fd_table::FileError::Char(_) => EIO,

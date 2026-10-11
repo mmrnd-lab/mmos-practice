@@ -372,16 +372,42 @@ pub extern "C" fn rust_main() -> ! {
             user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
         if let Ok(current) = input_runtime.current_for_task(&input_task) {
             let mut input_scratch = [0u8; 16];
-            if syscall::handle_current_process_read_checked_user_syscall(
+            let first_read = syscall::handle_current_process_read_checked_user_syscall(
                 current,
                 &mut input_user,
                 0,
                 0xa000,
                 7,
                 &mut input_scratch,
-            ) == syscall::SyscallResult::Continue(7)
-            {
+            );
+            if first_read == syscall::SyscallResult::Continue(7) {
                 console::puts("[chapter] ch45 console read bytes\n");
+            }
+        }
+    }
+    {
+        let mut input_user =
+            user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
+        if let Ok(current) = input_runtime.current_for_task(&input_task) {
+            let mut input_scratch = [0u8; 16];
+            let _ = syscall::handle_current_process_read_checked_user_syscall(
+                current,
+                &mut input_user,
+                0,
+                0xa007,
+                5,
+                &mut input_scratch,
+            );
+            if syscall::handle_current_process_read_checked_user_syscall(
+                current,
+                &mut input_user,
+                0,
+                0xa00c,
+                1,
+                &mut input_scratch,
+            ) == syscall::SyscallResult::Continue(-syscall::EAGAIN)
+            {
+                console::puts("[chapter] ch46 nonblocking read wouldblock\n");
             }
         }
     }
