@@ -49,6 +49,7 @@ pub extern "C" fn _start() -> ! {
 
     run_scheduler_runtime_demo();
     run_process_runtime_demo();
+    run_user_launch_demo();
 
     uart::puts("[mmos-practice] trap/irq scaffold ready\n");
     uart::puts("[chapter] ch22 fork exec wait demo\n");
@@ -66,6 +67,11 @@ fn run_process_runtime_demo() {
     uart::puts("[proc] fork parent=1 child=2\n");
     uart::puts("[proc] exec pid=2 path=/bin/sh\n");
     uart::puts("[proc] wait reap pid=2 code=0\n");
+}
+
+fn run_user_launch_demo() {
+    uart::puts("[chapter] ch26 user init launch handoff\n");
+    uart::puts("[launch] vm+stack+trapframe ready for first sret\n");
 }
 
 #[panic_handler]

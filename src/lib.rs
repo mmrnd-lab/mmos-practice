@@ -22,6 +22,7 @@ pub mod syscall;
 pub mod sv39;
 pub mod trap;
 pub mod user_exec;
+pub mod user_launch;
 pub mod user_init;
 pub mod user_stack;
 pub mod user_vm;
@@ -65,6 +66,7 @@ mod tests {
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage, UserRegionMut,
     };
+    use super::user_launch::prepare_user_init_launch;
     use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
@@ -624,6 +626,29 @@ mod tests {
         assert_eq!(plan.mapped_regions, 2);
         assert!(is_leaf_user_mapping(root.entries[1]));
         assert!(is_leaf_user_mapping(root.entries[2]));
+    }
+
+    #[test]
+    fn user_launch_plan_combines_vm_exec_and_stack_abi() {
+        let elf = build_test_init_elf();
+        let loaded = load_user_elf(&elf, 0x8050_0000).unwrap();
+        let mut stack = [0u8; 512];
+        let launch = prepare_user_init_launch::<8, 8>(
+            &loaded,
+            0x12345_000,
+            &mut stack,
+            &["/sbin/init", "--verbose"],
+            &["PATH=/bin"],
+        )
+        .unwrap();
+
+        assert_eq!(launch.satp >> 60, 8);
+        assert_eq!(launch.mapped_regions, 1);
+        assert_eq!(launch.trapframe.sepc, loaded.entry);
+        assert_eq!(launch.trapframe.sp(), launch.sp);
+        assert_eq!(launch.trapframe.a0(), 2);
+        assert_eq!(launch.trapframe.a1(), launch.argv_ptr);
+        assert_eq!(launch.trapframe.a2(), launch.envp_ptr);
     }
 
     #[test]
