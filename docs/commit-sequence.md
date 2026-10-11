@@ -791,7 +791,7 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - `make user-crt-env-lookup` 타깃과 verifier가 helper symbol과 runtime output을 확인
     - QEMU runtime marker에서 `[chapter] ch171 user crt env lookup`, `[user-init] getenv PATH=/bin` 확인
 
-155. `TBD` `feat(ch111): run init child shell wait lifecycle`
+155. `9ca0c37` `feat(ch111): run init child shell wait lifecycle`
     - user libc에 `clone`, `execve`, `wait4` syscall wrapper를 추가하고 `/sbin/init`이 child에서 `/bin/sh`를 실행한 뒤 부모에서 회수
     - 단일 hart Foundation 경로는 child exec 전에 부모 trap frame과 사용자 stack frame을 보존하고, shell 종료 뒤 디스크의 `/sbin/init` ELF와 부모 stack을 같은 사용자 mapping에 복원
     - `make run-foundation`이 `help`, `echo hello foundation`, `exit` 입력을 QEMU console에 공급하고 실제 `/bin/sh` ELF의 대화형 builtin 경로를 검증
