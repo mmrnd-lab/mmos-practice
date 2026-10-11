@@ -680,6 +680,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_exit_schedule_demo();
     run_trap_exit_process_dispatch_demo();
     run_process_trap_runtime_demo();
+    run_process_trap_runtime_reap_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -880,6 +881,51 @@ fn run_process_trap_runtime_demo() {
     {
         console::puts("[chapter] ch93 process trap runtime exit\n");
         console::puts("[proc] runtime exit owner=1 next=3 restored=0x40003000\n");
+    }
+}
+
+fn run_process_trap_runtime_reap_demo() {
+    let mut runtime = trap_runtime::ProcessTrapRuntime::<3, 2, 2, 4>::new();
+    let Ok(owner_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(other_pid) = runtime.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    let mut tid = 1usize;
+    while tid <= 3 {
+        let pid = if tid <= 2 { owner_pid } else { other_pid };
+        let mut frame = trap::TrapFrame::default();
+        frame.sepc = 0x4000_0000 + tid * 0x1000;
+        frame.set_a0(tid);
+        frame.set_sp(0x4010_0000 + tid * 0x1000);
+        if runtime.add_runnable_task(tid, pid, frame).is_err() {
+            return;
+        }
+        tid += 1;
+    }
+    runtime.start_first_task();
+
+    let mut live = trap::TrapFrame::default();
+    if runtime.dispatch_exit(&mut live, 1, 0)
+        != trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+            prev_tid: 1,
+            next_tid: 3,
+        })
+    {
+        return;
+    }
+
+    if let Ok(report) = runtime.reap_process(owner_pid) {
+        if report.exit_code == 0
+            && report.tasks_reaped == 2
+            && report.scheduler_tasks_reaped == 2
+            && runtime.current_tid() == Some(3)
+        {
+            console::puts("[chapter] ch94 process trap runtime reap\n");
+            console::puts("[proc] runtime reap pid=1 code=0 tasks=2 sched=2 next=3\n");
+        }
     }
 }
 

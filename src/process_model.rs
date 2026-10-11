@@ -155,6 +155,11 @@ impl<const MAX_PROCS: usize, const MAX_CHILDREN: usize, const MAX_AREAS: usize>
         Ok(())
     }
 
+    pub fn reap_process(&mut self, pid: usize) -> Result<i32, ProcError> {
+        let process = self.get_mut(pid)?;
+        process.reap()
+    }
+
     pub fn get(
         &self,
         pid: usize,
@@ -205,6 +210,14 @@ pub struct ProcessExitScheduleRuntime {
     pub exit: ProcessExitRuntime,
     pub scheduler_tasks_marked: usize,
     pub decision: ScheduleDecision,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessReapRuntime {
+    pub pid: usize,
+    pub exit_code: i32,
+    pub tasks_reaped: usize,
+    pub scheduler_tasks_reaped: usize,
 }
 
 impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
@@ -307,6 +320,39 @@ impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
         }
         marked
     }
+
+    pub fn remove_owner_tasks(&mut self, owner_pid: usize) -> usize {
+        let mut removed = 0usize;
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(tcb) = self.slots[idx] {
+                if tcb.owner_pid == owner_pid {
+                    self.slots[idx] = None;
+                    removed += 1;
+                }
+            }
+            idx += 1;
+        }
+        removed
+    }
+
+    pub fn remove_owner_scheduler_tasks<const SCHED_TASKS: usize>(
+        &self,
+        owner_pid: usize,
+        scheduler: &mut Scheduler<SCHED_TASKS>,
+    ) -> usize {
+        let mut removed = 0usize;
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(tcb) = self.slots[idx] {
+                if tcb.owner_pid == owner_pid && scheduler.remove_task(tcb.tid) {
+                    removed += 1;
+                }
+            }
+            idx += 1;
+        }
+        removed
+    }
 }
 
 pub fn exit_process_from_task<
@@ -360,5 +406,28 @@ pub fn exit_process_from_task_with_scheduler<
         exit,
         scheduler_tasks_marked: sibling_scheduler_tasks + 1,
         decision,
+    })
+}
+
+pub fn reap_exited_process<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCHED_TASKS: usize,
+>(
+    processes: &mut ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    tasks: &mut TaskTable<MAX_TASKS>,
+    scheduler: &mut Scheduler<SCHED_TASKS>,
+    pid: usize,
+) -> Result<ProcessReapRuntime, ProcError> {
+    let exit_code = processes.reap_process(pid)?;
+    let scheduler_tasks_reaped = tasks.remove_owner_scheduler_tasks(pid, scheduler);
+    let tasks_reaped = tasks.remove_owner_tasks(pid);
+    Ok(ProcessReapRuntime {
+        pid,
+        exit_code,
+        tasks_reaped,
+        scheduler_tasks_reaped,
     })
 }

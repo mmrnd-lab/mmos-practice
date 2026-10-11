@@ -114,6 +114,23 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
         false
     }
 
+    pub fn remove_task(&mut self, tid: usize) -> bool {
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(task) = self.slots[idx] {
+                if task.tid == tid {
+                    self.slots[idx] = None;
+                    if self.current_idx == Some(idx) {
+                        self.current_idx = None;
+                    }
+                    return true;
+                }
+            }
+            idx += 1;
+        }
+        false
+    }
+
     pub fn schedule_after_current_blocked(
         &mut self,
         current_tf: TrapFrame,

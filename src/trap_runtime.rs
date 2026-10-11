@@ -5,7 +5,10 @@ use core::cell::UnsafeCell;
 
 use crate::{
     irq_guard::IrqGuard,
-    process_model::{ProcError, ProcessTable, TaskControlBlock, TaskTable},
+    process_model::{
+        reap_exited_process, ProcError, ProcessReapRuntime, ProcessTable, TaskControlBlock,
+        TaskTable,
+    },
     scheduler::{SchedError, ScheduleDecision, Scheduler, TaskState},
     trap::{
         dispatch_exit_outcome_with_process_runtime, dispatch_trap_outcome, TrapDispatchResult,
@@ -139,6 +142,15 @@ impl<
             &mut self.scheduler,
             current_tid,
             code,
+        )
+    }
+
+    pub fn reap_process(&mut self, pid: usize) -> Result<ProcessReapRuntime, ProcError> {
+        reap_exited_process(
+            &mut self.processes,
+            &mut self.tasks,
+            &mut self.scheduler,
+            pid,
         )
     }
 

@@ -77,7 +77,7 @@ mod tests {
     use super::pmm::{PageFrameManager, PmmError};
     use super::process_model::{
         exit_process_from_task, exit_process_from_task_with_scheduler, ProcError, ProcState,
-        ProcessTable, TaskControlBlock, TaskTable,
+        reap_exited_process, ProcessTable, TaskControlBlock, TaskTable,
     };
     use super::process_io::{
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
@@ -1938,6 +1938,83 @@ mod tests {
         assert_eq!(runtime.current_tid(), Some(3));
         assert_eq!(runtime.process_state(owner_pid), Ok(ProcState::Zombie));
         assert_eq!(runtime.process_exit_code(owner_pid), Ok(Some(13)));
+    }
+
+    #[test]
+    fn process_reap_runtime_removes_owner_tasks_and_scheduler_slots() {
+        let mut processes = ProcessTable::<3, 2, 2>::new();
+        let mut tasks = TaskTable::<4>::new();
+        let mut scheduler = Scheduler::<4>::new();
+        let owner_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
+            let frame = TrapFrame::default();
+            tasks
+                .add_task(TaskControlBlock::new(tid, pid, frame))
+                .unwrap();
+            scheduler.add_runnable(tid, frame).unwrap();
+        }
+        let _ = scheduler.on_tick();
+        let _ = exit_process_from_task_with_scheduler(
+            &mut processes,
+            &mut tasks,
+            &mut scheduler,
+            1,
+            21,
+        )
+        .unwrap();
+
+        let report =
+            reap_exited_process(&mut processes, &mut tasks, &mut scheduler, owner_pid).unwrap();
+
+        assert_eq!(report.pid, owner_pid);
+        assert_eq!(report.exit_code, 21);
+        assert_eq!(report.tasks_reaped, 2);
+        assert_eq!(report.scheduler_tasks_reaped, 2);
+        assert_eq!(processes.get(owner_pid).unwrap().state, ProcState::Reaped);
+        assert!(tasks.get(1).is_err());
+        assert!(tasks.get(2).is_err());
+        assert_eq!(tasks.get(3).unwrap().owner_pid, other_pid);
+        assert_eq!(scheduler.task_state(1), None);
+        assert_eq!(scheduler.task_state(2), None);
+        assert_eq!(scheduler.task_state(3), Some(TaskState::Running));
+        assert_eq!(scheduler.current_tid(), Some(3));
+    }
+
+    #[test]
+    fn process_trap_runtime_reaps_exited_process() {
+        let mut runtime = ProcessTrapRuntime::<3, 2, 2, 4>::new();
+        let owner_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = runtime
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        for (tid, pid) in [(1, owner_pid), (2, owner_pid), (3, other_pid)] {
+            let mut frame = TrapFrame::default();
+            frame.sepc = 0x4000_0000 + tid * 0x1000;
+            runtime.add_runnable_task(tid, pid, frame).unwrap();
+        }
+        runtime.start_first_task();
+
+        let mut live = TrapFrame::default();
+        let _ = runtime.dispatch_exit(&mut live, 1, 34);
+        let report = runtime.reap_process(owner_pid).unwrap();
+
+        assert_eq!(report.exit_code, 34);
+        assert_eq!(report.tasks_reaped, 2);
+        assert_eq!(report.scheduler_tasks_reaped, 2);
+        assert_eq!(runtime.process_state(owner_pid), Ok(ProcState::Reaped));
+        assert_eq!(runtime.task_state(1), None);
+        assert_eq!(runtime.task_state(2), None);
+        assert_eq!(runtime.task_state(3), Some(TaskState::Running));
+        assert_eq!(runtime.current_tid(), Some(3));
     }
 
     #[test]
