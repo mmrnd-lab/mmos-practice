@@ -130,6 +130,10 @@
     - `CharError::WouldBlock`을 syscall errno `-EAGAIN`으로 매핑해 non-blocking read 실패 정책을 고정
     - buffered console input을 모두 소비한 뒤 추가 `read()`가 `-EAGAIN`으로 실패하는 경로를 검증
 
+41. `40094ef` `feat(ch48): add blocking read wait queue`
+    - `WaitQueue`를 추가해 입력이 없는 blocking read가 현재 task를 대기열에 등록할 수 있도록 구성
+    - `WouldBlock`을 만난 blocking read helper가 task 상태를 `Blocked`로 바꾸고 wakeup 시 `Runnable`로 되돌리는 경로를 검증
+
 
 ## Reproduce Example
 

@@ -781,6 +781,25 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=empty buffered console read maps WouldBlock to -EAGAIN",
     ),
     ChapterSet(
+        key="ch48_blocking_read_wait_queue",
+        label="Ch48 Blocking Read Wait Queue",
+        commit_candidates=["40094ef"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch48 blocking read wait queue",
+                    "[chapter] ch46 nonblocking read wouldblock",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=WouldBlock can park the current task on a read wait queue",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],
