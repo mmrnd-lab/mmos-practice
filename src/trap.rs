@@ -297,12 +297,22 @@ extern "C" fn trap_entry() {
     // practice placeholder: host tests call handle_trap directly.
 }
 
+#[allow(function_casts_as_integer)]
 pub fn install_trap_vector() {
     #[cfg(target_arch = "riscv64")]
     let handler = __mmos_trap_entry as usize;
     #[cfg(not(target_arch = "riscv64"))]
     let handler = trap_entry as *const () as usize;
     write_stvec(handler);
+}
+
+#[allow(function_casts_as_integer)]
+pub fn trap_vector_address() -> usize {
+    #[cfg(target_arch = "riscv64")]
+    let handler = __mmos_trap_entry as usize;
+    #[cfg(not(target_arch = "riscv64"))]
+    let handler = trap_entry as *const () as usize;
+    handler
 }
 
 pub fn enable_supervisor_interrupts() {

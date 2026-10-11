@@ -228,6 +228,20 @@ pub enum SatpCommitPreflightError {
     MissingKernelMapping { vpn2: usize },
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct KernelRuntimeSatpGuard {
+    pub kernel_code_vpn2: usize,
+    pub kernel_stack_vpn2: usize,
+    pub trap_entry_vpn2: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum KernelRuntimeSatpGuardError {
+    MissingKernelCode { vpn2: usize },
+    MissingKernelStack { vpn2: usize },
+    MissingTrapEntry { vpn2: usize },
+}
+
 pub fn preflight_satp_commit(
     root: &RootPageTable,
     user_entry: usize,
@@ -253,6 +267,43 @@ pub fn preflight_satp_commit(
         user_stack_vpn2: stack_vpn2,
         kernel_vpn2: KERNEL_IDENTITY_VPN2,
     })
+}
+
+pub fn guard_kernel_runtime_after_satp(
+    root: &RootPageTable,
+    kernel_code_addr: usize,
+    kernel_stack_addr: usize,
+    trap_entry_addr: usize,
+) -> Result<KernelRuntimeSatpGuard, KernelRuntimeSatpGuardError> {
+    let kernel_code_vpn2 = kernel_code_addr >> GIB_SHIFT;
+    let kernel_stack_vpn2 = kernel_stack_addr >> GIB_SHIFT;
+    let trap_entry_vpn2 = trap_entry_addr >> GIB_SHIFT;
+
+    if !kernel_mapping_covers(root, kernel_code_vpn2) {
+        return Err(KernelRuntimeSatpGuardError::MissingKernelCode {
+            vpn2: kernel_code_vpn2,
+        });
+    }
+    if !kernel_mapping_covers(root, kernel_stack_vpn2) {
+        return Err(KernelRuntimeSatpGuardError::MissingKernelStack {
+            vpn2: kernel_stack_vpn2,
+        });
+    }
+    if !kernel_mapping_covers(root, trap_entry_vpn2) {
+        return Err(KernelRuntimeSatpGuardError::MissingTrapEntry {
+            vpn2: trap_entry_vpn2,
+        });
+    }
+
+    Ok(KernelRuntimeSatpGuard {
+        kernel_code_vpn2,
+        kernel_stack_vpn2,
+        trap_entry_vpn2,
+    })
+}
+
+fn kernel_mapping_covers(root: &RootPageTable, vpn2: usize) -> bool {
+    vpn2 < PT_ENTRIES && is_kernel_mapping(root.entries[vpn2])
 }
 
 pub fn is_kernel_mapping(entry: PageTableEntry) -> bool {

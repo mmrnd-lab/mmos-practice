@@ -127,9 +127,10 @@ mod tests {
     use super::user_process::create_user_process_from_launch;
     use super::user_stack::{build_initial_user_stack, UserStackError};
     use super::user_vm::{
-        build_user_vm_plan, install_kernel_identity_mapping, install_user_vm_plan_in_root,
-        is_kernel_mapping, is_leaf_user_mapping, preflight_satp_commit, SatpCommitPreflight,
-        SatpCommitPreflightError,
+        build_user_vm_plan, guard_kernel_runtime_after_satp, install_kernel_identity_mapping,
+        install_user_vm_plan_in_root, is_kernel_mapping, is_leaf_user_mapping,
+        preflight_satp_commit, KernelRuntimeSatpGuard, KernelRuntimeSatpGuardError,
+        SatpCommitPreflight, SatpCommitPreflightError,
     };
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
@@ -1847,6 +1848,43 @@ mod tests {
     }
 
     #[test]
+    fn kernel_runtime_satp_guard_requires_code_stack_and_trap_entry_mapping() {
+        let mut root = RootPageTable::new();
+        install_kernel_identity_mapping(&mut root).unwrap();
+
+        assert_eq!(
+            guard_kernel_runtime_after_satp(
+                &root,
+                0x8020_0000,
+                0x8020_8000 - 16,
+                0x8020_1000,
+            ),
+            Ok(KernelRuntimeSatpGuard {
+                kernel_code_vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
+                kernel_stack_vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
+                trap_entry_vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
+            })
+        );
+    }
+
+    #[test]
+    fn kernel_runtime_satp_guard_rejects_missing_kernel_mapping() {
+        let root = RootPageTable::new();
+
+        assert_eq!(
+            guard_kernel_runtime_after_satp(
+                &root,
+                0x8020_0000,
+                0x8020_8000 - 16,
+                0x8020_1000,
+            ),
+            Err(KernelRuntimeSatpGuardError::MissingKernelCode {
+                vpn2: super::user_vm::KERNEL_IDENTITY_VPN2,
+            })
+        );
+    }
+
+    #[test]
     fn user_init_context_clears_spp_for_umode() {
         let ctx = build_user_init_context(0x4000_0000, 0x4010_0000);
         assert_eq!(ctx.sepc, 0x4000_0000);
@@ -2289,7 +2327,7 @@ mod tests {
             &["PATH=/bin"],
         )
         .unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let root_install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();
@@ -2353,7 +2391,7 @@ mod tests {
             &["PATH=/bin"],
         )
         .unwrap();
-        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_1000, super::sv39::PAGE_SIZE);
+        let mut allocator = PageFrameAllocator::new(0x9000_0000, 0x9000_2000, super::sv39::PAGE_SIZE);
         let root_frame_pa = allocator.alloc().unwrap();
         let mut root = RootPageTable::new();
         let root_install = install_user_vm_plan_in_root(&loaded, root_frame_pa, &mut root).unwrap();

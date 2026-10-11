@@ -657,6 +657,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_runtime_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
+    run_kernel_satp_guard_demo();
     loop {
         unsafe { core::arch::asm!("wfi") }
     }
@@ -676,6 +677,39 @@ fn run_process_runtime_demo() {
     console::puts("[proc] fork parent=1 child=2\n");
     console::puts("[proc] exec pid=2 path=/bin/sh\n");
     console::puts("[proc] wait reap pid=2 code=0\n");
+}
+
+fn run_kernel_satp_guard_demo() {
+    if ch78_kernel_satp_runtime_guard() {
+        console::puts("[chapter] ch78 kernel satp runtime guard\n");
+    }
+}
+
+#[inline(never)]
+fn ch78_kernel_satp_runtime_guard() -> bool {
+    let mut pmm =
+        pmm::PageFrameManager::<1>::new(0x9000_0000, 0x9000_1000, sv39::PAGE_SIZE);
+    let Some(root_frame_pa) = pmm.alloc() else {
+        return false;
+    };
+    let root = unsafe { user_vm::root_page_table_from_identity_frame_mut(root_frame_pa) };
+    if user_vm::install_kernel_identity_mapping(root).is_err() {
+        return false;
+    }
+    let kernel_code = run_user_launch_demo as *const () as usize;
+    match user_vm::guard_kernel_runtime_after_satp(
+        root,
+        kernel_code,
+        trap::kernel_trap_stack_top() - 16,
+        trap::trap_vector_address(),
+    ) {
+        Ok(guard) => {
+            guard.kernel_code_vpn2 == user_vm::KERNEL_IDENTITY_VPN2
+                && guard.kernel_stack_vpn2 == user_vm::KERNEL_IDENTITY_VPN2
+                && guard.trap_entry_vpn2 == user_vm::KERNEL_IDENTITY_VPN2
+        }
+        Err(_) => false,
+    }
 }
 
 fn run_user_launch_demo() {
@@ -885,7 +919,7 @@ fn run_user_launch_demo() {
                                                         "[chapter] ch66 user address relocation\n",
                                                     );
                                                     if user_vm::preflight_satp_commit(
-                                                        &root,
+                                                        root,
                                                         loaded.entry,
                                                         loaded.stack_top,
                                                     )
