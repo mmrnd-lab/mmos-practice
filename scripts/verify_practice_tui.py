@@ -2300,6 +2300,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=wait4 ecall is decoded from trap frame, reaps a zombie child, copies status, and writes back parent registers",
     ),
     ChapterSet(
+        key="ch137_execve_prepared_entry_dispatch",
+        label="Ch137 Execve Prepared Entry Dispatch",
+        commit_candidates=["6889ec1"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch137 execve prepared entry dispatch",
+                    "[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=prepared execve entry builds recipe/input at the store boundary and dispatches the ecall",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

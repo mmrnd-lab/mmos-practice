@@ -579,3 +579,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - zombie child가 있으면 status를 checked user memory로 copyout하고 parent frame의 `a0/sepc`를 writeback
     - child가 아직 zombie가 아니면 기존 wait queue와 scheduler handoff 결과를 보존해 blocking wait 경로를 그대로 사용
     - QEMU runtime marker에서 `[chapter] ch136 wait4 trap dispatch`, `[trap] wait4 dispatched child=2 status=19 a0=2 sepc=0x40001004` 확인
+
+122. `6889ec1` `feat(ch137): dispatch execve through prepared entry`
+    - `handle_execv_user_ecall_with_prepared_entry()`를 추가해 prepared entry store 경계에서 user source와 replacement VM을 recipe/input으로 조립
+    - caller는 `ExecvPreparedEntryInput`을 직접 만들지 않고 prepared store helper에 frame, user source, replacement VM만 전달
+    - execve 성공 시 live frame은 `a0=0`, `sepc+4`로 writeback되고 current task frame은 `/sbin/init` entry로 교체됨
+    - QEMU runtime marker에서 `[chapter] ch137 execve prepared entry dispatch`, `[trap] execve prepared entry dispatch a0=0 sepc=0x40005004 entry=0x40000000` 확인
