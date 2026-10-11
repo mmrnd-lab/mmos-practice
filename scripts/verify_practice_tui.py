@@ -1088,6 +1088,26 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=address-space switch token is applied to the active satp slot",
     ),
     ChapterSet(
+        key="ch65_satp_commit_boundary",
+        label="Ch65 SATP Commit Boundary",
+        commit_candidates=["80f5944"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch65 satp commit boundary",
+                    "[chapter] ch64 address space switch apply",
+                    "[chapter] ch63 task address space token",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=satp commit plan is ready before the hardware write boundary",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

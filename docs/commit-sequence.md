@@ -199,6 +199,11 @@
     - live frame 복원 이후 next task의 address-space token이 trap return 준비 상태에 반영됨을 검증
 
 
+57. `80f5944` `feat(ch65): add satp commit boundary`
+    - active `satp` 적용 결과를 실제 CSR write 직전 commit plan으로 정리
+    - RISC-V `csrw satp`와 `sfence.vma` 순서를 갖는 하드웨어 경계 함수를 추가
+
+
 ## Reproduce Example
 
 ```bash
