@@ -77,18 +77,19 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_current_process_close, handle_current_process_write_checked_user_syscall,
+        decode_syscall, handle_current_process_close, handle_current_process_read_checked_user_syscall,
+        handle_current_process_write_checked_user_syscall,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
         handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
-        EACCES, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
+        EACCES, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
         TrapOutcome, SCAUSE_USER_ECALL,
     };
-    use super::user_copy::{CheckedUserSlice, UserCopyError, UserSlice};
+    use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
         install_exec_context, load_init_exec_image, materialize_segments, ExecError, UserExecImage,
         UserRegionMut,
@@ -652,6 +653,114 @@ mod tests {
     #[test]
     fn syscall_decodes_close_number() {
         assert_eq!(decode_syscall(SYS_CLOSE, 3, 0, 0), Some(Syscall::Close { fd: 3 }));
+    }
+
+
+    #[test]
+    fn user_copyout_writes_bytes_to_user_buffer() {
+        let mut bytes = [0u8; 8];
+        {
+            let mut user = UserSliceMut::new(&mut bytes, 0x1000);
+            assert_eq!(user.copyout_bytes(0x1002, b"abc"), Ok(3));
+        }
+        assert_eq!(bytes, [0, 0, b'a', b'b', b'c', 0, 0, 0]);
+
+        let mut user = UserSliceMut::new(&mut bytes, 0x1000);
+        assert_eq!(user.copyout_bytes(0x1006, b"abc"), Err(UserCopyError::BadAddress));
+    }
+
+    #[test]
+    fn checked_user_copyout_requires_vm_write_permission() {
+        let mut bytes = [0u8; 8];
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x2000, 0x2008, PTE_W).unwrap();
+        let mut user = CheckedUserSliceMut::new(&mut bytes, 0x2000, &vm);
+
+        assert_eq!(user.copyout_bytes(0x2000, b"rw"), Ok(2));
+        assert_eq!(&bytes[..2], b"rw");
+
+        let mut ro_vm = VmSpace::<2>::new();
+        ro_vm.map_anon(0x3000, 0x3008, PTE_R).unwrap();
+        let mut ro_user = CheckedUserSliceMut::new(&mut bytes, 0x3000, &ro_vm);
+        assert_eq!(ro_user.copyout_bytes(0x3000, b"x"), Err(UserCopyError::Permission));
+    }
+
+    #[test]
+    fn read_syscall_copies_device_bytes_out_to_user_buffer() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"input")));
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let current = runtime.current_for_task(&task).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x4000, 0x4010, PTE_W).unwrap();
+        let mut user_bytes = [0u8; 16];
+        let mut user = CheckedUserSliceMut::new(&mut user_bytes, 0x4000, &vm);
+        let mut scratch = [0u8; 8];
+
+        assert_eq!(
+            handle_current_process_read_checked_user_syscall(
+                current,
+                &mut user,
+                0,
+                0x4000,
+                5,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(5)
+        );
+        assert_eq!(&user_bytes[..5], b"input");
+    }
+
+    #[test]
+    fn read_syscall_reports_fd_and_copyout_errors() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"input")));
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let current = runtime.current_for_task(&task).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x5000, 0x5010, PTE_R).unwrap();
+        let mut user_bytes = [0u8; 16];
+        let mut user = CheckedUserSliceMut::new(&mut user_bytes, 0x5000, &vm);
+        let mut scratch = [0u8; 8];
+
+        assert_eq!(
+            handle_current_process_read_checked_user_syscall(
+                current,
+                &mut user,
+                7,
+                0x5000,
+                1,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(-EBADF)
+        );
+        assert_eq!(
+            handle_current_process_read_checked_user_syscall(
+                current,
+                &mut user,
+                0,
+                0x5000,
+                1,
+                &mut scratch,
+            ),
+            SyscallResult::Continue(-EFAULT)
+        );
+    }
+
+    #[test]
+    fn syscall_decodes_read_number() {
+        assert_eq!(
+            decode_syscall(SYS_READ, 3, 0x1000, 4),
+            Some(Syscall::Read { fd: 3, ptr: 0x1000, len: 4 })
+        );
     }
 
     #[test]

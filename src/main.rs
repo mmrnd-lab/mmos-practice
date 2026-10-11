@@ -332,6 +332,31 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
 
+    let mut read_runtime = process_io::ProcessIoRuntime::<2, 2, 2, 8>::new();
+    let read_pid = read_runtime
+        .create_process_with_stdio(None, vm::VmSpace::<2>::new(), console::device())
+        .unwrap_or(0);
+    let read_task =
+        process_model::TaskControlBlock::new(4, read_pid, trap::TrapFrame::default(), 0);
+    let mut read_vm = vm::VmSpace::<2>::new();
+    let _ = read_vm.map_anon(0x9000, 0x9020, sv39::PTE_W);
+    let mut read_mem = [0u8; 32];
+    let mut read_user = user_copy::CheckedUserSliceMut::new(&mut read_mem, 0x9000, &read_vm);
+    if let Ok(current) = read_runtime.current_for_task(&read_task) {
+        let mut read_scratch = [0u8; 16];
+        if syscall::handle_current_process_read_checked_user_syscall(
+            current,
+            &mut read_user,
+            0,
+            0x9000,
+            0,
+            &mut read_scratch,
+        ) == syscall::SyscallResult::Continue(0)
+        {
+            console::puts("[chapter] ch44 read fd copyout\n");
+        }
+    }
+
     let init_ctx = user_init::build_user_init_context(0x8040_0000, 0x8050_0000);
     if init_ctx.sstatus & user_init::SSTATUS_SPP == 0 {
         console::puts("[mmos-practice] user init context prepared (SPP=U)\n");

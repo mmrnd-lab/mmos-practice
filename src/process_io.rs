@@ -35,6 +35,10 @@ impl<const MAX_FDS: usize> ProcessIoContext<MAX_FDS> {
         self.fd_table.open_path(ns, path, mode)
     }
 
+    pub fn read_fd(&self, fd: usize, out: &mut [u8]) -> Result<usize, FileError> {
+        self.fd_table.read(fd, out)
+    }
+
     pub fn write_fd(&self, fd: usize, bytes: &[u8]) -> Result<usize, FileError> {
         self.fd_table.write(fd, bytes)
     }
@@ -77,6 +81,10 @@ impl<const MAX_FDS: usize> CurrentProcessIoContext<MAX_FDS> {
         mode: OpenMode,
     ) -> Result<usize, FileError> {
         self.io.open_path(ns, path, mode)
+    }
+
+    pub fn read_fd(&self, fd: usize, out: &mut [u8]) -> Result<usize, FileError> {
+        self.io.read_fd(fd, out)
     }
 
     pub fn write_fd(&self, fd: usize, bytes: &[u8]) -> Result<usize, FileError> {

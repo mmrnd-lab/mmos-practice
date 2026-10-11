@@ -3,6 +3,7 @@
 
 pub const SYS_OPENAT: usize = 56;
 pub const SYS_CLOSE: usize = 57;
+pub const SYS_READ: usize = 63;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 
@@ -44,6 +45,7 @@ const O_RDWR: usize = 2;
 pub enum Syscall {
     OpenAt { dirfd: usize, path_ptr: usize, flags: usize, mode: usize },
     Close { fd: usize },
+    Read { fd: usize, ptr: usize, len: usize },
     Write { fd: usize, ptr: usize, len: usize },
     Exit { code: i32 },
 }
@@ -64,6 +66,11 @@ pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Sysc
             mode: 0,
         }),
         SYS_CLOSE => Some(Syscall::Close { fd: a0 }),
+        SYS_READ => Some(Syscall::Read {
+            fd: a0,
+            ptr: a1,
+            len: a2,
+        }),
         SYS_WRITE => Some(Syscall::Write {
             fd: a0,
             ptr: a1,
@@ -78,6 +85,7 @@ pub fn handle_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> SyscallResu
     match decode_syscall(id, a0, a1, a2) {
         Some(Syscall::OpenAt { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Close { .. }) => SyscallResult::Unsupported,
+        Some(Syscall::Read { .. }) => SyscallResult::Unsupported,
         Some(Syscall::Write { fd, ptr, len }) => handle_write(fd, ptr, len),
         Some(Syscall::Exit { code }) => SyscallResult::Exit(code),
         None => SyscallResult::Unsupported,
@@ -114,6 +122,17 @@ pub fn handle_process_open_path<const N: usize>(
     match open_mode_from_flags(flags).and_then(|mode| io.open_path(ns, path, mode).ok()) {
         Some(fd) => SyscallResult::Continue(fd as isize),
         None => SyscallResult::Continue(-1),
+    }
+}
+
+pub fn handle_process_read<const N: usize>(
+    io: &crate::process_io::ProcessIoContext<N>,
+    fd: usize,
+    out: &mut [u8],
+) -> SyscallResult {
+    match io.read_fd(fd, out) {
+        Ok(read) => SyscallResult::Continue(read as isize),
+        Err(error) => errno_result(file_error_errno(error)),
     }
 }
 
@@ -255,4 +274,31 @@ pub fn handle_current_process_close<const N: usize>(
     fd: usize,
 ) -> SyscallResult {
     handle_process_close(current.io_mut(), fd)
+}
+
+
+pub fn handle_current_process_read_checked_user_syscall<const N: usize, const A: usize>(
+    current: &crate::process_io::CurrentProcessIoContext<N>,
+    user: &mut crate::user_copy::CheckedUserSliceMut<'_, A>,
+    fd: usize,
+    ptr: usize,
+    len: usize,
+    scratch: &mut [u8],
+) -> SyscallResult {
+    if len > scratch.len() {
+        return errno_result(EINVAL);
+    }
+    if len == 0 {
+        return SyscallResult::Continue(0);
+    }
+
+    let read = match current.read_fd(fd, &mut scratch[..len]) {
+        Ok(read) => read,
+        Err(error) => return errno_result(file_error_errno(error)),
+    };
+
+    match user.copyout_bytes(ptr, &scratch[..read]) {
+        Ok(n) => SyscallResult::Continue(n as isize),
+        Err(error) => errno_result(user_copy_errno(error)),
+    }
 }

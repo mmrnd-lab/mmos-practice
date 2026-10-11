@@ -125,3 +125,54 @@ impl<'a, const MAX_AREAS: usize> CheckedUserSlice<'a, MAX_AREAS> {
         Err(UserCopyError::MissingNul)
     }
 }
+
+
+pub struct UserSliceMut<'a> {
+    bytes: &'a mut [u8],
+    base: usize,
+}
+
+impl<'a> UserSliceMut<'a> {
+    pub fn new(bytes: &'a mut [u8], base: usize) -> Self {
+        Self { bytes, base }
+    }
+
+    fn range_mut(&mut self, ptr: usize, len: usize) -> Result<&mut [u8], UserCopyError> {
+        let start = ptr.checked_sub(self.base).ok_or(UserCopyError::BadAddress)?;
+        let end = start.checked_add(len).ok_or(UserCopyError::BadAddress)?;
+        self.bytes.get_mut(start..end).ok_or(UserCopyError::BadAddress)
+    }
+
+    pub fn copyout_bytes(&mut self, ptr: usize, src: &[u8]) -> Result<usize, UserCopyError> {
+        let dst = self.range_mut(ptr, src.len())?;
+        dst.copy_from_slice(src);
+        Ok(src.len())
+    }
+}
+
+pub struct CheckedUserSliceMut<'a, const MAX_AREAS: usize> {
+    user: UserSliceMut<'a>,
+    vm: &'a VmSpace<MAX_AREAS>,
+}
+
+impl<'a, const MAX_AREAS: usize> CheckedUserSliceMut<'a, MAX_AREAS> {
+    pub fn new(bytes: &'a mut [u8], base: usize, vm: &'a VmSpace<MAX_AREAS>) -> Self {
+        Self {
+            user: UserSliceMut::new(bytes, base),
+            vm,
+        }
+    }
+
+    fn check_write(&self, ptr: usize, len: usize) -> Result<(), UserCopyError> {
+        if self.vm.allows_range(ptr, len, FaultAccess::Write) {
+            Ok(())
+        } else {
+            Err(UserCopyError::Permission)
+        }
+    }
+
+    pub fn copyout_bytes(&mut self, ptr: usize, src: &[u8]) -> Result<usize, UserCopyError> {
+        self.check_write(ptr, src.len())?;
+        self.user.copyout_bytes(ptr, src)
+    }
+}
