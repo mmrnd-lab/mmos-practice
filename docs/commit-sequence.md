@@ -651,3 +651,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - verifier가 `[user-link] init=ET_EXEC crt=rlib shared-object=no` 출력을 확인해 현재 link model을 고정
     - runtime shared object가 아직 없음을 QEMU marker로도 명시해 다음 shared loader 설계의 질문을 만든다
     - QEMU runtime marker에서 `[chapter] ch149 user link model classification`, `[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent` 확인
+
+134. `953647d` `feat(ch150): add shared object load plan`
+    - ELF header parsing이 `ET_EXEC`와 `ET_DYN`을 `ElfFileType`으로 보존하도록 확장
+    - `SharedObjectLoadPlan`과 `plan_shared_object_load()`를 추가해 ET_DYN 후보가 preferred base, load segment 수, relocation 필요 여부를 갖는지 검증
+    - `make shared-object-load-plan` 타깃과 verifier가 `[user-link] shared-object=ET_DYN loader-plan=base+segments relocation=needed` 출력을 확인
+    - QEMU runtime marker에서 `[chapter] ch150 shared object load plan`, `[user-link] ET_DYN shared object requires base, segments, and relocation plan` 확인
+
