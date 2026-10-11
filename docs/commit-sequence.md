@@ -672,3 +672,10 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - unit test는 동적 metadata가 있는 `ET_DYN` 후보와 dynamic segment가 없는 후보를 구분
     - QEMU runtime marker에서 `[chapter] ch152 shared object dynamic metadata`, `[user-link] dynamic segment exposes RELA metadata before relocation apply` 확인
 
+137. `9ab71e5` `feat(ch153): collect shared object relocation candidates`
+    - `SharedObjectRelocationCandidate`와 `SharedObjectRelocationPlan`을 추가해 RELA record를 apply 후보로 보존
+    - `collect_shared_object_relocations()`가 dynamic metadata의 `DT_RELA` 주소를 load segment의 file offset으로 변환한 뒤 24 byte RELA entry를 순회
+    - unit test가 `r_offset`, relocation type, symbol index, addend를 분리해 검증하고 빈 RELA table도 허용
+    - `make shared-object-relocations` 타깃이 실제 `libmmos_user_crt.so`의 relocation scan 결과를 고정
+    - QEMU runtime marker에서 `[chapter] ch153 shared object relocation candidates`, `[user-link] RELA records are scanned into relocation apply candidates` 확인
+

@@ -2624,7 +2624,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch153_shared_object_relocation_candidates",
         label="Ch153 Shared Object Relocation Candidates",
-        commit_candidates=["HEAD"],
+        commit_candidates=["9ab71e5"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(
