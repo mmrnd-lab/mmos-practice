@@ -76,13 +76,24 @@ QEMU virtio-blk drive0
 - 기본 브랜치: `main`
 - 실습은 `main`에 선형 히스토리로 유지
 
-## CUI 검증 도구
+## CUI/CLI 검증 도구
 
 챕터별 검증 세트를 선택해서 한 번에 실행하려면 아래 스크립트를 사용합니다.
 
 ```bash
 cd /home/nicesj/mmrnd/mmos/mmos-practice
 ./scripts/verify_practice_tui.py
+```
+
+TUI 없이 특정 챕터를 바로 확인하려면 `--cli`를 붙입니다.
+각 단계는 해당 챕터 커밋으로 checkout한 뒤 컨테이너 안에서 실행되고,
+책에서 기대하는 로그/출력 시그니처가 빠지면 `OVERALL FAIL`로 종료합니다.
+
+```bash
+./scripts/verify_practice_tui.py --list
+./scripts/verify_practice_tui.py --cli ch27_first_user_sret
+./scripts/verify_practice_tui.py --cli ch28_user_app_build --quiet
+./scripts/verify_practice_tui.py --cli --all --keep-going --quiet
 ```
 
 기능:

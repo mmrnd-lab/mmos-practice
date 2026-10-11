@@ -13,6 +13,7 @@ Features:
 
 from __future__ import annotations
 
+import argparse
 import curses
 import os
 import re
@@ -473,6 +474,13 @@ CHAPTERS: List[ChapterSet] = [
                 "make user-init PROFILE=release && riscv64-linux-gnu-readelf -h build/user-init.elf | grep 'Machine:'",
                 must_contain=(
                     "Machine:                           RISC-V",
+                ),
+            ),
+            Step(
+                "boot-disk-inject",
+                "make boot-disk PROFILE=release && riscv64-linux-gnu-readelf -s build/user-init.elf | grep '_start'",
+                must_contain=(
+                    "_start",
                 ),
             ),
         ],
@@ -1036,20 +1044,24 @@ def run_streaming(
     return rc, combined
 
 
-def commit_exists(host: str, repo: str, commit: str, state: AppState, stdscr: curses.window) -> bool:
+def commit_exists(host: str, repo: str, commit: str, state: AppState, stdscr: Optional[curses.window]) -> bool:
     cmd = f"cd {shlex.quote(repo)} && git cat-file -e {shlex.quote(commit)}^{{commit}}"
-    rc, _ = run_streaming(host, cmd, state, stdscr)
+    if stdscr is None:
+        rc, _ = run_capture(host, cmd)
+    else:
+        rc, _ = run_streaming(host, cmd, state, stdscr)
     return rc == 0
 
 
-def resolve_commit(host: str, repo: str, chapter: ChapterSet, state: AppState, stdscr: curses.window) -> Optional[str]:
+def resolve_commit(host: str, repo: str, chapter: ChapterSet, state: AppState, stdscr: Optional[curses.window]) -> Optional[str]:
     cached = state.resolved_commits.get(chapter.key)
     if cached:
         return cached
 
     for cand in chapter.commit_candidates:
         state.current_action = f"resolving commit for {chapter.label}: {cand}"
-        draw_ui(stdscr, state)
+        if stdscr is not None:
+            draw_ui(stdscr, state)
         if commit_exists(host, repo, cand, state, stdscr):
             state.resolved_commits[chapter.key] = cand
             return cand
@@ -2036,5 +2048,184 @@ def main(stdscr: curses.window) -> int:
     return 0
 
 
+def run_streaming_cli(host: str, shell_cmd: str, verbose: bool = True) -> Tuple[int, str]:
+    argv = host_exec_argv(host, shell_cmd)
+    raw_cmd = " ".join(shlex.quote(a) for a in argv)
+    one_line_cmd = sanitize_log_line(raw_cmd.replace("\n", " | "))
+    if verbose:
+        print(f"$ {one_line_cmd}", flush=True)
+
+    proc = subprocess.Popen(
+        argv,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    output_accum: List[str] = []
+    assert proc.stdout is not None
+    for raw in proc.stdout:
+        line = sanitize_log_line(raw.rstrip("\n"))
+        output_accum.append(line)
+        if verbose:
+            print(line, flush=True)
+    rc = proc.wait()
+    return rc, "\n".join(output_accum)
+
+
+def chapter_matches(chapter: ChapterSet, target: str) -> bool:
+    t = target.lower()
+    return (
+        chapter.key.lower() == t
+        or chapter.key.lower().startswith(t)
+        or chapter.label.lower() == t
+        or t in chapter.label.lower()
+    )
+
+
+def select_cli_chapters(targets: Sequence[str], all_chapters: bool) -> List[ChapterSet]:
+    if all_chapters:
+        return [ch for ch in CHAPTERS if not ch.key.startswith("live_")]
+    selected: List[ChapterSet] = []
+    for target in targets:
+        matches = [ch for ch in CHAPTERS if chapter_matches(ch, target)]
+        if not matches:
+            raise SystemExit(f"unknown chapter target: {target}")
+        if len(matches) > 1:
+            labels = ", ".join(ch.key for ch in matches)
+            raise SystemExit(f"ambiguous chapter target '{target}': {labels}")
+        if matches[0] not in selected:
+            selected.append(matches[0])
+    if not selected:
+        raise SystemExit("no chapter selected; pass a chapter key such as ch27_first_user_sret or use --all")
+    return selected
+
+
+def cli_preflight(host: str, repo: str, sync: bool, rebuild_image: bool, verbose: bool) -> bool:
+    cmds = ["set -e", f"cd {shlex.quote(repo)}", "test -d .git"]
+    if sync:
+        cmds.extend(
+            [
+                "git fetch origin --prune",
+                "if git show-ref --verify --quiet refs/heads/main; then git checkout -q main; fi",
+                "git pull --ff-only origin main || true",
+            ]
+        )
+    if rebuild_image:
+        cmds.append("podman build -t mmos-practice:latest .")
+    else:
+        cmds.append(
+            "if ! podman image exists mmos-practice:latest >/dev/null 2>&1; then podman build -t mmos-practice:latest .; fi"
+        )
+    rc, _ = run_streaming_cli(host, "\n".join(cmds), verbose)
+    return rc == 0
+
+
+def run_cli(args: argparse.Namespace) -> int:
+    if args.list:
+        for ch in CHAPTERS:
+            print(f"{ch.key}\t{ch.label}\t{','.join(ch.commit_candidates)}")
+        return 0
+
+    host = args.host
+    repo = args.repo or repo_path_for_host(host)
+    selected = select_cli_chapters(args.targets, args.all)
+    state = AppState(checked=[False] * len(CHAPTERS))
+    state.host_idx = HOSTS.index(host)
+    state.console_idx = CONSOLES.index(args.console)
+    state.boot_chain_idx = BOOT_CHAINS.index(args.boot_chain)
+
+    if not cli_preflight(host, repo, args.sync, args.rebuild_image, not args.quiet):
+        print("RESULT FAIL preflight", flush=True)
+        return 1
+
+    overall_pass = True
+    results: List[StepResult] = []
+    for chapter in selected:
+        commit = resolve_commit(host, repo, chapter, state, None)
+        if not commit:
+            overall_pass = False
+            print(f"RESULT FAIL {chapter.key} resolve-commit: no candidate commit exists", flush=True)
+            continue
+
+        print(f"\n===== {chapter.label} [{chapter.key}] @ {commit} =====", flush=True)
+        chapter_pass = True
+        for step in chapter.steps:
+            step_cmd = apply_build_options(step.cmd, state)
+            step_shell = wrap_checkout_command(repo, commit, step_cmd)
+            start = time.time()
+            rc, out = run_streaming_cli(host, step_shell, not args.quiet)
+            elapsed = time.time() - start
+            status = "PASS"
+            detail = ""
+            if rc != 0:
+                if step.allow_failure and step.expected_pattern and step.expected_pattern in out:
+                    status = "WARN"
+                    detail = f"expected historical failure matched: {step.expected_pattern}"
+                else:
+                    status = "FAIL"
+                    detail = f"exit code: {rc}"
+            elif step.must_contain:
+                found, missing = check_patterns(out, step.must_contain)
+                if found and not args.quiet:
+                    print(f"[signature:found] {', '.join(found)}", flush=True)
+                if missing:
+                    status = "FAIL"
+                    detail = f"missing expected signature: {', '.join(missing)}"
+
+            if status != "PASS":
+                chapter_pass = False
+                overall_pass = False
+            results.append(
+                StepResult(
+                    chapter_key=chapter.key,
+                    chapter_label=chapter.label,
+                    step_name=step.name,
+                    status=status,
+                    elapsed_sec=elapsed,
+                    commit=commit,
+                    cmd=step_cmd,
+                    detail=detail,
+                )
+            )
+            print(f"STEP {status} {chapter.key}/{step.name} ({elapsed:.1f}s) {detail}".rstrip(), flush=True)
+            if status != "PASS" and not args.keep_going:
+                break
+        print(f"CHAPTER {'PASS' if chapter_pass else 'FAIL'} {chapter.key} {chapter.label}", flush=True)
+        if not chapter_pass and not args.keep_going:
+            break
+
+    print("\n===== Summary =====", flush=True)
+    for r in results:
+        suffix = f" - {r.detail}" if r.detail else ""
+        print(f"{r.status:4} {r.chapter_key}/{r.step_name} @ {r.commit}{suffix}", flush=True)
+    print(f"OVERALL {'PASS' if overall_pass else 'FAIL'}", flush=True)
+    return 0 if overall_pass else 1
+
+
+def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Verify mmos-practice chapter checkpoints.")
+    parser.add_argument("targets", nargs="*", help="chapter key/label/prefix, e.g. ch27_first_user_sret or ch27")
+    parser.add_argument("--cli", action="store_true", help="run without TUI and print pass/fail results")
+    parser.add_argument("--list", action="store_true", help="list available chapter keys and exit")
+    parser.add_argument("--all", action="store_true", help="run all non-live chapter sets")
+    parser.add_argument("--host", choices=HOSTS, default="localhost")
+    parser.add_argument("--repo", default="", help="override target repository path")
+    parser.add_argument("--console", choices=CONSOLES, default="sbi")
+    parser.add_argument("--boot-chain", choices=BOOT_CHAINS, default="smode")
+    parser.add_argument("--sync", action="store_true", help="fetch/pull main before running")
+    parser.add_argument("--rebuild-image", action="store_true", help="force rebuild of the podman image before running")
+    parser.add_argument("--keep-going", action="store_true", help="continue after a failed chapter/step")
+    parser.add_argument("--quiet", action="store_true", help="hide command output; keep result summary")
+    return parser.parse_args(argv)
+
+
+def entrypoint() -> int:
+    args = parse_args()
+    if args.cli or args.list:
+        return run_cli(args)
+    return curses.wrapper(main)
+
+
 if __name__ == "__main__":
-    raise SystemExit(curses.wrapper(main))
+    raise SystemExit(entrypoint())
