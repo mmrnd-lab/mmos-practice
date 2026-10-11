@@ -67,7 +67,8 @@ mod tests {
     use super::device::{Device, DeviceKind};
     use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
     use super::elf_loader::{
-        inspect_shared_object_dynamic, load_init_from_vfs, load_user_elf, parse_elf_header,
+        collect_shared_object_relocations, inspect_shared_object_dynamic, load_init_from_vfs,
+        load_user_elf, parse_elf_header,
         pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load, ElfError,
         ElfFileType,
     };
@@ -2901,7 +2902,7 @@ mod tests {
 
         assert_eq!(info.dynamic_offset, 0x1c0);
         assert_eq!(info.dynamic_size, 64);
-        assert_eq!(info.rela_addr, Some(0x3000));
+        assert_eq!(info.rela_addr, Some(0x4000_0200));
         assert_eq!(info.rela_size, 24);
         assert_eq!(info.rela_entry_size, 24);
         assert!(info.has_relocation_table());
@@ -2911,6 +2912,27 @@ mod tests {
     fn shared_object_dynamic_metadata_requires_dynamic_segment() {
         let elf = build_test_dyn_elf();
         assert_eq!(inspect_shared_object_dynamic(&elf), Err(ElfError::NoDynamicSegment));
+    }
+
+    #[test]
+    fn shared_object_relocation_records_become_apply_candidates() {
+        let elf = build_test_relocation_metadata_elf();
+        let plan = collect_shared_object_relocations(&elf).unwrap();
+
+        assert_eq!(plan.candidate_count, 1);
+        let candidate = plan.candidates[0].unwrap();
+        assert_eq!(candidate.offset, 0x1f08);
+        assert_eq!(candidate.reloc_type, 3);
+        assert_eq!(candidate.symbol_index, 2);
+        assert_eq!(candidate.addend, 0x40);
+    }
+
+    #[test]
+    fn shared_object_relocation_records_allow_empty_rela_table() {
+        let mut elf = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut elf, 0x1d8, 0);
+        let plan = collect_shared_object_relocations(&elf).unwrap();
+        assert_eq!(plan.candidate_count, 0);
     }
 
     #[test]
@@ -5304,25 +5326,42 @@ mod tests {
 
     fn build_test_dynamic_metadata_elf() -> Vec<u8> {
         let mut elf = build_test_dyn_elf();
-        elf.resize(0x200, 0);
-        elf[56] = 2;
-        let ph = 64 + 56;
-        write_le32_at(&mut elf, ph, 2);
-        write_le64_at(&mut elf, ph + 8, 0x1c0);
-        write_le64_at(&mut elf, ph + 16, 0x4000_01c0);
-        write_le64_at(&mut elf, ph + 32, 64);
-        write_le64_at(&mut elf, ph + 40, 64);
-        write_le64_at(&mut elf, ph + 48, 8);
+        elf.resize(0x218, 0);
+        elf[56] = 3;
+        let dynamic_ph = 64 + 56;
+        write_le32_at(&mut elf, dynamic_ph, 2);
+        write_le64_at(&mut elf, dynamic_ph + 8, 0x1c0);
+        write_le64_at(&mut elf, dynamic_ph + 16, 0x4000_01c0);
+        write_le64_at(&mut elf, dynamic_ph + 32, 64);
+        write_le64_at(&mut elf, dynamic_ph + 40, 64);
+        write_le64_at(&mut elf, dynamic_ph + 48, 8);
+
+        let rela_ph = 64 + 112;
+        write_le32_at(&mut elf, rela_ph, 1);
+        write_le32_at(&mut elf, rela_ph + 4, 4);
+        write_le64_at(&mut elf, rela_ph + 8, 0x200);
+        write_le64_at(&mut elf, rela_ph + 16, 0x4000_0200);
+        write_le64_at(&mut elf, rela_ph + 32, 24);
+        write_le64_at(&mut elf, rela_ph + 40, 24);
+        write_le64_at(&mut elf, rela_ph + 48, 8);
 
         write_le64_at(&mut elf, 0x1c0, 7);
-        write_le64_at(&mut elf, 0x1c8, 0x3000);
+        write_le64_at(&mut elf, 0x1c8, 0x4000_0200);
         write_le64_at(&mut elf, 0x1d0, 8);
         write_le64_at(&mut elf, 0x1d8, 24);
         write_le64_at(&mut elf, 0x1e0, 9);
         write_le64_at(&mut elf, 0x1e8, 24);
         write_le64_at(&mut elf, 0x1f0, 0);
         write_le64_at(&mut elf, 0x1f8, 0);
+
+        write_le64_at(&mut elf, 0x200, 0x1f08);
+        write_le64_at(&mut elf, 0x208, (2u64 << 32) | 3);
+        write_le64_at(&mut elf, 0x210, 0x40);
         elf
+    }
+
+    fn build_test_relocation_metadata_elf() -> Vec<u8> {
+        build_test_dynamic_metadata_elf()
     }
 
     fn write_le32_at(buf: &mut [u8], offset: usize, value: u32) {

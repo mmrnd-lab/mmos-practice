@@ -3063,6 +3063,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] /lib/libmmos_user_crt.so is packaged as an ET_DYN candidate\n");
     console::puts("[chapter] ch152 shared object dynamic metadata\n");
     console::puts("[user-link] dynamic segment exposes RELA metadata before relocation apply\n");
+    console::puts("[chapter] ch153 shared object relocation candidates\n");
+    console::puts("[user-link] RELA records are scanned into relocation apply candidates\n");
 }
 
 fn run_kernel_satp_guard_demo() {

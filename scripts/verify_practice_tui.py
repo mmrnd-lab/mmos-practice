@@ -2622,6 +2622,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=parses shared object dynamic metadata and confirms RELA table shape before relocation apply",
     ),
     ChapterSet(
+        key="ch153_shared_object_relocation_candidates",
+        label="Ch153 Shared Object Relocation Candidates",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-relocations",
+                "make shared-object-relocations PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-relocations=rela-records scanned apply-candidates=0",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch153 shared object relocation candidates",
+                    "[user-link] RELA records are scanned into relocation apply candidates",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=turns RELA records into relocation apply candidates without writing memory yet",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

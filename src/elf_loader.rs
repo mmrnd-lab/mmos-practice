@@ -20,6 +20,8 @@ const PF_W: u32 = 2;
 const PF_R: u32 = 4;
 const MAX_LOAD_SEGMENTS: usize = 4;
 const DYNAMIC_ENTRY_SIZE: usize = 16;
+const RELA_ENTRY_SIZE: usize = 24;
+const MAX_RELOCATION_CANDIDATES: usize = 8;
 const DT_NULL: i64 = 0;
 const DT_RELA: i64 = 7;
 const DT_RELASZ: i64 = 8;
@@ -41,6 +43,8 @@ pub enum ElfError {
     NoLoadSegments,
     NoDynamicSegment,
     BadDynamicEntry,
+    BadRelocationEntry,
+    TooManyRelocations,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,6 +141,20 @@ pub struct SharedObjectDynamicInfo {
     pub rela_addr: Option<usize>,
     pub rela_size: usize,
     pub rela_entry_size: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectRelocationCandidate {
+    pub offset: usize,
+    pub reloc_type: u32,
+    pub symbol_index: u32,
+    pub addend: isize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectRelocationPlan {
+    pub candidates: [Option<SharedObjectRelocationCandidate>; MAX_RELOCATION_CANDIDATES],
+    pub candidate_count: usize,
 }
 
 impl SharedObjectDynamicInfo {
@@ -301,6 +319,68 @@ pub fn inspect_shared_object_dynamic(bytes: &[u8]) -> Result<SharedObjectDynamic
     }
 
     Err(ElfError::NoDynamicSegment)
+}
+
+pub fn collect_shared_object_relocations(bytes: &[u8]) -> Result<SharedObjectRelocationPlan, ElfError> {
+    let info = inspect_shared_object_dynamic(bytes)?;
+    if info.rela_entry_size != RELA_ENTRY_SIZE {
+        return Err(ElfError::BadRelocationEntry);
+    }
+    if info.rela_size == 0 {
+        return Ok(SharedObjectRelocationPlan {
+            candidates: [None; MAX_RELOCATION_CANDIDATES],
+            candidate_count: 0,
+        });
+    }
+
+    let rela_addr = info.rela_addr.ok_or(ElfError::BadRelocationEntry)?;
+    let rela_offset = file_offset_for_vaddr(bytes, rela_addr).ok_or(ElfError::SegmentOutOfRange)?;
+    let rela_end = rela_offset + info.rela_size;
+    let entries = bytes.get(rela_offset..rela_end).ok_or(ElfError::SegmentOutOfRange)?;
+    let mut plan = SharedObjectRelocationPlan {
+        candidates: [None; MAX_RELOCATION_CANDIDATES],
+        candidate_count: 0,
+    };
+
+    let mut offset = 0usize;
+    while offset < entries.len() {
+        if offset + RELA_ENTRY_SIZE > entries.len() {
+            return Err(ElfError::BadRelocationEntry);
+        }
+        if plan.candidate_count == MAX_RELOCATION_CANDIDATES {
+            return Err(ElfError::TooManyRelocations);
+        }
+
+        let r_offset = le64(entries, offset) as usize;
+        let r_info = le64(entries, offset + 8);
+        let r_addend = le64(entries, offset + 16) as isize;
+        plan.candidates[plan.candidate_count] = Some(SharedObjectRelocationCandidate {
+            offset: r_offset,
+            reloc_type: r_info as u32,
+            symbol_index: (r_info >> 32) as u32,
+            addend: r_addend,
+        });
+        plan.candidate_count += 1;
+        offset += RELA_ENTRY_SIZE;
+    }
+
+    Ok(plan)
+}
+
+fn file_offset_for_vaddr(bytes: &[u8], vaddr: usize) -> Option<usize> {
+    let hdr = parse_elf_header(bytes).ok()?;
+    for index in 0..hdr.phnum as usize {
+        let ph = parse_program_header(bytes, &hdr, index).ok()?;
+        if ph.p_type != PT_LOAD {
+            continue;
+        }
+        let start = ph.vaddr as usize;
+        let end = start.checked_add(ph.filesz as usize)?;
+        if vaddr >= start && vaddr < end {
+            return Some(ph.offset as usize + (vaddr - start));
+        }
+    }
+    None
 }
 
 pub fn plan_shared_object_load(
