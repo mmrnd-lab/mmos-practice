@@ -18,3 +18,36 @@
 
 - 기본 브랜치: `main`
 - 실습은 `main`에 선형 히스토리로 유지
+
+## CUI 검증 도구
+
+챕터별 검증 세트를 선택해서 한 번에 실행하려면 아래 스크립트를 사용합니다.
+
+```bash
+cd /home/nicesj/mmrnd/mmos/mmos-practice
+./scripts/verify_practice_tui.py
+```
+
+기능:
+
+- 대상 호스트 선택: `localhost` / `` / ``
+- 챕터별 검증 세트 독립 선택/실행
+- 실행 명령, 중간 로그, 최종 결과를 분할 화면에서 실시간 갱신
+- 각 검증 명령은 `podman run ... mmos-practice:latest` 컨테이너 내부에서 실행
+- 이미지가 없으면 자동 빌드, 펌웨어 서브모듈이 없으면 `./scripts/init-submodules.sh` 자동 실행
+
+조작 키:
+
+- `Up/Down`: 챕터 이동
+- `Space`: 선택/해제
+- `A`: 전체 선택
+- `C`: 전체 해제
+- `H`: 호스트 순환
+- `R`: 선택한 검증 실행
+- `S`: 실행 중지 요청
+- `Q`: 종료(실행 중이 아닐 때)
+
+환경변수(선택):
+
+- `MMOS_PRACTICE_LOCAL`: localhost 실행 시 repo 경로 override
+- `MMOS_PRACTICE_REMOTE`: 원격 실행 시 repo 경로 override
