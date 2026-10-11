@@ -20,6 +20,8 @@ mod demo_user_init;
 #[allow(dead_code)]
 mod device;
 #[allow(dead_code)]
+mod devfs;
+#[allow(dead_code)]
 mod elf_loader;
 #[allow(dead_code)]
 mod ext4;
@@ -90,6 +92,10 @@ pub extern "C" fn rust_main() -> ! {
     console::puts("\n");
     console::puts("[chapter] ch32 serial character device\n");
     console::puts("[chapter] ch33 fd table stdio\n");
+    let dev_ns = devfs::DeviceNamespace::new(console::device());
+    if dev_ns.lookup_path("/dev/console").is_ok() {
+        console::puts("[chapter] ch34 devfs device nodes\n");
+    }
 
     let mut boot_tf = trap::TrapFrame::default();
     boot_tf.set_sp(0x8050_0000);

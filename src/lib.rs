@@ -12,6 +12,7 @@ pub mod console;
 pub mod context_switch;
 pub mod demo_user_init;
 pub mod device;
+pub mod devfs;
 pub mod elf_loader;
 pub mod ext4;
 pub mod fd_table;
@@ -51,11 +52,12 @@ mod tests {
     use super::char_device::{CharError, CharacterDevice};
     use super::context_switch::switch_context;
     use super::device::{Device, DeviceKind};
+    use super::devfs::{DeviceNamespace, VfsLookupError, VfsNodeKind, VfsNodeTarget};
     use super::elf_loader::{
         load_init_from_vfs, load_user_elf, parse_elf_header, pflags_to_pte, ElfError,
     };
     use super::ext4::{Ext4Fs, FsError};
-    use super::fd_table::{stdio_table, FileDescriptorTable, FileError, OpenFile};
+    use super::fd_table::{stdio_table, FileDescriptorTable, FileError, OpenFile, OpenMode};
     use super::kheap::init_kheap;
     use super::page_fault::{
         handle_user_page_fault, PageFaultResult, SCAUSE_LOAD_PAGE_FAULT, SCAUSE_STORE_PAGE_FAULT,
@@ -165,6 +167,61 @@ mod tests {
         assert_eq!(table.allocate(OpenFile::write_only_character(dev)), Ok(1));
         assert_eq!(table.write(1, b"fd1"), Ok(3));
         assert_eq!(dev.written(), b"fd1".to_vec());
+    }
+
+    #[test]
+    fn dev_namespace_resolves_root_dev_and_console() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+
+        assert_eq!(ns.lookup_path("/").unwrap().kind(), VfsNodeKind::Directory);
+        assert_eq!(ns.lookup_path("/dev").unwrap().kind(), VfsNodeKind::Directory);
+        let console = ns.lookup_path("/dev/console").unwrap();
+        assert_eq!(console.path(), "/dev/console");
+        assert_eq!(console.name(), "console");
+        assert_eq!(console.kind(), VfsNodeKind::CharacterDevice);
+        match console.target() {
+            VfsNodeTarget::Character(ch) => assert_eq!(ch.name(), "mocktty0"),
+            _ => panic!("console target should be a character device"),
+        }
+    }
+
+    #[test]
+    fn dev_namespace_rejects_bad_or_nested_device_paths() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+
+        assert_eq!(ns.lookup_path("dev/console").err(), Some(VfsLookupError::BadPath));
+        assert_eq!(ns.lookup_path("/missing").err(), Some(VfsLookupError::NotFound));
+        assert_eq!(ns.lookup_path("/dev/console/extra").err(), Some(VfsLookupError::NotDirectory));
+        assert_eq!(ns.lookup_path("/dev/vda").err(), Some(VfsLookupError::NotFound));
+    }
+
+    #[test]
+    fn dev_namespace_can_expose_raw_block_node() {
+        let ch: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let image: &'static [u8; 1024] = std::boxed::Box::leak(std::boxed::Box::new([0u8; 1024]));
+        let blk: &'static RamDisk = std::boxed::Box::leak(std::boxed::Box::new(RamDisk::new("ramblk0", image, 512)));
+        let ns = DeviceNamespace::with_block0(ch, blk);
+
+        let node = ns.lookup_path("/dev/vda").unwrap();
+        assert_eq!(node.path(), "/dev/vda");
+        assert_eq!(node.kind(), VfsNodeKind::BlockDevice);
+        match node.target() {
+            VfsNodeTarget::Block(block) => assert_eq!(block.name(), "ramblk0"),
+            _ => panic!("vda target should be a block device"),
+        }
+    }
+
+    #[test]
+    fn fd_table_can_open_console_device_node() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let node = ns.lookup_path("/dev/console").unwrap();
+        let file = OpenFile::from_vfs_node(node, OpenMode::WriteOnly).unwrap();
+
+        assert_eq!(file.write(b"via-dev-node"), Ok(12));
+        assert_eq!(dev.written(), b"via-dev-node".to_vec());
     }
 
     #[test]

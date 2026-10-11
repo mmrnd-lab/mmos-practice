@@ -2,18 +2,27 @@
 // SPDX-License-Identifier: Apache-2.0
 
 use crate::char_device::{CharError, CharacterDevice};
+use crate::devfs::{VfsLookupError, VfsNode, VfsNodeKind, VfsNodeTarget};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FileError {
     BadFd,
     NotReadable,
     NotWritable,
+    NotCharacterDevice,
+    Lookup(VfsLookupError),
     Char(CharError),
 }
 
 impl From<CharError> for FileError {
     fn from(value: CharError) -> Self {
         Self::Char(value)
+    }
+}
+
+impl From<VfsLookupError> for FileError {
+    fn from(value: VfsLookupError) -> Self {
+        Self::Lookup(value)
     }
 }
 
@@ -65,6 +74,16 @@ impl OpenFile {
 
     pub const fn read_write_character(device: &'static dyn CharacterDevice) -> Self {
         Self::new(FileTarget::Character(device), OpenMode::ReadWrite)
+    }
+
+    pub fn from_vfs_node(node: VfsNode<'_>, mode: OpenMode) -> Result<Self, FileError> {
+        if node.kind() != VfsNodeKind::CharacterDevice {
+            return Err(FileError::NotCharacterDevice);
+        }
+        match node.target() {
+            VfsNodeTarget::Character(device) => Ok(Self::new(FileTarget::Character(device), mode)),
+            _ => Err(FileError::NotCharacterDevice),
+        }
     }
 
     pub const fn offset(&self) -> usize {
