@@ -13,7 +13,11 @@
    - 기초 단위 테스트 작성
 4. 메모리 확장
    - kheap / page frame allocator 추가
-5. Trap/IRQ 기초
+5. U-Boot 부트 체인 전환
+   - `uImage` 생성
+   - ext4 + extlinux 기반 부트 디스크 구성
+   - direct boot와 U-Boot boot를 함께 유지
+6. Trap/IRQ 기초
    - trap entry / stvec / TrapFrame 도입
 
 ## 학습 규칙
