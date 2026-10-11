@@ -5,6 +5,35 @@ pub const SYS_OPENAT: usize = 56;
 pub const SYS_WRITE: usize = 64;
 pub const SYS_EXIT: usize = 93;
 
+pub const EBADF: isize = 9;
+pub const EACCES: isize = 13;
+pub const EFAULT: isize = 14;
+pub const EINVAL: isize = 22;
+pub const EIO: isize = 5;
+
+pub fn errno_result(errno: isize) -> SyscallResult {
+    SyscallResult::Continue(-errno)
+}
+
+pub fn file_error_errno(error: crate::fd_table::FileError) -> isize {
+    match error {
+        crate::fd_table::FileError::BadFd => EBADF,
+        crate::fd_table::FileError::NotReadable | crate::fd_table::FileError::NotWritable => EACCES,
+        crate::fd_table::FileError::NotCharacterDevice
+        | crate::fd_table::FileError::Lookup(_)
+        | crate::fd_table::FileError::Char(_) => EIO,
+    }
+}
+
+pub fn user_copy_errno(error: crate::user_copy::UserCopyError) -> isize {
+    match error {
+        crate::user_copy::UserCopyError::BadAddress
+        | crate::user_copy::UserCopyError::MissingNul
+        | crate::user_copy::UserCopyError::Permission => EFAULT,
+        crate::user_copy::UserCopyError::BufferTooSmall => EINVAL,
+    }
+}
+
 const O_ACCMODE: usize = 0o3;
 const O_RDONLY: usize = 0;
 const O_WRONLY: usize = 1;
@@ -173,5 +202,24 @@ pub fn handle_process_write_checked_user_buf<const N: usize, const A: usize>(
     match user.copyin_bytes(ptr, len, scratch) {
         Ok(n) => handle_process_write(io, fd, &scratch[..n]),
         Err(_) => SyscallResult::Continue(-1),
+    }
+}
+
+pub fn handle_process_write_checked_user_syscall<const N: usize, const A: usize>(
+    io: &crate::process_io::ProcessIoContext<N>,
+    user: &crate::user_copy::CheckedUserSlice<'_, A>,
+    fd: usize,
+    ptr: usize,
+    len: usize,
+    scratch: &mut [u8],
+) -> SyscallResult {
+    let copied = match user.copyin_bytes(ptr, len, scratch) {
+        Ok(n) => n,
+        Err(error) => return errno_result(user_copy_errno(error)),
+    };
+
+    match io.write_fd(fd, &scratch[..copied]) {
+        Ok(written) => SyscallResult::Continue(written as isize),
+        Err(error) => errno_result(file_error_errno(error)),
     }
 }

@@ -77,8 +77,9 @@ mod tests {
     use super::syscall::{
         decode_syscall, handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
-        handle_process_write_checked_user_buf, handle_process_write_user_buf, handle_syscall,
-        open_mode_from_flags, Syscall, SyscallResult, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
+        handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
+        handle_process_write_user_buf, handle_syscall, open_mode_from_flags, Syscall, SyscallResult,
+        EACCES, EBADF, EFAULT, SYS_EXIT, SYS_OPENAT, SYS_WRITE,
     };
     use super::trap::{
         handle_timer_tick_with_scheduler, handle_trap, handle_user_page_fault_outcome, TrapFrame,
@@ -410,6 +411,51 @@ mod tests {
             SyscallResult::Continue(5)
         );
         assert_eq!(dev.written(), b"hello".to_vec());
+    }
+
+
+    #[test]
+    fn fd_write_syscall_uses_checked_copyin_and_process_fd_table() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0xa000, 0xa020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"fd-syscall", 0xa000, &vm);
+        let mut scratch = [0u8; 16];
+
+        assert_eq!(
+            handle_process_write_checked_user_syscall(&io, &user, fd, 0xa000, 10, &mut scratch),
+            SyscallResult::Continue(10)
+        );
+        assert_eq!(dev.written(), b"fd-syscall".to_vec());
+    }
+
+    #[test]
+    fn fd_write_syscall_maps_fd_and_user_errors_to_errno() {
+        let dev: &'static MockCharDevice = std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut io = ProcessIoContext::<8>::with_stdio(dev);
+        let fd = io.open_path(&ns, "/dev/console", OpenMode::WriteOnly).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0xb000, 0xb010, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"errno", 0xb000, &vm);
+        let mut scratch = [0u8; 8];
+
+        assert_eq!(
+            handle_process_write_checked_user_syscall(&io, &user, 7, 0xb000, 5, &mut scratch),
+            SyscallResult::Continue(-EBADF)
+        );
+        assert_eq!(
+            handle_process_write_checked_user_syscall(&io, &user, 0, 0xb000, 5, &mut scratch),
+            SyscallResult::Continue(-EACCES)
+        );
+        assert_eq!(
+            handle_process_write_checked_user_syscall(&io, &user, fd, 0xb008, 12, &mut scratch),
+            SyscallResult::Continue(-EFAULT)
+        );
+        assert_eq!(dev.written(), std::vec::Vec::<u8>::new());
     }
 
     #[test]

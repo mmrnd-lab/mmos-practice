@@ -142,8 +142,8 @@ pub extern "C" fn rust_main() -> ! {
         }
     }
     let mut user_vm = vm::VmSpace::<2>::new();
-    let _ = user_vm.map_anon(0x4000, 0x4010, sv39::PTE_R);
-    let checked_user = user_copy::CheckedUserSlice::new(b"/dev/console\0", 0x4000, &user_vm);
+    let _ = user_vm.map_anon(0x4000, 0x4020, sv39::PTE_R);
+    let checked_user = user_copy::CheckedUserSlice::new(b"/dev/console\0fd-write", 0x4000, &user_vm);
     let mut checked_io = process_io::ProcessIoContext::<8>::with_stdio(console::device());
     let mut checked_scratch = [0u8; 32];
     if let syscall::SyscallResult::Continue(fd) = syscall::handle_process_open_checked_user_path(
@@ -156,6 +156,18 @@ pub extern "C" fn rust_main() -> ! {
     ) {
         if fd >= 3 {
             console::puts("[chapter] ch38 vm checked copyin\n");
+            let mut write_scratch = [0u8; 16];
+            if syscall::handle_process_write_checked_user_syscall(
+                &checked_io,
+                &checked_user,
+                fd as usize,
+                0x400d,
+                8,
+                &mut write_scratch,
+            ) == syscall::SyscallResult::Continue(8)
+            {
+                console::puts("[chapter] ch39 fd write syscall\n");
+            }
         }
     }
 
