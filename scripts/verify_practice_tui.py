@@ -1996,7 +1996,7 @@ CHAPTERS: List[ChapterSet] = [
     ChapterSet(
         key="ch118_execv_dispatch_state",
         label="Ch118 Execv Dispatch State",
-        commit_candidates=["HEAD"],
+        commit_candidates=["61b6fcf"],
         steps=[
             Step("test+build", "make test && make mmos.bin PROFILE=release"),
             Step(

@@ -458,6 +458,12 @@
     - process runtime이 current process/task 경계의 주어가 되고, store는 dispatch 중 필요한 VFS/scratch/stack buffer를 빌려주는 역할로 남음
     - QEMU runtime marker에서 `[chapter] ch117 execv runtime dispatch`, `[trap] execve runtime dispatch routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+105. `61b6fcf` `feat(ch118): add execve trap dispatch state`
+    - `ExecvTrapDispatchState`를 추가해 VFS 기반 execve resource store를 dispatch state 안에 보관
+    - caller는 resource store를 직접 만들지 않고 dispatch state를 준비한 뒤 `dispatch()`로 process runtime dispatch를 요청
+    - state는 boot/runtime 보관소로 올라갈 수 있는 재사용 재료를 들고, process runtime은 current process/task 경계를 처리
+    - QEMU runtime marker에서 `[chapter] ch118 execv dispatch state`, `[trap] execve dispatch state routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
