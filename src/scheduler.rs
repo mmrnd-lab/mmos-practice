@@ -48,6 +48,19 @@ impl<const MAX_TASKS: usize> Scheduler<MAX_TASKS> {
             .and_then(|idx| self.slots[idx].map(|task| task.tid))
     }
 
+    pub fn task_state(&self, tid: usize) -> Option<TaskState> {
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(task) = self.slots[idx] {
+                if task.tid == tid {
+                    return Some(task.state);
+                }
+            }
+            idx += 1;
+        }
+        None
+    }
+
     pub fn add_runnable(&mut self, tid: usize, tf: TrapFrame) -> Result<(), SchedError> {
         let mut idx = 0usize;
         while idx < MAX_TASKS {

@@ -39,6 +39,7 @@ pub mod user_vm;
 pub mod virtio_blk;
 pub mod vfs;
 pub mod vm;
+pub mod wait_queue;
 
 pub fn align_up(value: usize, align: usize) -> usize {
     debug_assert!(align.is_power_of_two());
@@ -78,8 +79,9 @@ mod tests {
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
     };
     use super::syscall::{
-        decode_syscall, handle_current_process_close, handle_current_process_read_checked_user_syscall,
-        handle_current_process_write_checked_user_syscall,
+        decode_syscall, handle_current_process_blocking_read_checked_user_syscall,
+        handle_current_process_close, handle_current_process_read_checked_user_syscall,
+        handle_current_process_write_checked_user_syscall, BlockingReadResult,
         handle_open_path, handle_process_open_checked_user_path,
         handle_process_open_path, handle_process_open_user_path, handle_process_write,
         handle_process_write_checked_user_buf, handle_process_write_checked_user_syscall,
@@ -101,6 +103,7 @@ mod tests {
     use super::user_vm::{build_user_vm_plan, install_user_vm_plan_in_root, is_leaf_user_mapping};
     use super::vfs::Vfs;
     use super::vm::{FaultAccess, VmError, VmSpace};
+    use super::wait_queue::WaitQueue;
 
 
     struct MockCharDevice {
@@ -854,6 +857,63 @@ mod tests {
             ),
             SyscallResult::Continue(-EAGAIN)
         );
+    }
+
+    #[test]
+    fn blocking_read_wouldblock_parks_task_on_wait_queue() {
+        let dev: &'static console::BufferedConsoleDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(console::BufferedConsoleDevice::new(
+                "test-console",
+                b"z",
+            )));
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_with_stdio(None, VmSpace::<2>::new(), dev)
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default(), 0);
+        let current = runtime.current_for_task(&task).unwrap();
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x8000, 0x8020, PTE_W).unwrap();
+        let mut user_bytes = [0u8; 16];
+        let mut user = CheckedUserSliceMut::new(&mut user_bytes, 0x8000, &vm);
+        let mut scratch = [0u8; 8];
+        let mut scheduler = Scheduler::<2>::new();
+        scheduler.add_runnable(task.tid, TrapFrame::default()).unwrap();
+        let _ = scheduler.on_tick();
+        let mut waiters = WaitQueue::<2>::new();
+
+        assert_eq!(
+            handle_current_process_blocking_read_checked_user_syscall(
+                current,
+                task.tid,
+                &mut user,
+                0,
+                0x8000,
+                1,
+                &mut scratch,
+                &mut scheduler,
+                &mut waiters,
+            ),
+            BlockingReadResult::Ready(SyscallResult::Continue(1))
+        );
+        assert_eq!(
+            handle_current_process_blocking_read_checked_user_syscall(
+                current,
+                task.tid,
+                &mut user,
+                0,
+                0x8001,
+                1,
+                &mut scratch,
+                &mut scheduler,
+                &mut waiters,
+            ),
+            BlockingReadResult::Blocked
+        );
+        assert_eq!(scheduler.task_state(task.tid), Some(TaskState::Blocked));
+        assert!(waiters.contains(task.tid));
+        assert_eq!(waiters.wake_one(&mut scheduler), Some(task.tid));
+        assert_eq!(scheduler.task_state(task.tid), Some(TaskState::Runnable));
     }
 
     #[test]

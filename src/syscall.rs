@@ -59,6 +59,12 @@ pub enum SyscallResult {
     Unsupported,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BlockingReadResult {
+    Ready(SyscallResult),
+    Blocked,
+}
+
 pub fn decode_syscall(id: usize, a0: usize, a1: usize, a2: usize) -> Option<Syscall> {
     match id {
         SYS_OPENAT => Some(Syscall::OpenAt {
@@ -302,5 +308,47 @@ pub fn handle_current_process_read_checked_user_syscall<const N: usize, const A:
     match user.copyout_bytes(ptr, &scratch[..read]) {
         Ok(n) => SyscallResult::Continue(n as isize),
         Err(error) => errno_result(user_copy_errno(error)),
+    }
+}
+
+
+pub fn handle_current_process_blocking_read_checked_user_syscall<
+    const N: usize,
+    const A: usize,
+    const MAX_TASKS: usize,
+    const MAX_WAITERS: usize,
+>(
+    current: &crate::process_io::CurrentProcessIoContext<N>,
+    current_tid: usize,
+    user: &mut crate::user_copy::CheckedUserSliceMut<'_, A>,
+    fd: usize,
+    ptr: usize,
+    len: usize,
+    scratch: &mut [u8],
+    scheduler: &mut crate::scheduler::Scheduler<MAX_TASKS>,
+    waiters: &mut crate::wait_queue::WaitQueue<MAX_WAITERS>,
+) -> BlockingReadResult {
+    if len > scratch.len() {
+        return BlockingReadResult::Ready(errno_result(EINVAL));
+    }
+    if len == 0 {
+        return BlockingReadResult::Ready(SyscallResult::Continue(0));
+    }
+
+    let read = match current.read_fd(fd, &mut scratch[..len]) {
+        Ok(read) => read,
+        Err(crate::fd_table::FileError::Char(crate::char_device::CharError::WouldBlock)) => {
+            if waiters.enqueue(current_tid).is_ok() {
+                scheduler.set_state(current_tid, crate::scheduler::TaskState::Blocked);
+                return BlockingReadResult::Blocked;
+            }
+            return BlockingReadResult::Ready(errno_result(EAGAIN));
+        }
+        Err(error) => return BlockingReadResult::Ready(errno_result(file_error_errno(error))),
+    };
+
+    match user.copyout_bytes(ptr, &scratch[..read]) {
+        Ok(n) => BlockingReadResult::Ready(SyscallResult::Continue(n as isize)),
+        Err(error) => BlockingReadResult::Ready(errno_result(user_copy_errno(error))),
     }
 }

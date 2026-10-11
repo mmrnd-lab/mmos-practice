@@ -58,6 +58,8 @@ mod virtio_blk;
 mod vm;
 #[allow(dead_code)]
 mod vfs;
+#[allow(dead_code)]
+mod wait_queue;
 
 use core::panic::PanicInfo;
 
@@ -364,6 +366,7 @@ pub extern "C" fn rust_main() -> ! {
         .unwrap_or(0);
     let input_task =
         process_model::TaskControlBlock::new(5, input_pid, trap::TrapFrame::default(), 0);
+    let input_tid = input_task.tid;
     let mut input_vm = vm::VmSpace::<2>::new();
     let _ = input_vm.map_anon(0xa000, 0xa020, sv39::PTE_W);
     let mut input_mem = [0u8; 32];
@@ -408,6 +411,33 @@ pub extern "C" fn rust_main() -> ! {
             ) == syscall::SyscallResult::Continue(-syscall::EAGAIN)
             {
                 console::puts("[chapter] ch46 nonblocking read wouldblock\n");
+            }
+        }
+    }
+    {
+        let mut input_user =
+            user_copy::CheckedUserSliceMut::new(&mut input_mem, 0xa000, &input_vm);
+        if let Ok(current) = input_runtime.current_for_task(&input_task) {
+            let mut blocking_scratch = [0u8; 16];
+            let mut scheduler = scheduler::Scheduler::<2>::new();
+            let _ = scheduler.add_runnable(input_tid, trap::TrapFrame::default());
+            let _ = scheduler.on_tick();
+            let mut waiters = wait_queue::WaitQueue::<2>::new();
+            if syscall::handle_current_process_blocking_read_checked_user_syscall(
+                current,
+                input_tid,
+                &mut input_user,
+                0,
+                0xa00d,
+                1,
+                &mut blocking_scratch,
+                &mut scheduler,
+                &mut waiters,
+            ) == syscall::BlockingReadResult::Blocked
+                && scheduler.task_state(input_tid) == Some(scheduler::TaskState::Blocked)
+                && waiters.contains(input_tid)
+            {
+                console::puts("[chapter] ch48 blocking read wait queue\n");
             }
         }
     }
