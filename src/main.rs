@@ -2185,9 +2185,9 @@ fn run_execv_trap_resources_demo() {
     live_frame.set_a1(ARGV);
     live_frame.set_a2(0);
 
-    let mut execv_dispatch = runtime.prepare_execv_dispatch::<512, 256>(&vfs);
-    let outcome = execv_dispatch.dispatch::<4, 64, 4, 2, 5>(
-        &mut runtime,
+    let mut prepared_runtime =
+        trap_runtime::PreparedExecvTrapRuntime::<4, 2, 2, 5, 512, 256>::new(runtime, &vfs);
+    let outcome = prepared_runtime.dispatch_execv_trap::<4, 64>(
         &mut live_frame,
         trap::SCAUSE_USER_ECALL,
         0,
@@ -2196,7 +2196,7 @@ fn run_execv_trap_resources_demo() {
         vm::VmSpace::<2>::new(),
     );
 
-    let Some(exec_frame) = runtime.task_frame(1) else {
+    let Some(exec_frame) = prepared_runtime.task_frame(1) else {
         return;
     };
     if outcome == trap::TrapOutcome::Resume
@@ -2220,6 +2220,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve runtime plan routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch121 execv prepared dispatch\n");
         console::puts("[trap] execve prepared dispatch routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch122 execv prepared runtime\n");
+        console::puts("[trap] execve prepared runtime routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 

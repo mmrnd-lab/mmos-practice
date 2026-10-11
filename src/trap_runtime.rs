@@ -154,6 +154,88 @@ impl<'v, const SCRATCH_BYTES: usize, const STACK_BYTES: usize, const MAX_AREAS: 
     }
 }
 
+pub struct PreparedExecvTrapRuntime<
+    'v,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+> {
+    runtime: ProcessTrapRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
+    execv_dispatch: ExecvTrapDispatchState<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS>,
+}
+
+impl<
+        'v,
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_AREAS: usize,
+        const MAX_TASKS: usize,
+        const SCRATCH_BYTES: usize,
+        const STACK_BYTES: usize,
+    >
+    PreparedExecvTrapRuntime<
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >
+{
+    pub const fn new(
+        runtime: ProcessTrapRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS>,
+        vfs: &'v crate::vfs::Vfs<'v>,
+    ) -> Self {
+        let execv_dispatch = runtime.prepare_execv_dispatch::<SCRATCH_BYTES, STACK_BYTES>(vfs);
+        Self {
+            runtime,
+            execv_dispatch,
+        }
+    }
+
+    pub fn dispatch_execv_trap<
+        'a,
+        const MAX_ARGS: usize,
+        const ARG_BYTES: usize,
+    >(
+        &'a mut self,
+        frame: &mut TrapFrame,
+        scause: usize,
+        stval: usize,
+        user_bytes: &'a [u8],
+        user_base: usize,
+        new_vm: VmSpace<MAX_AREAS>,
+    ) -> TrapOutcome {
+        self.execv_dispatch.dispatch::<
+            MAX_ARGS,
+            ARG_BYTES,
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_TASKS,
+        >(
+            &mut self.runtime,
+            frame,
+            scause,
+            stval,
+            user_bytes,
+            user_base,
+            new_vm,
+        )
+    }
+
+    pub fn task_frame(&self, tid: usize) -> Option<TrapFrame> {
+        self.runtime.task_frame(tid)
+    }
+
+    pub fn runtime(&self) -> &ProcessTrapRuntime<MAX_PROCS, MAX_CHILDREN, MAX_AREAS, MAX_TASKS> {
+        &self.runtime
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ExecvTrapDispatchPlan<
     const SCRATCH_BYTES: usize,

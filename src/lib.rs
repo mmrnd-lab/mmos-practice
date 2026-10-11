@@ -137,7 +137,7 @@ mod tests {
     };
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
-        with_global_trap_runtime, ExecvTrapDispatchState,
+        with_global_trap_runtime, ExecvTrapDispatchState, PreparedExecvTrapRuntime,
         ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
@@ -1371,8 +1371,6 @@ mod tests {
         let execv_plan = runtime.execv_dispatch_plan::<512, 256>();
         assert_eq!(execv_plan.stack_top_va, 0x4010_0000);
         assert_eq!(execv_plan.max_areas(), 2);
-        let mut execv_dispatch = runtime.prepare_execv_dispatch::<512, 256>(&vfs);
-
         let pid = runtime.create_process(None, process_vm).unwrap();
         let mut task_frame = TrapFrame::default();
         task_frame.sepc = 0x4000_1000;
@@ -1387,8 +1385,11 @@ mod tests {
         live_frame.set_a1(ARGV);
         live_frame.set_a2(0);
 
-        let outcome = execv_dispatch.dispatch::<4, 64, 4, 2, 5>(
-            &mut runtime,
+        let mut prepared_runtime =
+            PreparedExecvTrapRuntime::<4, 2, 2, 5, 512, 256>::new(runtime, &vfs);
+        assert_eq!(prepared_runtime.runtime().execv_stack_top_va(), 0x4010_0000);
+
+        let outcome = prepared_runtime.dispatch_execv_trap::<4, 64>(
             &mut live_frame,
             SCAUSE_USER_ECALL,
             0,
@@ -1400,7 +1401,7 @@ mod tests {
         assert_eq!(outcome, TrapOutcome::Resume);
         assert_eq!(live_frame.a0(), 0);
         assert_eq!(live_frame.sepc, 0x4000_4004);
-        let exec_frame = runtime.task_frame(1).unwrap();
+        let exec_frame = prepared_runtime.task_frame(1).unwrap();
         assert_eq!(exec_frame.sepc, 0x4000_0000);
         assert!(exec_frame.sp() < 0x4010_0000);
     }
