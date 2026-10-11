@@ -72,6 +72,7 @@ mod tests {
         load_user_elf, materialize_shared_object_relocations, parse_elf_header, SharedObjectRelocationApply,
         SharedObjectRelocationCandidate,
         pflags_to_pte, plan_shared_object_from_vfs, plan_shared_object_load,
+        plan_shared_object_mappings,
         write_relocation_apply, write_relocation_apply_plan, ElfError,
         ElfFileType,
     };
@@ -2893,9 +2894,25 @@ mod tests {
     }
 
     #[test]
+    fn shared_object_mapping_plan_offsets_entry_and_segments_by_base() {
+        let elf = build_test_dyn_elf();
+        let plan = plan_shared_object_mappings(&elf, 0x5000_0000).unwrap();
+        let segment = plan.segments[0].unwrap();
+
+        assert_eq!(plan.base, 0x5000_0000);
+        assert_eq!(plan.entry_vaddr, 0x9000_0000);
+        assert_eq!(plan.segment_count, 1);
+        assert_eq!(segment.vaddr, 0x9000_0000);
+        assert_eq!(segment.file_size, 160);
+        assert_eq!(segment.mem_size, segment.file_size);
+        assert_eq!(segment.flags, 5);
+    }
+
+    #[test]
     fn shared_object_load_plan_rejects_et_exec_image() {
         let elf = build_test_init_elf();
         assert_eq!(plan_shared_object_load(&elf, 0x5000_0000), Err(ElfError::UnsupportedType));
+        assert_eq!(plan_shared_object_mappings(&elf, 0x5000_0000), Err(ElfError::UnsupportedType));
     }
 
     #[test]

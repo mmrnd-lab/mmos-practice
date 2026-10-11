@@ -139,6 +139,22 @@ pub struct SharedObjectLoadPlan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectSegmentMapping {
+    pub vaddr: usize,
+    pub file_size: usize,
+    pub mem_size: usize,
+    pub flags: u32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectMappingPlan {
+    pub base: usize,
+    pub entry_vaddr: usize,
+    pub segment_count: usize,
+    pub segments: [Option<SharedObjectSegmentMapping>; MAX_LOAD_SEGMENTS],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SharedObjectDynamicInfo {
     pub dynamic_offset: usize,
     pub dynamic_size: usize,
@@ -472,6 +488,42 @@ pub fn plan_shared_object_load(
         segment_count: image.segment_count,
         needs_relocation: true,
     })
+}
+
+pub fn plan_shared_object_mappings(
+    bytes: &[u8],
+    preferred_base: usize,
+) -> Result<SharedObjectMappingPlan, ElfError> {
+    let hdr = parse_elf_header(bytes)?;
+    if hdr.file_type != ElfFileType::SharedObject {
+        return Err(ElfError::UnsupportedType);
+    }
+
+    let image = load_user_elf(bytes, 0)?;
+    let mut mappings = SharedObjectMappingPlan {
+        base: preferred_base,
+        entry_vaddr: preferred_base
+            .checked_add(hdr.entry as usize)
+            .ok_or(ElfError::BadProgramHeader)?,
+        segment_count: image.segment_count,
+        segments: [None; MAX_LOAD_SEGMENTS],
+    };
+
+    let mut idx = 0usize;
+    while idx < image.segment_count {
+        let seg = image.segments[idx].ok_or(ElfError::BadProgramHeader)?;
+        mappings.segments[idx] = Some(SharedObjectSegmentMapping {
+            vaddr: preferred_base
+                .checked_add(seg.vaddr)
+                .ok_or(ElfError::BadProgramHeader)?,
+            file_size: seg.file_size,
+            mem_size: seg.mem_size,
+            flags: seg.flags,
+        });
+        idx += 1;
+    }
+
+    Ok(mappings)
 }
 
 pub fn plan_shared_object_from_vfs(

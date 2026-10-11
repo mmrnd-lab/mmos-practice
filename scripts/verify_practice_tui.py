@@ -2722,6 +2722,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=connects RELA scan, relative relocation calculation, and checked writeback into one materialization step",
     ),
     ChapterSet(
+        key="ch157_shared_object_mapping_plan",
+        label="Ch157 Shared Object Mapping Plan",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-mapping-plan",
+                "make shared-object-mapping-plan PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-mapping=base+segments user-vaddr-candidates",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch157 shared object mapping plan",
+                    "[user-link] shared object segments become base-offset user mapping candidates",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=turns ET_DYN load segments into preferred-base user mapping candidates before page table install",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

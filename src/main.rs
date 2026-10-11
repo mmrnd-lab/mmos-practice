@@ -3071,6 +3071,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] relocation apply values write checked little-endian u64 slots\n");
     console::puts("[chapter] ch156 shared object relocation materialize\n");
     console::puts("[user-link] shared object materialization connects RELA scan, relative apply, and writeback\n");
+    console::puts("[chapter] ch157 shared object mapping plan\n");
+    console::puts("[user-link] shared object segments become base-offset user mapping candidates\n");
 }
 
 fn run_kernel_satp_guard_demo() {
