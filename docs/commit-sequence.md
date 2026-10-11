@@ -324,7 +324,7 @@
     - `schedule_after_current_exited()`로 종료한 current task에서 다른 process의 runnable task로 handoff
     - QEMU runtime marker에서 `[chapter] ch91 exit schedule handoff`, `[proc] exit handoff prev=1 next=3 owner_tasks=2 scheduler_tasks=2` 확인
 
-82. `TBD` `feat(ch92): dispatch trap exit through process runtime`
+82. `75633dc` `feat(ch92): dispatch trap exit through process runtime`
     - `TrapOutcome::Exit`에 가까운 dispatch helper가 process-wide exit helper와 scheduler handoff를 함께 수행
     - 종료된 process의 sibling TCB를 scheduler 후보에서 제거하고, 다음 process의 trap frame을 live frame에 복원
     - QEMU runtime marker에서 `[chapter] ch92 trap exit process dispatch`, `[proc] trap exit dispatch prev=1 next=3 restored=0x40003000` 확인
