@@ -2408,6 +2408,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=prepared process syscall entry routes openat through checked pathname copyin and device namespace lookup",
     ),
     ChapterSet(
+        key="ch143_process_syscall_io_resources",
+        label="Ch143 Process Syscall IO Resources",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch143 process syscall io resources",
+                    "[trap] process syscall io resources routed openat a0=3 sepc=0x4000a004 wrote=10",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process syscall entry receives one IO resources bundle for open/read/write/close paths",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

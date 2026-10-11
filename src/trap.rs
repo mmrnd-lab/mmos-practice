@@ -854,9 +854,61 @@ pub fn handle_prepared_process_syscall_entry<
     }
 }
 
+pub struct ProcessSyscallIoResources<
+    'io,
+    'ns,
+    const WRITE_AREAS: usize,
+    const READ_AREAS: usize,
+    const OPEN_AREAS: usize,
+    const MAX_FDS: usize,
+> {
+    pub current: &'io mut crate::process_io::CurrentProcessIoContext<MAX_FDS>,
+    pub write_user: &'io crate::user_copy::CheckedUserSlice<'io, WRITE_AREAS>,
+    pub write_scratch: &'io mut [u8],
+    pub read_user: &'io mut crate::user_copy::CheckedUserSliceMut<'io, READ_AREAS>,
+    pub read_scratch: &'io mut [u8],
+    pub open_ns: &'io crate::devfs::DeviceNamespace<'ns>,
+    pub open_user: &'io crate::user_copy::CheckedUserSlice<'io, OPEN_AREAS>,
+    pub open_scratch: &'io mut [u8],
+}
+
+impl<
+        'io,
+        'ns,
+        const WRITE_AREAS: usize,
+        const READ_AREAS: usize,
+        const OPEN_AREAS: usize,
+        const MAX_FDS: usize,
+    > ProcessSyscallIoResources<'io, 'ns, WRITE_AREAS, READ_AREAS, OPEN_AREAS, MAX_FDS>
+{
+    pub fn new(
+        current: &'io mut crate::process_io::CurrentProcessIoContext<MAX_FDS>,
+        write_user: &'io crate::user_copy::CheckedUserSlice<'io, WRITE_AREAS>,
+        write_scratch: &'io mut [u8],
+        read_user: &'io mut crate::user_copy::CheckedUserSliceMut<'io, READ_AREAS>,
+        read_scratch: &'io mut [u8],
+        open_ns: &'io crate::devfs::DeviceNamespace<'ns>,
+        open_user: &'io crate::user_copy::CheckedUserSlice<'io, OPEN_AREAS>,
+        open_scratch: &'io mut [u8],
+    ) -> Self {
+        Self {
+            current,
+            write_user,
+            write_scratch,
+            read_user,
+            read_scratch,
+            open_ns,
+            open_user,
+            open_scratch,
+        }
+    }
+}
+
 pub fn handle_prepared_process_syscall_entry_with_current_io<
     'a,
     'v,
+    'io,
+    'ns,
     const WAIT_AREAS: usize,
     const WRITE_AREAS: usize,
     const READ_AREAS: usize,
@@ -881,14 +933,7 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
     clone_child_tid: usize,
     clone_child_vm: crate::vm::VmSpace<MAX_AREAS>,
     wait_user: &mut crate::user_copy::CheckedUserSliceMut<'_, WAIT_AREAS>,
-    write_current: &mut crate::process_io::CurrentProcessIoContext<MAX_FDS>,
-    write_user: &crate::user_copy::CheckedUserSlice<'_, WRITE_AREAS>,
-    write_scratch: &mut [u8],
-    read_user: &mut crate::user_copy::CheckedUserSliceMut<'_, READ_AREAS>,
-    read_scratch: &mut [u8],
-    open_ns: &crate::devfs::DeviceNamespace<'_>,
-    open_user: &crate::user_copy::CheckedUserSlice<'_, OPEN_AREAS>,
-    open_scratch: &mut [u8],
+    io: ProcessSyscallIoResources<'io, 'ns, WRITE_AREAS, READ_AREAS, OPEN_AREAS, MAX_FDS>,
     exec_store: &'a mut crate::trap_runtime::PreparedExecvEntryStore<
         'v,
         MAX_PROCS,
@@ -905,38 +950,38 @@ pub fn handle_prepared_process_syscall_entry_with_current_io<
         syscall::SYS_WRITE => trap_outcome_without_scheduler(handle_syscall_result(
             frame,
             syscall::handle_current_process_write_checked_user_syscall(
-                write_current,
-                write_user,
+                io.current,
+                io.write_user,
                 frame.a0(),
                 frame.a1(),
                 frame.a2(),
-                write_scratch,
+                io.write_scratch,
             ),
         )),
         syscall::SYS_READ => trap_outcome_without_scheduler(handle_syscall_result(
             frame,
             syscall::handle_current_process_read_checked_user_syscall(
-                write_current,
-                read_user,
+                io.current,
+                io.read_user,
                 frame.a0(),
                 frame.a1(),
                 frame.a2(),
-                read_scratch,
+                io.read_scratch,
             ),
         )),
         syscall::SYS_CLOSE => trap_outcome_without_scheduler(handle_syscall_result(
             frame,
-            syscall::handle_current_process_close(write_current, frame.a0()),
+            syscall::handle_current_process_close(io.current, frame.a0()),
         )),
         syscall::SYS_OPENAT => trap_outcome_without_scheduler(handle_syscall_result(
             frame,
             syscall::handle_process_open_checked_user_path(
-                write_current.io_mut(),
-                open_ns,
-                open_user,
+                io.current.io_mut(),
+                io.open_ns,
+                io.open_user,
                 frame.a1(),
                 frame.a2(),
-                open_scratch,
+                io.open_scratch,
             ),
         )),
         _ => handle_prepared_process_syscall_entry::<
