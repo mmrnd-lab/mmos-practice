@@ -3091,6 +3091,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] exec apply path passes loaded shared object metadata into process runtime\n");
     console::puts("[chapter] ch166 exec dispatch shared object runtime\n");
     console::puts("[user-link] exec dispatch path can select the shared object aware apply runtime\n");
+    console::puts("[chapter] ch168 user crt entry main\n");
+    console::puts("[user-crt] _start decodes initial stack before app main\n");
 }
 
 fn run_kernel_satp_guard_demo() {
