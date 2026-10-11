@@ -1,0 +1,20 @@
+# Copyright 2026 Sungjae Park
+# SPDX-License-Identifier: Apache-2.0
+
+[package]
+name = "mmos-practice"
+version = "0.1.0"
+edition = "2021"
+
+[features]
+default = ["console-sbi"]
+console-sbi = []
+console-mmio = []
+
+[profile.release]
+panic = "abort"
+
+[profile.dev]
+panic = "abort"
+
+[dependencies]

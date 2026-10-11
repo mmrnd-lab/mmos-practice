@@ -5,7 +5,16 @@ PROFILE ?= release
 QEMU ?= qemu-system-riscv64
 RUN_SECONDS ?= 5
 TEST_TARGET ?= x86_64-unknown-linux-gnu
+CONSOLE ?= sbi
 KERNEL_ELF := target/riscv64gc-unknown-none-elf/$(PROFILE)/mmos-practice
+
+ifeq ($(CONSOLE),sbi)
+CARGO_CONSOLE_FLAGS := --no-default-features --features console-sbi
+else ifeq ($(CONSOLE),mmio)
+CARGO_CONSOLE_FLAGS := --no-default-features --features console-mmio
+else
+$(error unsupported CONSOLE='$(CONSOLE)' (expected 'sbi' or 'mmio'))
+endif
 
 .PHONY: require-container image shell test mmos.bin run-nographic run-monitor
 
@@ -28,7 +37,7 @@ test: require-container
 	cargo test --lib --target $(TEST_TARGET)
 
 mmos.bin: require-container
-	cargo build --profile $(PROFILE)
+	cargo build --profile $(PROFILE) $(CARGO_CONSOLE_FLAGS)
 
 run-nographic: require-container
 	@echo "running QEMU (nographic) with $(KERNEL_ELF)"
