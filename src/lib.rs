@@ -15,6 +15,7 @@ pub mod kheap;
 pub mod page_fault;
 pub mod page_frame_allocator;
 pub mod pmm;
+pub mod process_model;
 pub mod scheduler;
 pub mod syscall;
 pub mod sv39;
@@ -48,6 +49,7 @@ mod tests {
     };
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
+    use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
     use super::scheduler::{Scheduler, TaskState};
     use super::sv39::{
         make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_U, PTE_V, PTE_W, PTE_X,
@@ -359,6 +361,47 @@ mod tests {
         assert_eq!(prev_slot.sp(), 0x8000_1000);
         assert_eq!(live.sepc, 0x2000);
         assert_eq!(live.sp(), 0x8000_2000);
+    }
+
+    #[test]
+    fn process_table_links_parent_and_child() {
+        let mut table = ProcessTable::<4, 4, 4>::new();
+        let parent_vm = VmSpace::<4>::new();
+        let child_vm = VmSpace::<4>::new();
+        let parent_pid = table.create_process(None, parent_vm).unwrap();
+        let child_pid = table.create_process(Some(parent_pid), child_vm).unwrap();
+
+        let parent = table.get_mut(parent_pid).unwrap();
+        parent.add_child(child_pid).unwrap();
+        assert_eq!(parent.children[0], Some(child_pid));
+    }
+
+    #[test]
+    fn pcb_reap_requires_zombie_state() {
+        let mut table = ProcessTable::<2, 2, 4>::new();
+        let pid = table.create_process(None, VmSpace::<4>::new()).unwrap();
+        let pcb = table.get_mut(pid).unwrap();
+
+        assert_eq!(pcb.reap(), Err(ProcError::NotZombie));
+        pcb.mark_zombie(7);
+        assert_eq!(pcb.state, ProcState::Zombie);
+        assert_eq!(pcb.reap().unwrap(), 7);
+        assert_eq!(pcb.state, ProcState::Reaped);
+    }
+
+    #[test]
+    fn task_table_tracks_owner_and_runtime_ticks() {
+        let mut tasks = TaskTable::<4>::new();
+        let mut tf = TrapFrame::default();
+        tf.sepc = 0x8040_0000;
+        let tcb = TaskControlBlock::new(1, 10, tf, 0x12345);
+        tasks.add_task(tcb).unwrap();
+
+        let slot = tasks.get_mut(1).unwrap();
+        assert_eq!(slot.owner_pid, 10);
+        assert_eq!(slot.trapframe.sepc, 0x8040_0000);
+        slot.runtime_ticks += 1;
+        assert_eq!(slot.runtime_ticks, 1);
     }
 
     #[test]
