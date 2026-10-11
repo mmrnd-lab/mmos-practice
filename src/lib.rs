@@ -649,6 +649,81 @@ mod tests {
     }
 
     #[test]
+    fn process_io_runtime_can_create_empty_fd_table() {
+        let mut runtime = ProcessIoRuntime::<2, 2, 2, 8>::new();
+        let pid = runtime
+            .create_process_empty_fd_table(None, VmSpace::<2>::new())
+            .unwrap();
+        let task = TaskControlBlock::new(1, pid, TrapFrame::default());
+        let current = runtime.current_for_task(&task).unwrap();
+
+        assert_eq!(pid, 1);
+        assert_eq!(current.pid(), pid);
+        assert_eq!(current.write_fd(0, b"no-stdio"), Err(FileError::BadFd));
+        assert_eq!(current.write_fd(1, b"no-stdio"), Err(FileError::BadFd));
+        assert_eq!(current.write_fd(2, b"no-stdio"), Err(FileError::BadFd));
+    }
+
+    #[test]
+    fn init_can_open_stdio_from_empty_fd_table() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let ns = DeviceNamespace::new(dev);
+        let mut current = CurrentProcessIoContext::<8>::empty(1);
+        let mut vm = VmSpace::<2>::new();
+        vm.map_anon(0x9000, 0x9020, PTE_R).unwrap();
+        let user = CheckedUserSlice::new(b"/dev/console\0init-stdio", 0x9000, &vm);
+        let mut path_scratch = [0u8; 32];
+        let mut write_scratch = [0u8; 16];
+
+        assert_eq!(
+            handle_process_open_checked_user_path(
+                current.io_mut(),
+                &ns,
+                &user,
+                0x9000,
+                0,
+                &mut path_scratch,
+            ),
+            SyscallResult::Continue(0)
+        );
+        assert_eq!(
+            handle_process_open_checked_user_path(
+                current.io_mut(),
+                &ns,
+                &user,
+                0x9000,
+                1,
+                &mut path_scratch,
+            ),
+            SyscallResult::Continue(1)
+        );
+        assert_eq!(
+            handle_process_open_checked_user_path(
+                current.io_mut(),
+                &ns,
+                &user,
+                0x9000,
+                1,
+                &mut path_scratch,
+            ),
+            SyscallResult::Continue(2)
+        );
+        assert_eq!(
+            handle_current_process_write_checked_user_syscall(
+                &current,
+                &user,
+                1,
+                0x900d,
+                10,
+                &mut write_scratch,
+            ),
+            SyscallResult::Continue(10)
+        );
+        assert_eq!(dev.written(), b"init-stdio".to_vec());
+    }
+
+    #[test]
     fn process_owned_io_runtime_write_uses_created_process_context() {
         let dev: &'static MockCharDevice =
             std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
@@ -2812,6 +2887,19 @@ mod tests {
         assert_eq!(loaded.entry, 0x4000_0000);
         assert_eq!(loaded.stack_top, 0x4010_0000);
         assert_eq!(loaded.segment_count, 1);
+    }
+
+    #[test]
+    fn demo_init_elf_opens_console_before_write() {
+        let elf = build_test_init_elf();
+        assert!(elf
+            .windows(b"/dev/console\0".len())
+            .any(|w| w == b"/dev/console\0"));
+        assert!(elf
+            .windows(4)
+            .filter(|w| *w == [0x93, 0x08, 0x80, 0x03])
+            .count()
+            >= 3);
     }
 
     #[test]

@@ -4,8 +4,12 @@
 
 #![no_main]
 
+const SYS_OPENAT: usize = 56;
 const SYS_WRITE: usize = 64;
 const SYS_EXIT: usize = 93;
+const AT_FDCWD: usize = (-100isize) as usize;
+const O_RDONLY: usize = 0;
+const O_WRONLY: usize = 1;
 
 #[inline(always)]
 fn syscall1(nr: usize, a0: usize) -> usize {
@@ -44,6 +48,10 @@ fn exit(code: i32) -> ! {
 
 #[unsafe(no_mangle)]
 pub extern "C" fn _start() -> ! {
+    let console = b"/dev/console\0";
+    let _ = syscall3(SYS_OPENAT, AT_FDCWD, console.as_ptr() as usize, O_RDONLY);
+    let _ = syscall3(SYS_OPENAT, AT_FDCWD, console.as_ptr() as usize, O_WRONLY);
+    let _ = syscall3(SYS_OPENAT, AT_FDCWD, console.as_ptr() as usize, O_WRONLY);
     let msg = b"[user-init] hello from user app\n";
     let _ = syscall3(SYS_WRITE, 1, msg.as_ptr() as usize, msg.len());
     exit(0)

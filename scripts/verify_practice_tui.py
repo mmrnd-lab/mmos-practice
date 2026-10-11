@@ -2426,6 +2426,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=process syscall entry receives one IO resources bundle for open/read/write/close paths",
     ),
     ChapterSet(
+        key="ch145_empty_fd_table_init_stdio",
+        label="Ch145 Empty FD Table Init Stdio",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch145 empty fd table init stdio",
+                    "[init] opened stdio fds 0,1,2 from empty table wrote=10",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=init constructs fd 0/1/2 by opening /dev/console from an empty fd table",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

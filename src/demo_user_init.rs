@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 pub const DEMO_EXT4_IMAGE_SIZE: usize = 16 * 1024;
-pub const DEMO_INIT_ELF_SIZE: usize = 0x180;
+pub const DEMO_INIT_ELF_SIZE: usize = 0x1c0;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum DemoBuildError {
@@ -13,7 +13,9 @@ pub enum DemoBuildError {
 pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
     const BASE_VADDR: usize = 0x4000_0000;
     const SEG_OFF: usize = 0x100;
-    const MSG_OFF: usize = 0x140;
+    const PATH_OFF: usize = 0x170;
+    const MSG_OFF: usize = 0x180;
+    const PATH: &[u8] = b"/dev/console\0";
     const MSG: &[u8] = b"[user-init] hello from user app\n";
 
     if out.len() < DEMO_INIT_ELF_SIZE {
@@ -45,22 +47,42 @@ pub fn build_demo_init_elf(out: &mut [u8]) -> Result<usize, DemoBuildError> {
 
     let code = &mut out[SEG_OFF..MSG_OFF];
     code.fill(0);
-    // a1 = &MSG (PC-relative, avoids RV64 sign-extension pitfalls)
+    // init owns the first stdio contract: open /dev/console as fd 0, 1, and 2.
     write_le32(code, 0x00, encode_auipc(11, 0));
-    write_le32(code, 0x04, encode_addi(11, 11, (MSG_OFF - SEG_OFF) as i32));
-    // write(1, msg, msg_len)
-    write_le32(code, 0x08, encode_addi(10, 0, 1));
-    write_le32(code, 0x0c, encode_addi(12, 0, MSG.len() as i32));
-    write_le32(code, 0x10, encode_addi(17, 0, 64));
+    write_le32(code, 0x04, encode_addi(11, 11, (PATH_OFF - SEG_OFF) as i32));
+    write_le32(code, 0x08, encode_addi(10, 0, -100));
+    write_le32(code, 0x0c, encode_addi(12, 0, 0));
+    write_le32(code, 0x10, encode_addi(17, 0, 56));
     write_le32(code, 0x14, 0x0000_0073); // ecall
+    write_le32(code, 0x18, encode_auipc(11, 0));
+    write_le32(code, 0x1c, encode_addi(11, 11, (PATH_OFF - (SEG_OFF + 0x18)) as i32));
+    write_le32(code, 0x20, encode_addi(10, 0, -100));
+    write_le32(code, 0x24, encode_addi(12, 0, 1));
+    write_le32(code, 0x28, encode_addi(17, 0, 56));
+    write_le32(code, 0x2c, 0x0000_0073); // ecall
+    write_le32(code, 0x30, encode_auipc(11, 0));
+    write_le32(code, 0x34, encode_addi(11, 11, (PATH_OFF - (SEG_OFF + 0x30)) as i32));
+    write_le32(code, 0x38, encode_addi(10, 0, -100));
+    write_le32(code, 0x3c, encode_addi(12, 0, 1));
+    write_le32(code, 0x40, encode_addi(17, 0, 56));
+    write_le32(code, 0x44, 0x0000_0073); // ecall
+    // a1 = &MSG (PC-relative, avoids RV64 sign-extension pitfalls)
+    write_le32(code, 0x48, encode_auipc(11, 0));
+    write_le32(code, 0x4c, encode_addi(11, 11, (MSG_OFF - (SEG_OFF + 0x48)) as i32));
+    // write(1, msg, msg_len)
+    write_le32(code, 0x50, encode_addi(10, 0, 1));
+    write_le32(code, 0x54, encode_addi(12, 0, MSG.len() as i32));
+    write_le32(code, 0x58, encode_addi(17, 0, 64));
+    write_le32(code, 0x5c, 0x0000_0073); // ecall
                                          // exit(0)
-    write_le32(code, 0x18, encode_addi(10, 0, 0));
-    write_le32(code, 0x1c, encode_addi(17, 0, 93));
-    write_le32(code, 0x20, 0x0000_0073); // ecall
+    write_le32(code, 0x60, encode_addi(10, 0, 0));
+    write_le32(code, 0x64, encode_addi(17, 0, 93));
+    write_le32(code, 0x68, 0x0000_0073); // ecall
                                          // safety loop if exit path is not wired
-    write_le32(code, 0x24, 0x1050_0073); // wfi
-    write_le32(code, 0x28, 0x0000_006f); // j .
+    write_le32(code, 0x6c, 0x1050_0073); // wfi
+    write_le32(code, 0x70, 0x0000_006f); // j .
 
+    out[PATH_OFF..PATH_OFF + PATH.len()].copy_from_slice(PATH);
     out[MSG_OFF..MSG_OFF + MSG.len()].copy_from_slice(MSG);
     Ok(DEMO_INIT_ELF_SIZE)
 }

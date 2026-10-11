@@ -777,6 +777,7 @@ pub extern "C" fn rust_main() -> ! {
     run_process_syscall_read_entry_demo();
     run_process_syscall_close_entry_demo();
     run_process_syscall_openat_entry_demo();
+    run_empty_fd_table_init_stdio_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -2989,6 +2990,60 @@ fn run_process_syscall_openat_entry_demo() {
         console::puts("[trap] process syscall entry routed openat a0=3 sepc=0x4000a004 wrote=10\n");
         console::puts("[chapter] ch143 process syscall io resources\n");
         console::puts("[trap] process syscall io resources routed openat a0=3 sepc=0x4000a004 wrote=10\n");
+    }
+}
+
+fn run_empty_fd_table_init_stdio_demo() {
+    let ns = devfs::DeviceNamespace::new(console::device());
+    let mut current_io = process_io::CurrentProcessIoContext::<8>::empty(1);
+    let mut path_vm = vm::VmSpace::<2>::new();
+    if path_vm.map_anon(0xb000, 0xb020, sv39::PTE_R).is_err() {
+        return;
+    }
+    let user = user_copy::CheckedUserSlice::new(b"/dev/console\0init-stdio", 0xb000, &path_vm);
+    let mut path_scratch = [0u8; 32];
+    let mut write_scratch = [0u8; 16];
+
+    let fd0 = syscall::handle_process_open_checked_user_path(
+        current_io.io_mut(),
+        &ns,
+        &user,
+        0xb000,
+        0,
+        &mut path_scratch,
+    );
+    let fd1 = syscall::handle_process_open_checked_user_path(
+        current_io.io_mut(),
+        &ns,
+        &user,
+        0xb000,
+        1,
+        &mut path_scratch,
+    );
+    let fd2 = syscall::handle_process_open_checked_user_path(
+        current_io.io_mut(),
+        &ns,
+        &user,
+        0xb000,
+        1,
+        &mut path_scratch,
+    );
+    let wrote = syscall::handle_current_process_write_checked_user_syscall(
+        &current_io,
+        &user,
+        1,
+        0xb00d,
+        10,
+        &mut write_scratch,
+    );
+
+    if fd0 == syscall::SyscallResult::Continue(0)
+        && fd1 == syscall::SyscallResult::Continue(1)
+        && fd2 == syscall::SyscallResult::Continue(2)
+        && wrote == syscall::SyscallResult::Continue(10)
+    {
+        console::puts("[chapter] ch145 empty fd table init stdio\n");
+        console::puts("[init] opened stdio fds 0,1,2 from empty table wrote=10\n");
     }
 }
 

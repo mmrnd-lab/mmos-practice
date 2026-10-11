@@ -12,6 +12,12 @@ pub struct ProcessIoContext<const MAX_FDS: usize> {
 }
 
 impl<const MAX_FDS: usize> ProcessIoContext<MAX_FDS> {
+    pub const fn empty() -> Self {
+        Self {
+            fd_table: FileDescriptorTable::new(),
+        }
+    }
+
     pub fn with_stdio(console: &'static dyn CharacterDevice) -> Self {
         Self {
             fd_table: stdio_table_with_capacity(console),
@@ -55,6 +61,13 @@ pub struct CurrentProcessIoContext<const MAX_FDS: usize> {
 }
 
 impl<const MAX_FDS: usize> CurrentProcessIoContext<MAX_FDS> {
+    pub const fn empty(pid: usize) -> Self {
+        Self {
+            pid,
+            io: ProcessIoContext::empty(),
+        }
+    }
+
     pub fn with_stdio(pid: usize, console: &'static dyn CharacterDevice) -> Self {
         Self {
             pid,
@@ -124,6 +137,10 @@ impl<const MAX_PROCS: usize, const MAX_FDS: usize> ProcessIoTable<MAX_PROCS, MAX
         console: &'static dyn CharacterDevice,
     ) -> Result<(), ProcError> {
         self.insert(CurrentProcessIoContext::with_stdio(pid, console))
+    }
+
+    pub fn insert_empty(&mut self, pid: usize) -> Result<(), ProcError> {
+        self.insert(CurrentProcessIoContext::empty(pid))
     }
 
     pub fn get(&self, pid: usize) -> Result<&CurrentProcessIoContext<MAX_FDS>, ProcError> {
@@ -203,6 +220,16 @@ impl<
     ) -> Result<usize, ProcError> {
         let pid = self.processes.create_process(parent, vm)?;
         self.io.insert_stdio(pid, console)?;
+        Ok(pid)
+    }
+
+    pub fn create_process_empty_fd_table(
+        &mut self,
+        parent: Option<usize>,
+        vm: crate::vm::VmSpace<MAX_AREAS>,
+    ) -> Result<usize, ProcError> {
+        let pid = self.processes.create_process(parent, vm)?;
+        self.io.insert_empty(pid)?;
         Ok(pid)
     }
 
