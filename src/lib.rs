@@ -171,6 +171,7 @@ mod tests {
         install_frame_backed_shared_object_mapping_in_tables,
         install_frame_backed_user_mapping_in_tables, install_user_vm_plan_in_root,
         is_kernel_mapping, is_leaf_user_mapping, is_table_mapping,
+        load_shared_object_pipeline_in_tables,
         plan_frame_backed_shared_object, plan_frame_backed_user_image, preflight_satp_commit, vpn0, vpn1, vpn2,
         KernelRuntimeSatpGuard,
         KernelRuntimeSatpGuardError, ProcessAddressSpace, ProcessAddressSpaceTable,
@@ -5337,6 +5338,40 @@ mod tests {
         assert_eq!(shared_entry.ppn(), 0x9100_0000 / super::sv39::PAGE_SIZE);
         assert_eq!(shared_entry.flags() & PTE_X, PTE_X);
         assert_eq!(install.mapped_pages, 1);
+    }
+
+    #[test]
+    fn shared_object_load_pipeline_materializes_frames_and_page_tables() {
+        let mut elf = build_test_dynamic_metadata_elf();
+        write_le64_at(&mut elf, 0x1d8, 0);
+        let mut pmm =
+            PageFrameManager::<2>::new(0x9100_0000, 0x9100_2000, super::sv39::PAGE_SIZE);
+        let mut root = RootPageTable::new();
+        let mut l1 = RootPageTable::new();
+        let mut l0 = RootPageTable::new();
+
+        let loaded = load_shared_object_pipeline_in_tables(
+            &mut elf,
+            0x5000_0000,
+            &mut pmm,
+            &mut root,
+            &mut l1,
+            0x9100_2000,
+            &mut l0,
+            0x9100_3000,
+        )
+        .unwrap();
+
+        let shared_entry = l0.entries[vpn0(0x9000_0000)];
+        assert_eq!(loaded.relocation_count, 0);
+        assert_eq!(loaded.base, 0x5000_0000);
+        assert_eq!(loaded.entry_vaddr, 0x9000_0000);
+        assert_eq!(loaded.entry_frame_pa, 0x9100_0000);
+        assert_eq!(loaded.segment_count, 2);
+        assert_eq!(loaded.mapped_pages, 1);
+        assert!(is_leaf_user_mapping(shared_entry));
+        assert_eq!(shared_entry.ppn(), 0x9100_0000 / super::sv39::PAGE_SIZE);
+        assert_eq!(shared_entry.flags() & PTE_X, PTE_X);
     }
 
     #[test]

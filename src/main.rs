@@ -3077,6 +3077,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] shared object mapping candidates receive PMM-backed frames before page table install\n");
     console::puts("[chapter] ch159 shared object page table install\n");
     console::puts("[user-link] shared object frame plan installs user leaf mappings without stack pages\n");
+    console::puts("[chapter] ch160 shared object load pipeline\n");
+    console::puts("[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings\n");
 }
 
 fn run_kernel_satp_guard_demo() {

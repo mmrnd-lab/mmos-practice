@@ -2797,6 +2797,31 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=installs shared object frame-backed segment leaf mappings without adding stack pages",
     ),
     ChapterSet(
+        key="ch160_shared_object_load_pipeline",
+        label="Ch160 Shared Object Load Pipeline",
+        commit_candidates=["HEAD"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "shared-object-load-pipeline",
+                "make shared-object-load-pipeline PROFILE=release",
+                must_contain=(
+                    "[user-link] shared-object-pipeline=relocations+frames+leaf-mappings",
+                ),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch160 shared object load pipeline",
+                    "[user-link] shared object load pipeline materializes relocations, frames, and leaf mappings",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=combines shared object relocation materialization, frame planning, and leaf mapping install",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

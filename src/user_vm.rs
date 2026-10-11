@@ -1,7 +1,10 @@
 // Copyright 2026 Sungjae Park
 // SPDX-License-Identifier: Apache-2.0
 
-use crate::elf_loader::{pflags_to_pte, LoadedUserImage, SharedObjectMappingPlan};
+use crate::elf_loader::{
+    materialize_shared_object_relocations, pflags_to_pte, plan_shared_object_mappings, ElfError,
+    LoadedUserImage, SharedObjectMappingPlan,
+};
 use crate::sv39::{
     make_satp, PageTableEntry, RootPageTable, PAGE_SIZE, PTE_A, PTE_D, PTE_G, PTE_R,
     PTE_U, PTE_V, PTE_W, PTE_X, PT_ENTRIES,
@@ -85,6 +88,16 @@ pub struct SharedObjectFrameBackedPlan {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SharedObjectLoadPipeline {
+    pub relocation_count: usize,
+    pub base: usize,
+    pub entry_vaddr: usize,
+    pub entry_frame_pa: usize,
+    pub segment_count: usize,
+    pub mapped_pages: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UserFrameBackedImageError {
     NoSegments,
     TooManySegments,
@@ -101,6 +114,13 @@ pub enum SharedObjectFramePlanError {
     SegmentTooLarge,
     OutOfFrames,
     EntryNotMapped,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SharedObjectLoadPipelineError {
+    Elf(ElfError),
+    Frame(SharedObjectFramePlanError),
+    Mapping(UserFrameBackedMappingError),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -465,6 +485,42 @@ pub fn install_frame_backed_shared_object_mapping_in_tables(
         l1_frame_pa,
         l0_frame_pa,
         mapped_pages,
+    })
+}
+
+pub fn load_shared_object_pipeline_in_tables<const FREE_CAP: usize>(
+    image: &mut [u8],
+    preferred_base: usize,
+    pmm: &mut crate::pmm::PageFrameManager<FREE_CAP>,
+    root: &mut RootPageTable,
+    l1: &mut RootPageTable,
+    l1_frame_pa: usize,
+    l0: &mut RootPageTable,
+    l0_frame_pa: usize,
+) -> Result<SharedObjectLoadPipeline, SharedObjectLoadPipelineError> {
+    let relocation_count = materialize_shared_object_relocations(image, preferred_base)
+        .map_err(SharedObjectLoadPipelineError::Elf)?;
+    let mapping = plan_shared_object_mappings(image, preferred_base)
+        .map_err(SharedObjectLoadPipelineError::Elf)?;
+    let frame_plan = plan_frame_backed_shared_object(&mapping, pmm)
+        .map_err(SharedObjectLoadPipelineError::Frame)?;
+    let install = install_frame_backed_shared_object_mapping_in_tables(
+        root,
+        l1,
+        l1_frame_pa,
+        l0,
+        l0_frame_pa,
+        &frame_plan,
+    )
+    .map_err(SharedObjectLoadPipelineError::Mapping)?;
+
+    Ok(SharedObjectLoadPipeline {
+        relocation_count,
+        base: frame_plan.base,
+        entry_vaddr: frame_plan.entry_vaddr,
+        entry_frame_pa: frame_plan.entry_frame_pa,
+        segment_count: frame_plan.segment_count,
+        mapped_pages: install.mapped_pages,
     })
 }
 
