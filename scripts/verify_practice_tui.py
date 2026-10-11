@@ -1028,6 +1028,26 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=launch plan is registered through the common user process creation path",
     ),
     ChapterSet(
+        key="ch62_second_user_task_switch",
+        label="Ch62 Second User Task Switch",
+        commit_candidates=["9c2e8e9"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=4",
+                must_contain=(
+                    "[chapter] ch62 second user task switch",
+                    "[chapter] ch61 user process creation path",
+                    "[chapter] ch59 launch task global runtime",
+                    "[user-init] hello from user app",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=two created user task contexts can switch after the first blocks",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

@@ -184,6 +184,11 @@
     - boot-time init 등록과 이후 fork/exec 계열 syscall이 공유할 user process 생성 primitive를 검증
 
 
+54. `9c2e8e9` `feat(ch62): switch to second created user task`
+    - 공통 user process 생성 경로로 두 개의 launch context를 process/task/scheduler에 등록
+    - 첫 task가 blocked 되었을 때 scheduler decision과 live frame 복원이 두 번째 task context로 전환되는지 검증
+
+
 ## Reproduce Example
 
 ```bash
