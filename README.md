@@ -28,6 +28,17 @@ make mmos.bin PROFILE=release
 make run-nographic PROFILE=release RUN_SECONDS=8
 ```
 
+Virtual Platform에 전달할 Foundation 배포 입력 산출물은 컨테이너 안에서 한 번에 빌드할 수 있다.
+
+```bash
+make dist PROFILE=release
+```
+
+이 타깃은 release kernel ELF(`target/riscv64gc-unknown-none-elf/release/mmos-practice`)와
+Foundation disk image(`build/foundation.img`)를 만들고 이미지 안의 `/sbin/init`, `/bin/sh`,
+`/lib/libmmos_user_libc.so` 배치를 검증한다. `.mvpkg` 패키징과 서명은 Virtual Platform이
+이 두 immutable input을 측정한 뒤 담당한다.
+
 Podman이 이미 설치되어 있다면 패키지 설치를 생략할 수 있다.
 
 ```bash
