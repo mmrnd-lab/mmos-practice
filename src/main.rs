@@ -676,6 +676,7 @@ pub extern "C" fn rust_main() -> ! {
 
     run_scheduler_runtime_demo();
     run_process_runtime_demo();
+    run_process_exit_runtime_demo();
     console::puts("[mmos-practice] trap/irq scaffold ready\n");
     run_user_launch_demo();
     run_kernel_satp_guard_demo();
@@ -705,6 +706,49 @@ fn run_process_runtime_demo() {
     console::puts("[proc] fork parent=1 child=2\n");
     console::puts("[proc] exec pid=2 path=/bin/sh\n");
     console::puts("[proc] wait reap pid=2 code=0\n");
+}
+
+fn run_process_exit_runtime_demo() {
+    let mut processes = process_model::ProcessTable::<3, 2, 2>::new();
+    let mut tasks = process_model::TaskTable::<4>::new();
+    let Ok(owner_pid) = processes.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+    let Ok(other_pid) = processes.create_process(None, vm::VmSpace::<2>::new()) else {
+        return;
+    };
+
+    if tasks
+        .add_task(process_model::TaskControlBlock::new(
+            1,
+            owner_pid,
+            trap::TrapFrame::default(),
+        ))
+        .is_err()
+        || tasks
+            .add_task(process_model::TaskControlBlock::new(
+                2,
+                owner_pid,
+                trap::TrapFrame::default(),
+            ))
+            .is_err()
+        || tasks
+            .add_task(process_model::TaskControlBlock::new(
+                3,
+                other_pid,
+                trap::TrapFrame::default(),
+            ))
+            .is_err()
+    {
+        return;
+    }
+
+    if let Ok(report) = process_model::exit_process_from_task(&mut processes, &mut tasks, 1, 0) {
+        if report.owner_pid == owner_pid && report.tasks_marked == 2 {
+            console::puts("[chapter] ch90 process exit runtime\n");
+            console::puts("[proc] exit pid=1 code=0 tasks=2\n");
+        }
+    }
 }
 
 fn run_kernel_satp_guard_demo() {

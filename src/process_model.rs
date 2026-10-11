@@ -193,6 +193,13 @@ pub struct TaskTable<const MAX_TASKS: usize> {
     slots: [Option<TaskControlBlock>; MAX_TASKS],
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessExitRuntime {
+    pub owner_pid: usize,
+    pub exit_code: i32,
+    pub tasks_marked: usize,
+}
+
 impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
     pub const fn new() -> Self {
         Self {
@@ -237,4 +244,61 @@ impl<const MAX_TASKS: usize> TaskTable<MAX_TASKS> {
         }
         Err(ProcError::MissingTask)
     }
+
+    pub fn owner_pid(&self, tid: usize) -> Result<usize, ProcError> {
+        Ok(self.get(tid)?.owner_pid)
+    }
+
+    pub fn mark_owner_tasks_state(&mut self, owner_pid: usize, state: TaskState) -> usize {
+        let mut marked = 0usize;
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(mut tcb) = self.slots[idx] {
+                if tcb.owner_pid == owner_pid {
+                    tcb.sched_state = state;
+                    self.slots[idx] = Some(tcb);
+                    marked += 1;
+                }
+            }
+            idx += 1;
+        }
+        marked
+    }
+
+    pub fn count_owner_tasks_with_state(&self, owner_pid: usize, state: TaskState) -> usize {
+        let mut count = 0usize;
+        let mut idx = 0usize;
+        while idx < MAX_TASKS {
+            if let Some(tcb) = self.slots[idx] {
+                if tcb.owner_pid == owner_pid && tcb.sched_state == state {
+                    count += 1;
+                }
+            }
+            idx += 1;
+        }
+        count
+    }
+}
+
+pub fn exit_process_from_task<
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+>(
+    processes: &mut ProcessTable<MAX_PROCS, MAX_CHILDREN, MAX_AREAS>,
+    tasks: &mut TaskTable<MAX_TASKS>,
+    current_tid: usize,
+    code: i32,
+) -> Result<ProcessExitRuntime, ProcError> {
+    let owner_pid = tasks.owner_pid(current_tid)?;
+    let process = processes.get_mut(owner_pid)?;
+    process.mark_zombie(code);
+    let tasks_marked = tasks.mark_owner_tasks_state(owner_pid, TaskState::Zombie);
+
+    Ok(ProcessExitRuntime {
+        owner_pid,
+        exit_code: code,
+        tasks_marked,
+    })
 }

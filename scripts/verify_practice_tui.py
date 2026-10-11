@@ -1526,6 +1526,24 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=sret enters user code, write traps back, and init exits cleanly",
     ),
     ChapterSet(
+        key="ch90_process_exit_runtime",
+        label="Ch90 Process Exit Runtime",
+        commit_candidates=["fd13d03"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch90 process exit runtime",
+                    "[proc] exit pid=1 code=0 tasks=2",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=process-wide exit marks owner PCB and all owned TCBs before user init still exits cleanly",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

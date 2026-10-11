@@ -75,7 +75,9 @@ mod tests {
     };
     use super::page_frame_allocator::PageFrameAllocator;
     use super::pmm::{PageFrameManager, PmmError};
-    use super::process_model::{ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable};
+    use super::process_model::{
+        exit_process_from_task, ProcError, ProcState, ProcessTable, TaskControlBlock, TaskTable,
+    };
     use super::process_io::{
         CurrentProcessIoContext, ProcessIoContext, ProcessIoRuntime, ProcessIoTable,
     };
@@ -1759,6 +1761,41 @@ mod tests {
         assert_eq!(report.exec_entry, 0x4000_1000);
         assert_eq!(report.exec_stack_top, 0x4010_1000);
         assert_eq!(report.reap_code, 0);
+    }
+
+    #[test]
+    fn process_exit_runtime_marks_owner_process_and_tasks() {
+        let mut processes = ProcessTable::<3, 2, 2>::new();
+        let mut tasks = TaskTable::<4>::new();
+        let owner_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+        let other_pid = processes
+            .create_process(None, VmSpace::<2>::new())
+            .unwrap();
+
+        tasks
+            .add_task(TaskControlBlock::new(1, owner_pid, TrapFrame::default()))
+            .unwrap();
+        tasks
+            .add_task(TaskControlBlock::new(2, owner_pid, TrapFrame::default()))
+            .unwrap();
+        tasks
+            .add_task(TaskControlBlock::new(3, other_pid, TrapFrame::default()))
+            .unwrap();
+
+        let report = exit_process_from_task(&mut processes, &mut tasks, 1, 5).unwrap();
+
+        assert_eq!(report.owner_pid, owner_pid);
+        assert_eq!(report.exit_code, 5);
+        assert_eq!(report.tasks_marked, 2);
+        assert_eq!(processes.get(owner_pid).unwrap().state, ProcState::Zombie);
+        assert_eq!(processes.get(owner_pid).unwrap().exit_code, Some(5));
+        assert_eq!(
+            tasks.count_owner_tasks_with_state(owner_pid, TaskState::Zombie),
+            2
+        );
+        assert_eq!(tasks.get(3).unwrap().sched_state, TaskState::Runnable);
     }
 
     #[test]

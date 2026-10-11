@@ -314,6 +314,11 @@
     - 같은 4KiB page 안에 놓인 text/rodata PT_LOAD segment가 같은 frame과 병합된 PTE flags를 공유하도록 보강
     - user app의 첫 `write` syscall trap, user message 출력, `exit(0)`까지 QEMU runtime 시그니처로 검증
 
+80. `fd13d03` `feat(ch90): add process-wide exit runtime model`
+    - current TID에서 owner PID를 찾고, owner PCB를 zombie로 전이시키는 helper 추가
+    - 같은 owner PID를 가진 모든 TCB를 non-runnable(`Zombie`) 상태로 바꾸는 TaskTable helper 추가
+    - QEMU runtime marker에서 `[chapter] ch90 process exit runtime`, `[proc] exit pid=1 code=0 tasks=2` 확인
+
 
 ## Reproduce Example
 
