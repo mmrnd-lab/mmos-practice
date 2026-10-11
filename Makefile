@@ -15,6 +15,7 @@ KERNEL_RAW := $(BUILD_DIR)/mmos.raw
 UIMAGE := $(BUILD_DIR)/mmos.uImage
 BOOT_DISK := $(BUILD_DIR)/drive0.img
 USER_INIT_ELF := $(BUILD_DIR)/user-init.elf
+USER_CRT_RLIB := user/crt/target/riscv64gc-unknown-none-elf/$(PROFILE)/libmmos_user_crt.rlib
 UBOOT_BUILD := $(BUILD_DIR)/u-boot
 UBOOT_BIN := $(UBOOT_BUILD)/u-boot.bin
 UBOOT_SPL := $(UBOOT_BUILD)/spl/u-boot-spl
@@ -40,7 +41,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-init uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-init uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -62,6 +63,11 @@ test: require-container
 
 mmos.bin: require-container
 	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-Tsrc/kernel.ld' cargo build --profile $(PROFILE) $(CARGO_CONSOLE_FLAGS)
+
+$(USER_CRT_RLIB): require-container user/crt/Cargo.toml user/crt/src/lib.rs
+	cargo build --manifest-path user/crt/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf
+
+user-crt: $(USER_CRT_RLIB)
 
 $(USER_INIT_ELF): require-container user/common/mmos_user_app.ld user/init/build.rs | $(BUILD_DIR)
 	CARGO_TARGET_RISCV64GC_UNKNOWN_NONE_ELF_RUSTFLAGS='-C link-arg=-T/workspace/mmos-practice/user/common/mmos_user_app.ld' cargo build --manifest-path user/init/Cargo.toml --profile $(PROFILE) --target riscv64gc-unknown-none-elf

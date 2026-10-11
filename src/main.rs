@@ -3053,6 +3053,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-rt] init owns stdio open/write/exit wrappers before CRT extraction\n");
     console::puts("[chapter] ch147 user crt library boundary\n");
     console::puts("[user-crt] init links shared runtime API from user/crt crate\n");
+    console::puts("[chapter] ch148 user crt static link artifact\n");
+    console::puts("[user-crt] build produces libmmos_user_crt.rlib before shared object support\n");
 }
 
 fn run_kernel_satp_guard_demo() {
