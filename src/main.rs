@@ -613,6 +613,34 @@ pub extern "C" fn rust_main() -> ! {
                 console::puts("[chapter] ch57 global trap runtime state\n");
             }
             trap_runtime::reset_global_trap_runtime();
+            trap_runtime::reset_global_trap_runtime();
+            let mut dispatch_global_next = trap::TrapFrame::default();
+            dispatch_global_next.sepc = 0x8070_0000;
+            dispatch_global_next.set_a0(0x57);
+            dispatch_global_next.set_sp(0x8080_0000);
+            trap_runtime::with_global_trap_runtime(|runtime| {
+                let _ = runtime.add_runnable(input_tid, trap::TrapFrame::default());
+                let _ = runtime.add_runnable(next_tid, dispatch_global_next);
+                runtime.start_first_task();
+                let _ = runtime.mark_blocked(input_tid);
+            });
+            let mut dispatch_global_frame = blocked_frame;
+            if trap::dispatch_trap_outcome_with_global_runtime(
+                &mut dispatch_global_frame,
+                trap::TrapOutcome::Schedule,
+            ) == trap::TrapDispatchResult::Switched(scheduler::ScheduleDecision::Switched {
+                prev_tid: input_tid,
+                next_tid,
+            })
+                && trap_runtime::with_global_trap_runtime(|runtime| runtime.current_tid())
+                    == Some(next_tid)
+                && dispatch_global_frame.sepc == 0x8070_0000
+                && dispatch_global_frame.a0() == 0x57
+                && dispatch_global_frame.sp() == 0x8080_0000
+            {
+                console::puts("[chapter] ch58 trap dispatch global runtime\n");
+            }
+            trap_runtime::reset_global_trap_runtime();
         }
     }
 

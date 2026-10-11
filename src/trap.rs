@@ -293,6 +293,22 @@ pub fn dispatch_trap_outcome<const N: usize>(
     }
 }
 
+pub fn dispatch_trap_outcome_with_global_runtime(
+    frame: &mut TrapFrame,
+    outcome: TrapOutcome,
+) -> TrapDispatchResult {
+    match outcome {
+        TrapOutcome::Schedule => {
+            crate::trap_runtime::with_global_trap_runtime(|runtime| {
+                runtime.dispatch_schedule(frame)
+            })
+        }
+        TrapOutcome::Resume => TrapDispatchResult::Resumed,
+        TrapOutcome::Exit(code) => TrapDispatchResult::Exit(code),
+        TrapOutcome::Fatal(cause) => TrapDispatchResult::Fatal(cause),
+    }
+}
+
 pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapOutcome {
     match scause {
         SCAUSE_USER_ECALL | SCAUSE_SUPERVISOR_ECALL => handle_syscall_result(
@@ -308,9 +324,13 @@ pub fn handle_trap(frame: &mut TrapFrame, scause: usize, _stval: usize) -> TrapO
 #[unsafe(no_mangle)]
 extern "C" fn rust_trap_dispatch(frame: *mut TrapFrame, scause: usize, stval: usize) {
     let frame = unsafe { &mut *frame };
-    match handle_trap(frame, scause, stval) {
-        TrapOutcome::Resume | TrapOutcome::Schedule => {}
-        TrapOutcome::Exit(code) => {
+    let outcome = handle_trap(frame, scause, stval);
+    match dispatch_trap_outcome_with_global_runtime(frame, outcome) {
+        TrapDispatchResult::Resumed | TrapDispatchResult::Switched(_) => {}
+        TrapDispatchResult::Idle(_) => loop {
+            crate::idle::wait_for_interrupt_once();
+        },
+        TrapDispatchResult::Exit(code) => {
             crate::uart::puts("[user-init] exit=");
             put_i32(code);
             crate::uart::puts("\n");
@@ -318,7 +338,7 @@ extern "C" fn rust_trap_dispatch(frame: *mut TrapFrame, scause: usize, stval: us
                 unsafe { core::arch::asm!("wfi") }
             }
         }
-        TrapOutcome::Fatal(cause) => {
+        TrapDispatchResult::Fatal(cause) => {
             crate::uart::puts("[trap] fatal scause=0x");
             put_hex(cause);
             crate::uart::puts(" stval=0x");
@@ -328,9 +348,16 @@ extern "C" fn rust_trap_dispatch(frame: *mut TrapFrame, scause: usize, stval: us
                 unsafe { core::arch::asm!("wfi") }
             }
         }
+        TrapDispatchResult::MissingScheduleState => {
+            crate::uart::puts("[trap] missing schedule state stval=0x");
+            put_hex(stval);
+            crate::uart::puts("\n");
+            loop {
+                unsafe { core::arch::asm!("wfi") }
+            }
+        }
     }
 }
-
 #[cfg(target_arch = "riscv64")]
 fn put_i32(value: i32) {
     if value == 0 {

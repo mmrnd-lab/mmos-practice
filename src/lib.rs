@@ -94,7 +94,8 @@ mod tests {
         EACCES, EAGAIN, EBADF, EFAULT, SYS_CLOSE, SYS_EXIT, SYS_OPENAT, SYS_READ, SYS_WRITE,
     };
     use super::trap::{
-        apply_schedule_decision, dispatch_trap_outcome, handle_blocking_syscall_result,
+        apply_schedule_decision, dispatch_trap_outcome,
+        dispatch_trap_outcome_with_global_runtime, handle_blocking_syscall_result,
         handle_syscall_result, handle_timer_tick_with_scheduler, handle_trap,
         handle_user_page_fault_outcome, schedule_after_blocked_syscall, TrapDispatchResult,
         TrapFrame, TrapOutcome, SCAUSE_USER_ECALL,
@@ -1178,6 +1179,46 @@ mod tests {
         );
         assert_eq!(dispatch_frame.sepc, 0x11000);
         assert_eq!(dispatch_frame.a0(), 0x56);
+
+        reset_global_trap_runtime();
+    }
+
+
+    #[test]
+    fn trap_dispatch_uses_global_runtime_for_schedule_outcome() {
+        reset_global_trap_runtime();
+
+        let mut next_frame = TrapFrame::default();
+        next_frame.sepc = 0x13000;
+        next_frame.set_a0(0x57);
+        next_frame.set_sp(0x14000);
+
+        with_global_trap_runtime(|runtime| {
+            runtime.add_runnable(1, TrapFrame::default()).unwrap();
+            runtime.add_runnable(2, next_frame).unwrap();
+            runtime.start_first_task();
+            runtime.mark_blocked(1);
+        });
+
+        let mut dispatch_frame = TrapFrame::default();
+        dispatch_frame.sepc = 0x12000;
+        let result = dispatch_trap_outcome_with_global_runtime(
+            &mut dispatch_frame,
+            TrapOutcome::Schedule,
+        );
+
+        assert_eq!(switched_tids(result), Some((1, 2)));
+        assert_eq!(
+            with_global_trap_runtime(|runtime| runtime.current_tid()),
+            Some(2)
+        );
+        assert_eq!(
+            with_global_trap_runtime(|runtime| runtime.task_frame(1).unwrap().sepc),
+            0x12000
+        );
+        assert_eq!(dispatch_frame.sepc, 0x13000);
+        assert_eq!(dispatch_frame.a0(), 0x57);
+        assert_eq!(dispatch_frame.sp(), 0x14000);
 
         reset_global_trap_runtime();
     }
