@@ -5,6 +5,7 @@
 #![no_main]
 
 mod sbi;
+mod trap;
 mod uart;
 
 use core::panic::PanicInfo;
@@ -17,11 +18,14 @@ const CONSOLE_KIND: &str = "sbi-console";
 #[no_mangle]
 #[link_section = ".text.entry"]
 pub extern "C" fn _start() -> ! {
+    trap::install_trap_vector();
+    trap::enable_supervisor_interrupts();
+
     uart::puts("[mmos-practice] console backend=");
     uart::puts(CONSOLE_KIND);
     uart::puts("\\n");
-    uart::puts("[mmos-practice] boot ok\\n");
-    uart::puts("[chapter] ch07 u-boot flow\\n");
+    uart::puts("[mmos-practice] trap/irq scaffold ready\\n");
+    uart::puts("[chapter] ch08 trap scaffold\\n");
     loop {
         unsafe { core::arch::asm!("wfi") }
     }

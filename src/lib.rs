@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 
+pub mod irq_guard;
 pub mod kheap;
 pub mod page_frame_allocator;
+pub mod trap;
 
 pub fn align_up(value: usize, align: usize) -> usize {
     debug_assert!(align.is_power_of_two());
