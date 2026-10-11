@@ -500,6 +500,12 @@
     - prepared holder를 전역 저장소로 올리기 전에 trap entry 표면에 어떤 인자가 남는지 확인
     - QEMU runtime marker에서 `[chapter] ch124 execv prepared entry`, `[trap] execve prepared entry routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
 
+112. `2dbefa1` `feat(ch125): store prepared execve entry runtime`
+    - `PreparedExecvEntryStore`를 추가해 prepared runtime holder를 명시적인 저장 경계에 설치
+    - `trap::handle_execv_user_ecall_with_prepared_store()`가 store에서 holder를 꺼내 execve user ecall을 처리
+    - demo와 unit test는 holder를 직접 넘기지 않고 store를 넘겨 trap entry 표면을 한 단계 더 좁힘
+    - QEMU runtime marker에서 `[chapter] ch125 execv prepared store`, `[trap] execve prepared store routed a0=0 sepc=0x40004004 entry=0x40000000` 확인
+
 
 ## Reproduce Example
 
