@@ -9,6 +9,7 @@ pub mod page_frame_allocator;
 pub mod syscall;
 pub mod sv39;
 pub mod trap;
+pub mod user_init;
 
 pub fn align_up(value: usize, align: usize) -> usize {
     debug_assert!(align.is_power_of_two());
@@ -23,6 +24,7 @@ mod tests {
     use super::syscall::{decode_syscall, handle_syscall, Syscall, SyscallResult, SYS_EXIT, SYS_WRITE};
     use super::sv39::{make_satp, PageTableEntry, RootPageTable, PTE_A, PTE_D, PTE_R, PTE_W, PTE_X};
     use super::trap::{handle_trap, TrapFrame, TrapOutcome, SCAUSE_USER_ECALL};
+    use super::user_init::{build_user_init_context, run_user_init_demo, SSTATUS_SPP};
 
     #[test]
     fn align_up_keeps_aligned_values() {
@@ -101,5 +103,17 @@ mod tests {
         let mut root = RootPageTable::new();
         root.map_gib_identity(2, 0x20000, PTE_R | PTE_X);
         assert_eq!(root.entries[2].ppn(), 0x20000);
+    }
+
+    #[test]
+    fn user_init_context_clears_spp_for_umode() {
+        let ctx = build_user_init_context(0x8040_0000, 0x8050_0000);
+        assert_eq!(ctx.sepc, 0x8040_0000);
+        assert_eq!(ctx.sstatus & SSTATUS_SPP, 0);
+    }
+
+    #[test]
+    fn user_init_demo_exits_with_zero() {
+        assert_eq!(run_user_init_demo(), TrapOutcome::Exit(0));
     }
 }
