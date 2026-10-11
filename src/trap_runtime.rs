@@ -167,6 +167,88 @@ pub struct PreparedExecvTrapRuntime<
     execv_dispatch: ExecvTrapDispatchState<'v, SCRATCH_BYTES, STACK_BYTES, MAX_AREAS>,
 }
 
+pub struct PreparedExecvEntryStore<
+    'v,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+> {
+    prepared: Option<
+        PreparedExecvTrapRuntime<
+            'v,
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_AREAS,
+            MAX_TASKS,
+            SCRATCH_BYTES,
+            STACK_BYTES,
+        >,
+    >,
+}
+
+impl<
+        'v,
+        const MAX_PROCS: usize,
+        const MAX_CHILDREN: usize,
+        const MAX_AREAS: usize,
+        const MAX_TASKS: usize,
+        const SCRATCH_BYTES: usize,
+        const STACK_BYTES: usize,
+    >
+    PreparedExecvEntryStore<
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >
+{
+    pub const fn empty() -> Self {
+        Self { prepared: None }
+    }
+
+    pub fn install(
+        &mut self,
+        prepared: PreparedExecvTrapRuntime<
+            'v,
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_AREAS,
+            MAX_TASKS,
+            SCRATCH_BYTES,
+            STACK_BYTES,
+        >,
+    ) {
+        self.prepared = Some(prepared);
+    }
+
+    pub fn with_prepared_runtime<R>(
+        &mut self,
+        f: impl FnOnce(
+            &mut PreparedExecvTrapRuntime<
+                'v,
+                MAX_PROCS,
+                MAX_CHILDREN,
+                MAX_AREAS,
+                MAX_TASKS,
+                SCRATCH_BYTES,
+                STACK_BYTES,
+            >,
+        ) -> R,
+    ) -> Option<R> {
+        self.prepared.as_mut().map(f)
+    }
+
+    pub fn task_frame(&self, tid: usize) -> Option<TrapFrame> {
+        self.prepared.as_ref()?.task_frame(tid)
+    }
+}
+
 impl<
         'v,
         const MAX_PROCS: usize,

@@ -600,6 +600,44 @@ pub fn handle_execv_user_ecall_with_prepared_runtime<
     )
 }
 
+pub fn handle_execv_user_ecall_with_prepared_store<
+    'a,
+    'v,
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+>(
+    frame: &mut TrapFrame,
+    store: &'a mut crate::trap_runtime::PreparedExecvEntryStore<
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >,
+    user_bytes: &'a [u8],
+    user_base: usize,
+    new_vm: crate::vm::VmSpace<MAX_AREAS>,
+) -> TrapOutcome {
+    store
+        .with_prepared_runtime(|prepared| {
+            prepared.dispatch_execv_user_ecall::<MAX_ARGS, ARG_BYTES>(
+                frame,
+                user_bytes,
+                user_base,
+                new_vm,
+            )
+        })
+        .unwrap_or(TrapOutcome::Fatal(usize::MAX))
+}
+
 pub fn handle_blocking_syscall_result(
     frame: &mut TrapFrame,
     result: syscall::BlockingReadResult,

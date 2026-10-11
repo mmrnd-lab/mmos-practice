@@ -2185,9 +2185,13 @@ fn run_execv_trap_resources_demo() {
     live_frame.set_a1(ARGV);
     live_frame.set_a2(0);
 
-    let mut prepared_runtime =
+    let prepared_runtime =
         trap_runtime::PreparedExecvTrapRuntime::<4, 2, 2, 5, 512, 256>::new(runtime, &vfs);
-    let outcome = trap::handle_execv_user_ecall_with_prepared_runtime::<
+    let mut entry_store =
+        trap_runtime::PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::empty();
+    entry_store.install(prepared_runtime);
+
+    let outcome = trap::handle_execv_user_ecall_with_prepared_store::<
         4,
         64,
         4,
@@ -2198,13 +2202,13 @@ fn run_execv_trap_resources_demo() {
         256,
     >(
         &mut live_frame,
-        &mut prepared_runtime,
+        &mut entry_store,
         &user_mem,
         BASE,
         vm::VmSpace::<2>::new(),
     );
 
-    let Some(exec_frame) = prepared_runtime.task_frame(1) else {
+    let Some(exec_frame) = entry_store.task_frame(1) else {
         return;
     };
     if outcome == trap::TrapOutcome::Resume
@@ -2234,6 +2238,8 @@ fn run_execv_trap_resources_demo() {
         console::puts("[trap] execve prepared ecall routed a0=0 sepc=0x40004004 entry=0x40000000\n");
         console::puts("[chapter] ch124 execv prepared entry\n");
         console::puts("[trap] execve prepared entry routed a0=0 sepc=0x40004004 entry=0x40000000\n");
+        console::puts("[chapter] ch125 execv prepared store\n");
+        console::puts("[trap] execve prepared store routed a0=0 sepc=0x40004004 entry=0x40000000\n");
     }
 }
 
