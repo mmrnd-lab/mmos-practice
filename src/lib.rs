@@ -130,6 +130,7 @@ mod tests {
         handle_timer_tick_with_scheduler, handle_trap,
         handle_trap_with_current_execv_runtime, handle_trap_with_execv_resources,
         handle_execv_user_ecall_with_prepared_entry, handle_prepared_process_syscall_entry,
+        handle_prepared_process_syscall_entry_with_current_io,
         handle_user_page_fault_outcome, prepare_enter_user_scratch,
         prepare_kernel_trap_stack_switch,
         prepare_trap_entry_scratch, simulate_trap_entry_return_scratch,
@@ -1644,6 +1645,64 @@ mod tests {
         assert_eq!(exec_frame.a0(), 0);
         assert_eq!(exec_frame.sepc, 0x4000_5004);
         assert_eq!(exec_store.task_frame(1).unwrap().sepc, 0x4000_0000);
+    }
+
+    #[test]
+    fn prepared_process_syscall_entry_routes_write_to_current_io() {
+        let dev: &'static MockCharDevice =
+            std::boxed::Box::leak(std::boxed::Box::new(MockCharDevice::new(b"")));
+        let current = CurrentProcessIoContext::<8>::with_stdio(1, dev);
+        let mut write_vm = VmSpace::<2>::new();
+        write_vm.map_anon(0x9000, 0x9020, PTE_R).unwrap();
+        let write_user = CheckedUserSlice::new(b"entry-write", 0x9000, &write_vm);
+        let mut write_scratch = [0u8; 16];
+
+        let mut wait_vm = VmSpace::<2>::new();
+        wait_vm.map_anon(0x8000, 0x8004, PTE_W).unwrap();
+        let mut wait_bytes = [0u8; 4];
+        let mut wait_user = CheckedUserSliceMut::new(&mut wait_bytes, 0x8000, &wait_vm);
+
+        let exec_image = build_test_ext4_image();
+        let exec_dev = RamDisk::new("ramblk0", &exec_image, 512);
+        let exec_vfs = Vfs::mount_ext4(&exec_dev).unwrap();
+        let dummy_exec_runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut exec_store = PreparedExecvEntryStore::<4, 2, 2, 5, 512, 256>::prepare(
+            dummy_exec_runtime,
+            &exec_vfs,
+        );
+        let exec_user_mem = [0u8; 16];
+        let exec_user_source = crate::trap::ExecvPreparedUserSource::new(&exec_user_mem, 0x7000);
+        let exec_replacement_vm = crate::trap::ExecvPreparedReplacementVm::new(VmSpace::<2>::new());
+
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let mut frame = TrapFrame::default();
+        frame.sepc = 0x4000_7000;
+        frame.set_a7(SYS_WRITE);
+        frame.set_a0(1);
+        frame.set_a1(0x9000);
+        frame.set_a2(11);
+
+        assert_eq!(
+            handle_prepared_process_syscall_entry_with_current_io::<
+                2, 2, 8, 4, 64, 4, 2, 2, 5, 512, 256,
+            >(
+                &mut frame,
+                &mut runtime,
+                2,
+                VmSpace::<2>::new(),
+                &mut wait_user,
+                &current,
+                &write_user,
+                &mut write_scratch,
+                &mut exec_store,
+                exec_user_source,
+                exec_replacement_vm,
+            ),
+            TrapDispatchResult::Resumed
+        );
+        assert_eq!(frame.a0(), 11);
+        assert_eq!(frame.sepc, 0x4000_7004);
+        assert_eq!(dev.written(), b"entry-write".to_vec());
     }
 
     #[test]

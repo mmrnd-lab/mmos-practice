@@ -854,6 +854,81 @@ pub fn handle_prepared_process_syscall_entry<
     }
 }
 
+pub fn handle_prepared_process_syscall_entry_with_current_io<
+    'a,
+    'v,
+    const WAIT_AREAS: usize,
+    const WRITE_AREAS: usize,
+    const MAX_FDS: usize,
+    const MAX_ARGS: usize,
+    const ARG_BYTES: usize,
+    const MAX_PROCS: usize,
+    const MAX_CHILDREN: usize,
+    const MAX_AREAS: usize,
+    const MAX_TASKS: usize,
+    const SCRATCH_BYTES: usize,
+    const STACK_BYTES: usize,
+>(
+    frame: &mut TrapFrame,
+    runtime: &mut crate::trap_runtime::ProcessTrapRuntime<
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+    >,
+    clone_child_tid: usize,
+    clone_child_vm: crate::vm::VmSpace<MAX_AREAS>,
+    wait_user: &mut crate::user_copy::CheckedUserSliceMut<'_, WAIT_AREAS>,
+    write_current: &crate::process_io::CurrentProcessIoContext<MAX_FDS>,
+    write_user: &crate::user_copy::CheckedUserSlice<'_, WRITE_AREAS>,
+    write_scratch: &mut [u8],
+    exec_store: &'a mut crate::trap_runtime::PreparedExecvEntryStore<
+        'v,
+        MAX_PROCS,
+        MAX_CHILDREN,
+        MAX_AREAS,
+        MAX_TASKS,
+        SCRATCH_BYTES,
+        STACK_BYTES,
+    >,
+    exec_user_source: ExecvPreparedUserSource<'a>,
+    exec_replacement_vm: ExecvPreparedReplacementVm<MAX_AREAS>,
+) -> TrapDispatchResult {
+    match frame.a7() {
+        syscall::SYS_WRITE => trap_outcome_without_scheduler(handle_syscall_result(
+            frame,
+            syscall::handle_current_process_write_checked_user_syscall(
+                write_current,
+                write_user,
+                frame.a0(),
+                frame.a1(),
+                frame.a2(),
+                write_scratch,
+            ),
+        )),
+        _ => handle_prepared_process_syscall_entry::<
+            WAIT_AREAS,
+            MAX_ARGS,
+            ARG_BYTES,
+            MAX_PROCS,
+            MAX_CHILDREN,
+            MAX_AREAS,
+            MAX_TASKS,
+            SCRATCH_BYTES,
+            STACK_BYTES,
+        >(
+            frame,
+            runtime,
+            clone_child_tid,
+            clone_child_vm,
+            wait_user,
+            exec_store,
+            exec_user_source,
+            exec_replacement_vm,
+        ),
+    }
+}
+
 pub fn handle_blocking_syscall_result(
     frame: &mut TrapFrame,
     result: syscall::BlockingReadResult,
