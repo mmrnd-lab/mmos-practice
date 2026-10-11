@@ -2517,6 +2517,29 @@ CHAPTERS: List[ChapterSet] = [
         note="runtime signature=CRT is currently a static rlib artifact, not a runtime-mapped shared object",
     ),
     ChapterSet(
+        key="ch149_user_link_model_classification",
+        label="Ch149 User Link Model Classification",
+        commit_candidates=["026bfe7"],
+        steps=[
+            Step("test+build", "make test && make mmos.bin PROFILE=release"),
+            Step(
+                "user-link-model",
+                "make user-link-model PROFILE=release",
+                must_contain=("[user-link] init=ET_EXEC crt=rlib shared-object=no",),
+            ),
+            Step(
+                "run-nographic",
+                "make run-nographic PROFILE=release RUN_SECONDS=6",
+                must_contain=(
+                    "[chapter] ch149 user link model classification",
+                    "[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent",
+                    "[user-init] exit=0",
+                ),
+            ),
+        ],
+        note="runtime signature=classifies the current user link model before introducing ET_DYN/shared object loading",
+    ),
+    ChapterSet(
         key="live_ch26_launch_handoff",
         label="Live Ch26 Runtime (HEAD)",
         commit_candidates=["HEAD"],

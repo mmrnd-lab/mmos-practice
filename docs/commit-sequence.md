@@ -645,3 +645,9 @@ make run-u-boot PROFILE=release CONSOLE=sbi RUN_SECONDS=12
     - verifier가 CRT rlib 산출물과 user init ELF의 `_start` symbol을 함께 확인하도록 확장
     - 아직 runtime에 mapping되는 `.so`가 아니라 정적 link artifact임을 QEMU marker와 문서에서 명시
     - QEMU runtime marker에서 `[chapter] ch148 user crt static link artifact`, `[user-crt] build produces libmmos_user_crt.rlib before shared object support` 확인
+
+133. `026bfe7` `feat(ch149): classify user link model`
+    - `make user-link-model` 타깃을 추가해 init ELF header가 `ET_EXEC`이고 CRT 산출물이 `rlib`인지 확인
+    - verifier가 `[user-link] init=ET_EXEC crt=rlib shared-object=no` 출력을 확인해 현재 link model을 고정
+    - runtime shared object가 아직 없음을 QEMU marker로도 명시해 다음 shared loader 설계의 질문을 만든다
+    - QEMU runtime marker에서 `[chapter] ch149 user link model classification`, `[user-link] init is ET_EXEC, crt is rlib, runtime shared object is absent` 확인
