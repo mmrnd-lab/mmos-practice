@@ -36,3 +36,23 @@ pub fn address_space_switch_for_decision<
         ScheduleDecision::Idle { .. } => Ok(None),
     }
 }
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AppliedAddressSpaceSwitch {
+    pub prev_tid: usize,
+    pub next_tid: usize,
+    pub active_satp: usize,
+}
+
+pub fn apply_address_space_switch(
+    active_satp: &mut usize,
+    switch: AddressSpaceSwitch,
+) -> AppliedAddressSpaceSwitch {
+    *active_satp = switch.next_satp;
+    AppliedAddressSpaceSwitch {
+        prev_tid: switch.prev_tid,
+        next_tid: switch.next_tid,
+        active_satp: switch.next_satp,
+    }
+}

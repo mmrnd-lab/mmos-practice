@@ -823,6 +823,19 @@ fn run_user_launch_demo() {
                                         && space.next_satp == second_plan.satp
                                     {
                                         console::puts("[chapter] ch63 task address space token\n");
+                                        let mut active_satp = p.satp;
+                                        let applied = task_vm::apply_address_space_switch(
+                                            &mut active_satp,
+                                            space,
+                                        );
+                                        if applied.next_tid == second.tid
+                                            && applied.active_satp == second_plan.satp
+                                            && active_satp == second_plan.satp
+                                        {
+                                            console::puts(
+                                                "[chapter] ch64 address space switch apply\n",
+                                            );
+                                        }
                                     }
                                 }
                             }
