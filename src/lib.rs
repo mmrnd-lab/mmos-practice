@@ -152,7 +152,7 @@ mod tests {
     use super::trap_runtime::{
         install_initial_user_task, reset_global_trap_runtime, switched_tids,
         with_global_trap_runtime, ExecvTrapDispatchState, PreparedExecvEntryStore, PreparedExecvTrapRuntime,
-        ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
+        ProcessSharedObjectRuntime, ProcessTrapRuntime, ProcessWaitSyscallRuntime, TrapRuntime,
     };
     use super::user_copy::{CheckedUserSlice, CheckedUserSliceMut, UserCopyError, UserSlice, UserSliceMut};
     use super::user_exec::{
@@ -4068,6 +4068,67 @@ mod tests {
         assert_eq!(frame.sp(), exec.stack_top);
         assert_eq!(frame.sstatus & super::user_init::SSTATUS_SPP, 0);
         assert_ne!(frame.sstatus & super::user_init::SSTATUS_SPIE, 0);
+    }
+
+    #[test]
+    fn process_exec_runtime_preserves_shared_object_load_info() {
+        let mut runtime = ProcessTrapRuntime::<4, 2, 2, 5>::new();
+        let parent_pid = runtime.create_process(None, VmSpace::<2>::new()).unwrap();
+
+        let mut parent_frame = TrapFrame::default();
+        parent_frame.sepc = 0x4000_0000;
+        parent_frame.set_sp(0x4010_0000);
+        runtime.add_runnable_task(1, parent_pid, parent_frame).unwrap();
+        runtime.start_first_task();
+
+        let mut child_frame = TrapFrame::default();
+        child_frame.sepc = 0x4000_1000;
+        child_frame.set_sp(0x4010_1000);
+        let fork = runtime
+            .fork_current_process(2, child_frame, VmSpace::<2>::new())
+            .unwrap();
+
+        let image = UserExecImage {
+            entry: 0x4000_2000,
+            stack_top: 0x4010_2000,
+            segment_count: 1,
+            segments: [
+                Some(SegmentPlacement {
+                    vaddr: 0x4000_2000,
+                    file_size: 16,
+                    mem_size: 32,
+                    flags: (PTE_R | PTE_X) as u32,
+                }),
+                None,
+                None,
+                None,
+            ],
+        };
+        let shared_object = ProcessSharedObjectRuntime {
+            path: "/lib/libmmos_user_crt.so",
+            base: 0x5000_0000,
+            entry: 0x9000_0000,
+            mapped_pages: 1,
+        };
+
+        let exec = runtime
+            .exec_task_image_with_shared_object(
+                fork.child_tid,
+                image,
+                VmSpace::<2>::new(),
+                Some(shared_object),
+            )
+            .unwrap();
+
+        assert_eq!(exec.pid, fork.child_pid);
+        assert_eq!(exec.tid, fork.child_tid);
+        assert_eq!(exec.entry, image.entry);
+        assert_eq!(exec.stack_top, image.stack_top);
+        assert_eq!(exec.shared_object, Some(shared_object));
+
+        let frame = runtime.task_frame(fork.child_tid).unwrap();
+        assert_eq!(frame.sepc, exec.entry);
+        assert_eq!(frame.sp(), exec.stack_top);
     }
 
     #[test]

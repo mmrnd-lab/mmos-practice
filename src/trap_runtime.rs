@@ -90,11 +90,20 @@ pub struct ProcessForkRuntime {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ProcessSharedObjectRuntime {
+    pub path: &'static str,
+    pub base: usize,
+    pub entry: usize,
+    pub mapped_pages: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProcessExecRuntime {
     pub pid: usize,
     pub tid: usize,
     pub entry: usize,
     pub stack_top: usize,
+    pub shared_object: Option<ProcessSharedObjectRuntime>,
 }
 
 pub struct ExecvTrapDispatchState<
@@ -565,6 +574,16 @@ impl<
         image: crate::user_exec::UserExecImage,
         new_vm: VmSpace<MAX_AREAS>,
     ) -> Result<ProcessExecRuntime, ProcError> {
+        self.exec_task_image_with_shared_object(tid, image, new_vm, None)
+    }
+
+    pub fn exec_task_image_with_shared_object(
+        &mut self,
+        tid: usize,
+        image: crate::user_exec::UserExecImage,
+        new_vm: VmSpace<MAX_AREAS>,
+        shared_object: Option<ProcessSharedObjectRuntime>,
+    ) -> Result<ProcessExecRuntime, ProcError> {
         let pid = self.tasks.owner_pid(tid)?;
         self.processes.get_mut(pid)?.vm = new_vm;
 
@@ -580,6 +599,7 @@ impl<
             tid,
             entry: image.entry,
             stack_top: image.stack_top,
+            shared_object,
         })
     }
 

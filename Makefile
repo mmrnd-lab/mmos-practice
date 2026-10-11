@@ -43,7 +43,7 @@ ifndef BOOT_CHAIN_OK
 $(error unsupported BOOT_CHAIN=$(BOOT_CHAIN) (expected smode or spl))
 endif
 
-.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
+.PHONY: require-container image shell test mmos.bin user-crt user-crt-shared-object user-init user-link-model shared-object-load-plan shared-object-metadata shared-object-relocations shared-object-relative-apply shared-object-relocation-writeback shared-object-materialize shared-object-mapping-plan shared-object-frame-plan shared-object-page-table-install shared-object-load-pipeline shared-object-path-load shared-object-dependency-load exec-shared-object-dependency process-exec-shared-object-runtime user-image-shared-object uImage boot-disk u-boot u-boot-smode u-boot-spl run-nographic run-monitor run-u-boot
 
 require-container:
 	@if [ "$${ALLOW_HOST_BUILD:-0}" = "1" ]; then \
@@ -149,6 +149,11 @@ exec-shared-object-dependency: require-container $(BOOT_DISK) $(USER_CRT_SO) $(U
 	@debugfs -R "stat /sbin/init" $(BOOT_DISK) >/dev/null
 	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
 	@echo "[user-link] exec-dependency=/sbin/init requires /lib/libmmos_user_crt.so"
+
+process-exec-shared-object-runtime: require-container $(BOOT_DISK) $(USER_CRT_SO) $(USER_INIT_ELF)
+	@debugfs -R "stat /sbin/init" $(BOOT_DISK) >/dev/null
+	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null
+	@echo "[user-link] process-exec-runtime preserves shared-object=/lib/libmmos_user_crt.so"
 
 user-image-shared-object: require-container $(BOOT_DISK) $(USER_CRT_SO)
 	@debugfs -R "stat /lib/libmmos_user_crt.so" $(BOOT_DISK) >/dev/null

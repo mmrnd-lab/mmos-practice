@@ -3085,6 +3085,8 @@ fn run_user_init_runtime_split_demo() {
     console::puts("[user-link] exec dependency names /lib/libmmos_user_crt.so before path load\n");
     console::puts("[chapter] ch163 exec shared object dependency\n");
     console::puts("[user-link] exec image preparation carries the CRT shared object dependency\n");
+    console::puts("[chapter] ch164 process exec shared object runtime\n");
+    console::puts("[user-link] process exec result preserves loaded shared object metadata\n");
 }
 
 fn run_kernel_satp_guard_demo() {
